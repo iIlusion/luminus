@@ -1,6 +1,6 @@
 {
   "name": "luminus",
-  "version": "0.3.11",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Userscript Luminus para o Habblet Hotel — painel, player, logs, visual e links.",
