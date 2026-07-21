@@ -13,7 +13,7 @@
   <a href="https://github.com/iIlusion/luminus/releases"><img src="https://img.shields.io/github/v/release/iIlusion/luminus?include_prereleases&style=flat-square&label=release" alt="Release" /></a>
   <a href="https://github.com/iIlusion/luminus/commits/main"><img src="https://img.shields.io/github/last-commit/iIlusion/luminus?style=flat-square" alt="Last commit" /></a>
   <a href="https://github.com/iIlusion/luminus/stargazers"><img src="https://img.shields.io/github/stars/iIlusion/luminus?style=flat-square" alt="Stars" /></a>
-  <a href="https://discord.gg/g5BYdnxcnS"><img src="https://img.shields.io/discord/000000000000000000?style=flat-square&logo=discord&label=Discord&color=5865F2" alt="Discord" /></a>
+  <a href="https://discord.gg/g5BYdnxcnS"><img src="https://img.shields.io/discord/1476244054126891072?style=flat-square&logo=discord&label=Discord&color=5865F2" alt="Discord" /></a>
   <img src="https://img.shields.io/badge/Habblet-Hotel-7c5cff?style=flat-square" alt="Habblet" />
   <img src="https://img.shields.io/badge/Tampermonkey-userscript-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey" />
   <img src="https://img.shields.io/badge/TypeScript-Vite-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
