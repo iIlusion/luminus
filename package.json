@@ -1,0 +1,42 @@
+{
+  "name": "luminus",
+  "version": "0.3.11",
+  "private": true,
+  "type": "module",
+  "description": "Userscript Luminus para o Habblet Hotel — painel, player, logs, visual e links.",
+  "homepage": "https://github.com/iIlusion/luminus",
+  "bugs": {
+    "url": "https://github.com/iIlusion/luminus/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iIlusion/luminus.git"
+  },
+  "scripts": {
+    "dev": "vite build --mode main-dev --watch",
+    "dev:main": "vite build --mode main-dev --watch",
+    "clean:dist": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean:dist && npm run build:main && npm run build:main-dev",
+    "build:main": "vite build --mode main",
+    "build:main-dev": "vite build --mode main-dev",
+    "typecheck": "tsc --noEmit",
+    "release": "npm run typecheck && npm run clean:dist && npm run build:main",
+    "release:full": "npm run typecheck && npm run clean:dist && npm run build:main && npm run build:main-dev",
+    "test:furniture-floor": "node --experimental-strip-types src/messages/incoming/FurnitureFloorParser.test.ts",
+    "test:reliable-timers": "node --experimental-strip-types src/util/reliableTimers.test.ts"
+  },
+  "devDependencies": {
+    "@radix-ui/react-separator": "^1.1.11",
+    "@radix-ui/react-slider": "^1.4.3",
+    "@radix-ui/react-switch": "^1.3.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "lucide-react": "^1.24.0"
+  }
+}
