@@ -4,6 +4,7 @@ import type { LuminusApi } from "../ws/api";
 import { LuminusPanel } from "./panel";
 import { LogWindow } from "./logWindow";
 import { LinkWindow } from "./linkWindow";
+import { WhisperWindow } from "./whisperWindow";
 import { LogToast } from "./logToast";
 import { ChangelogModal } from "./changelogModal";
 import { PANEL_STYLES } from "./styles";
@@ -18,6 +19,7 @@ let root: ReturnType<typeof ReactDOM.createRoot> | null = null;
 let open     = false;
 let logOpen  = false;
 let linkOpen = false;
+let whisperOpen = false;
 let changelog: Changelog | null = null;
 
 function render(api: LuminusApi) {
@@ -41,11 +43,16 @@ function render(api: LuminusApi) {
         open: linkOpen,
         onClose: () => { linkOpen = false; render(api); },
       }),
+      React.createElement(WhisperWindow, {
+        api,
+        open: whisperOpen,
+        onClose: () => { whisperOpen = false; render(api); },
+      }),
       changelog && React.createElement(ChangelogModal, {
         changelog,
         onClose: () => { changelog = null; render(api); },
       }),
-      React.createElement(LogToast, null),
+      React.createElement(LogToast, { api }),
     )
   );
 }
@@ -78,6 +85,11 @@ const LOGS_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const LINKS_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+</svg>`;
+
+const CHAT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
+  <path d="M8 9h8M8 13h5"/>
 </svg>`;
 
 function mountUtilityIcon(toolbar: Element, title: string, svg: string, onClick: () => void) {
@@ -116,6 +128,7 @@ export function initUI(api: LuminusApi): void {
         changelog = claimCurrentChangelog();
         render(api);
         mountIcon(target, api);
+        mountUtilityIcon(target, "Luminus: Histórico de chat", CHAT_ICON_SVG, () => { whisperOpen = !whisperOpen; render(api); });
         mountUtilityIcon(target, "Luminus: Logs", LOGS_ICON_SVG, () => { logOpen = !logOpen; render(api); });
         mountUtilityIcon(target, "Luminus: Links", LINKS_ICON_SVG, () => { linkOpen = !linkOpen; render(api); });
       }

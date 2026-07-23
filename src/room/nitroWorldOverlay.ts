@@ -23,19 +23,33 @@ type NitroWindow = Window & {
   __luminusRoomEngineDiscover?: boolean;
 };
 
+export type RoomObjectBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export type RoomEngine = {
   activeRoomId?: number;
+  /** Active canvas id used by Nitro for bounding rects (usually 1). */
+  _activeRoomActiveCanvas?: number;
   getRoomObjectScreenLocation(
     roomId: number,
     objectId: number,
     objectType: number,
     canvasId?: number,
   ): { x: number; y: number } | null;
+  /** Sprite AABB in canvas space Ã¢â‚¬â€ tracks sit/lay/stand height (Hibisco uses this). */
+  getRoomObjectBoundingRectangle?(
+    roomId: number,
+    objectId: number,
+    category: number,
+    canvasId?: number,
+  ): RoomObjectBounds | null;
   getRoomObject?(roomId: number, id: number, category: number): unknown;
   getRoomObjects?(roomId: number, category: number): unknown[];
 };
-
-const UNIT_CATEGORY = 100;
 
 function isRoomEngine(value: unknown): value is RoomEngine {
   return Boolean(
@@ -101,7 +115,7 @@ function findRoomEngineInWebpack(loader: NitroRequire | undefined): RoomEngine |
 
 /**
  * Habblet keeps RoomEngine only on live Nitro objects reachable from React fiber
- * under the room canvas — not on webpack exports. Walk fiber from canvas parents.
+ * under the room canvas Ã¢â‚¬â€ not on webpack exports. Walk fiber from canvas parents.
  */
 function findRoomEngineInReactFiber(doc: Document): RoomEngine | null {
   const canvases = doc.querySelectorAll("canvas");
@@ -204,82 +218,20 @@ export function ensureRoomEngine(target: Window = window): RoomEngine | null {
   return null;
 }
 
-export function initNitroWorldOverlay(api: LuminusApi, target: Window): void {
+/**
+ * RoomEngine discovery only. Public Luminus does not draw a head marker here.
+ * Other builds may attach their own room markers elsewhere.
+ */
+export function initNitroWorldOverlay(_api: LuminusApi, target: Window): void {
   const page = target as NitroWindow;
   installRoomEngineEvalProbe(page);
   installWebpackProbe(page);
   installRoomEngineDiscoverLoop(page);
 
-  const start = () => {
-    const canvas = document.querySelector<HTMLCanvasElement>("canvas");
-    const parent = canvas?.parentElement;
-    if (!canvas || !parent) return false;
-    if (getComputedStyle(parent).position === "static") parent.style.position = "relative";
-
-    let overlay = document.getElementById("luminus-world-overlay");
-    if (!overlay) {
-      overlay = document.createElement("div");
-      overlay.id = "luminus-world-overlay";
-      parent.appendChild(overlay);
-    }
-
-    let marker = overlay.querySelector<HTMLElement>(".luminus-world-marker");
-    if (!marker) {
-      marker = document.createElement("div");
-      marker.className = "luminus-world-marker";
-      const icon = document.querySelector<SVGElement>("#luminus-icon svg")?.cloneNode(true);
-      if (icon instanceof SVGElement) {
-        icon.classList.add("luminus-world-marker-icon");
-        marker.appendChild(icon);
-      }
-      overlay.appendChild(marker);
-    }
-
-    let frame = 0;
-    const update = () => {
-      frame = requestAnimationFrame(update);
-      if (typeof document !== "undefined" && document.hidden) return;
-      updateMarker(api, page, canvas, marker!);
-    };
-    update();
-    return () => cancelAnimationFrame(frame);
-  };
-
-  const observer = new MutationObserver(() => {
-    if (start()) observer.disconnect();
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-  start();
-}
-
-function updateMarker(api: LuminusApi, page: NitroWindow, canvas: HTMLCanvasElement, marker: HTMLElement): void {
-  const roomId = api.room.id;
-  const userIndex = api.myself?.index;
-  const engine = ensureRoomEngine(page);
-  if (!marker.firstElementChild) {
-    const icon = document.querySelector<SVGElement>("#luminus-icon svg")?.cloneNode(true);
-    if (icon instanceof SVGElement) {
-      icon.classList.add("luminus-world-marker-icon");
-      marker.appendChild(icon);
-    }
-  }
-  if (roomId == null || userIndex == null || !engine) {
-    marker.style.display = "none";
-    return;
-  }
-
-  const point = engine.getRoomObjectScreenLocation(roomId, userIndex, UNIT_CATEGORY);
-  if (!point) {
-    marker.style.display = "none";
-    return;
-  }
-
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = rect.width / canvas.width;
-  const scaleY = rect.height / canvas.height;
-  marker.style.display = "block";
-  marker.style.left = `${point.x * scaleX}px`;
-  marker.style.top = `${point.y * scaleY}px`;
+  // Strip legacy self-only marker from older builds / hot reload.
+  try {
+    page.document?.querySelectorAll(".luminus-world-marker").forEach(el => el.remove());
+  } catch { /* page not ready */ }
 }
 
 export function initNitroRoomEngineProbe(target: Window): void {

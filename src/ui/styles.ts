@@ -7,19 +7,37 @@ export const PANEL_STYLES = `
   overflow: hidden;
 }
 
-#luminus-world-overlay .luminus-world-marker {
+/* Public Luminus does not show a head logo here.
+   JS sets left/top to the crown of the head (posture-aware). Icon sits just above that point. */
+#luminus-world-overlay .luminus-peer-marker {
   position: absolute;
   display: none;
-    width: 36px;
-    height: 36px;
-    transform: translate(-50%, -104px);
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 8px rgba(142, 162, 255, 0.7));
+  width: 40px;
+  height: 40px;
+  /* bottom of icon on crown; 2px air above hair */
+  transform: translate(-50%, calc(-100% - 2px));
+  pointer-events: none;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 10px rgba(142, 162, 255, 0.75));
+  z-index: 5;
+  will-change: left, top;
 }
 
-#luminus-world-overlay .luminus-world-marker-icon {
+#luminus-world-overlay .luminus-peer-marker-icon {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+#luminus-world-overlay .luminus-peer-marker-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #8ea2ff, #5b6fd6);
+  color: #fff;
+  font: 700 16px/1 system-ui, sans-serif;
 }
 
 #luminus-arena-overlay {
@@ -34,7 +52,7 @@ export const PANEL_STYLES = `
 }
 
 #luminus-panel {
-  /* smoked glass over the live game — mid-tone: darker than a mirror, lighter than the old log window */
+  /* smoked glass over the live game Ã¢â‚¬â€ mid-tone: darker than a mirror, lighter than the old log window */
   --lm-glass: rgba(15, 17, 26, 0.82);
   --lm-plate: rgba(255, 255, 255, 0.045);
   --lm-plate-hover: rgba(255, 255, 255, 0.085);
@@ -562,7 +580,7 @@ export const PANEL_STYLES = `
 #luminus-panel .lm-status-status b { color: var(--lm-muted); font-weight: 600; }
 #luminus-panel .lm-status-error { grid-column: 1 / -1; color: #ff9aab; }
 
-/* Ball Sort — soft status card (not a key/value grid dump) */
+/* Ball Sort Ã¢â‚¬â€ soft status card (not a key/value grid dump) */
 #luminus-panel .lm-status-extra-status {
   grid-template-columns: 1fr;
   gap: 5px;
@@ -656,7 +674,7 @@ export const PANEL_STYLES = `
   transition: background 0.16s, border-color 0.16s;
 }
 
-/* nested sub-option under a toggle row — indented, quieter plate, no card chrome */
+/* nested sub-option under a toggle row Ã¢â‚¬â€ indented, quieter plate, no card chrome */
 #luminus-panel .lm-row-sub {
   margin-left: 0;
   min-height: 36px;
@@ -766,7 +784,7 @@ export const PANEL_STYLES = `
   line-height: 1.3;
 }
 
-/* packet identifiers, headers, coords → mono (the tool's native type) */
+/* packet identifiers, headers, coords Ã¢â€ â€™ mono (the tool's native type) */
 #luminus-panel .lm-sub {
   font-family: var(--lm-sans);
   font-size: 10px;
@@ -932,7 +950,7 @@ export const PANEL_STYLES = `
   flex: none;
 }
 
-/* primary action button (luminous fill, dark label — Apple-style vibrancy) */
+/* primary action button (luminous fill, dark label Ã¢â‚¬â€ Apple-style vibrancy) */
 #luminus-panel .lm-btn {
   all: unset;
   box-sizing: border-box;
@@ -973,7 +991,7 @@ export const PANEL_STYLES = `
   box-sizing: border-box;
 }
 
-/* resize handle — bottom-right corner */
+/* resize handle Ã¢â‚¬â€ bottom-right corner */
 #luminus-panel .lm-resize-corner {
   position: absolute;
   bottom: 0;
@@ -1000,7 +1018,7 @@ export const PANEL_STYLES = `
   margin: 2px 0;
 }
 
-/* compact variant — inline next to ctrl+arrows toggle */
+/* compact variant Ã¢â‚¬â€ inline next to ctrl+arrows toggle */
 #luminus-panel .lm-dpad.lm-dpad-sm {
   grid-template-rows: repeat(3, 30px);
   width: 100%;
@@ -1112,7 +1130,7 @@ export const PANEL_STYLES = `
   padding-inline: 10px;
 }
 
-/* Nitro's own toolbar bar, dressed in our panel's glass language — opt-out via UI tab */
+/* Nitro's own toolbar bar, dressed in our panel's glass language Ã¢â‚¬â€ opt-out via UI tab */
 body.luminus-ui-toolbar .nitro-toolbar {
   background:
     radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
@@ -1126,7 +1144,7 @@ body.luminus-ui-toolbar .nitro-toolbar {
     inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }
 
-/* Friend-bar + home-bar toolbar buttons — lighter than the toolbar's own glass since these
+/* Friend-bar + home-bar toolbar buttons Ã¢â‚¬â€ lighter than the toolbar's own glass since these
    sit ON TOP of the already-glassed .nitro-toolbar (full-strength blur/tint stacked on
    existing blur/tint just doubles up, it doesn't add anything new). overflow: hidden clips
    Nitro's native gray chrome to our rounded corners; that also clips Nitro's native arrow
@@ -1178,15 +1196,15 @@ body.luminus-ui-toolbar .toolbar-home-bar-button .cursor-pointer.right::before {
   transform: translate(-50%, -50%) rotate(45deg) !important;
 }
 
-/* Avatar/object right-click context menu — freely floating, so full corner rounding like the
+/* Avatar/object right-click context menu Ã¢â‚¬â€ freely floating, so full corner rounding like the
    notification bubble. Nitro sizes this menu's height once (not via inline style or any
-   height/max-height/contain we could find — height: auto here doesn't change it), so the
+   height/max-height/contain we could find Ã¢â‚¬â€ height: auto here doesn't change it), so the
    .menu-item padding/margin below is kept small enough to fit inside that fixed size instead
    of fighting it. overflow: hidden clips item corners to the rounded card shape. The height
-   chase turned out to be a red herring — a native ::after decorative pseudo-element (not real
+   chase turned out to be a red herring Ã¢â‚¬â€ a native ::after decorative pseudo-element (not real
    menu content) was inflating scrollHeight; the actual menu-item rows were sized correctly the
    whole time. The real bug was .menu-item using native width:100% (w-100) PLUS our own
-   horizontal margin, which overflows the container by the margin amount — fixed below by
+   horizontal margin, which overflows the container by the margin amount Ã¢â‚¬â€ fixed below by
    padding the container instead of margining the items. */
 body.luminus-ui-menus .nitro-context-menu {
   background:
@@ -1346,7 +1364,7 @@ body.luminus-ui-menus .nitro-friend-request-dialog .btn-success:hover {
   border-color: rgba(166, 255, 204, 0.66) !important;
 }
 
-/* Context menu children — this lives outside #luminus-panel so our --lm-* custom properties
+/* Context menu children Ã¢â‚¬â€ this lives outside #luminus-panel so our --lm-* custom properties
    aren't inherited; colors are spelled out literally to match the same palette. */
 body.luminus-ui-menus .nitro-context-menu .menu-header {
   background: rgba(142, 162, 255, 0.16) !important;
@@ -1357,7 +1375,7 @@ body.luminus-ui-menus .nitro-context-menu .menu-header {
   padding: 9px 10px !important;
 }
 
-/* Each item its own pill — lighter than the container glass (it sits on top of already-blurred
+/* Each item its own pill Ã¢â‚¬â€ lighter than the container glass (it sits on top of already-blurred
    glass, so no extra background-filter here, just a tint with enough contrast to read as a
    distinct block instead of blending into the container). */
 body.luminus-ui-menus .nitro-context-menu .menu-item {
@@ -1379,7 +1397,7 @@ body.luminus-ui-menus .nitro-context-menu .menu-footer {
   padding: 4px !important;
 }
 
-/* Room tools rail (camera/settings/chat-history/etc, left edge of the room) — flush against
+/* Room tools rail (camera/settings/chat-history/etc, left edge of the room) Ã¢â‚¬â€ flush against
    the left edge, so only the right corners round, mirroring .nitro-purse's flush-top logic */
 body.luminus-ui-room-tools .nitro-room-tools {
   background:
@@ -1394,8 +1412,8 @@ body.luminus-ui-room-tools .nitro-room-tools {
     inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }
 
-/* Right-side sidebar (currency/purse bar, flush against the top edge — only the bottom
-   corners round — and the floating room-ranking notification bubble) */
+/* Right-side sidebar (currency/purse bar, flush against the top edge Ã¢â‚¬â€ only the bottom
+   corners round Ã¢â‚¬â€ and the floating room-ranking notification bubble) */
 body.luminus-ui-purse .nitro-purse {
   background:
     radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
@@ -1409,7 +1427,7 @@ body.luminus-ui-purse .nitro-purse {
     inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }
 
-/* Seasonal-currency rows (Rubis/Asinhas) — standalone boxes below the purse bar, not flush
+/* Seasonal-currency rows (Rubis/Asinhas) Ã¢â‚¬â€ standalone boxes below the purse bar, not flush
    against anything, so unlike .nitro-purse they round on all corners */
 body.luminus-ui-purse .nitro-purse-seasonal-currency {
   background:
@@ -1437,7 +1455,7 @@ body.luminus-ui-notifications .nitro-notification-bubble {
     inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }
 
-/* toolbar icons (main Luminus icon + Logs/Links) — one shared pattern, same box, same margin */
+/* toolbar icons (main Luminus icon + Logs/Links) Ã¢â‚¬â€ one shared pattern, same box, same margin */
 /* Small native-feeling controls added around Nitro's right rail. */
 .nitro-purse {
   position: relative !important;
@@ -1533,7 +1551,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
 
 .luminus-toolbar-btn svg { width: 19px; height: 19px; display: block; }
 
-/* main Luminus mark reads small at 19px — fill the icon square more, like a real toolbar logo */
+/* main Luminus mark reads small at 19px Ã¢â‚¬â€ fill the icon square more, like a real toolbar logo */
 #luminus-icon svg { width: 36px; height: 36px; }
 
 .luminus-toolbar-btn:hover {
@@ -1558,7 +1576,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   #luminus-panel .lm-header { padding: 12px 11px 11px 14px; }
 }
 
-/* short viewports — keep it usable when the window is not tall */
+/* short viewports Ã¢â‚¬â€ keep it usable when the window is not tall */
 @media (max-height: 560px) {
   #luminus-panel { max-height: calc(100dvh - 60px); }
 }
@@ -1572,7 +1590,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   }
 }
 
-/* ── Log toast (top-center ambient notification) ── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Log toast (top-center ambient notification) Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 #luminus-toast-stack {
   position: fixed;
@@ -1652,7 +1670,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   #luminus-toast-stack .lm-toast { animation: none !important; }
 }
 
-/* ── Logs tab ── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Logs tab Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 #luminus-panel .lm-section-header-row {
   display: flex;
@@ -1795,7 +1813,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   white-space: nowrap;
 }
 
-/* ── Log Window ── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Log Window Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .lm-float-window {
   --lw-bg:      rgba(15, 17, 26, 0.82);
@@ -2168,7 +2186,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   .lm-float-window .lw-pulse { animation: none !important; }
 }
 
-/* ── Link Window ── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Link Window Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 /* search bar (reuses .lw-filterbar as the row) */
 .lm-float-window .lk-search-wrap {
@@ -2394,7 +2412,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   flex-shrink: 0;
 }
 
-/* compact icon badges — click count / last-click time, each its own block */
+/* compact icon badges Ã¢â‚¬â€ click count / last-click time, each its own block */
 .lm-float-window .lk-meta-badge {
   display: flex;
   align-items: center;
@@ -2424,7 +2442,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
 
 .lm-float-window .lk-link-remove:hover { background: rgba(255, 107, 107, 0.14); color: #ff6b6b; }
 
-/* ── Infostand injections (live inside Nitro's own DOM, outside #luminus-panel) ── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Infostand injections (live inside Nitro's own DOM, outside #luminus-panel) Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .luminus-motto-link {
   color: #8ea2ff;
@@ -2591,7 +2609,7 @@ body.luminus-ui-infostand .nitro-infostand-container.luminus-user-infostand *::-
     rgba(142, 162, 255, 0.34) !important;
 }
 
-/* normal-flow sibling of .nitro-infostand.rounded — no fixed positioning needed,
+/* normal-flow sibling of .nitro-infostand.rounded Ã¢â‚¬â€ no fixed positioning needed,
    the bottom-anchored flex container pushes the card up on its own */
 #luminus-action-bar {
   display: flex;
@@ -2776,7 +2794,7 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
   min-height: 0;
 }
 
-/* ── Changelog ── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Changelog Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 #luminus-changelog {
   --cl-bg: rgba(15, 17, 26, 0.95);
@@ -3043,5 +3061,344 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
 @media (prefers-reduced-motion: reduce) {
   #luminus-changelog[open],
   #luminus-changelog::backdrop { animation: none; }
+}
+
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Whisper chat window Ã¢â€â‚¬Ã¢â€â‚¬ */
+
+#luminus-whisper-window {
+  top: 84px;
+  left: auto;
+  right: 84px;
+  width: 620px;
+  height: 590px;
+  min-width: 440px;
+  min-height: 360px;
+}
+
+#luminus-whisper-window .cw-new-row,
+#luminus-whisper-window .cw-thread-head,
+#luminus-whisper-window .cw-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+#luminus-whisper-window .cw-new-row {
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--lw-border);
+  background: rgba(9, 11, 18, 0.24);
+}
+
+#luminus-whisper-window .cw-channel-label {
+  color: #aebaff;
+  font-family: var(--lw-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#luminus-whisper-window .cw-new-form {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+#luminus-whisper-window input {
+  min-width: 0;
+  border: 1px solid var(--lw-border);
+  border-radius: 8px;
+  outline: 0;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--lw-text);
+  font: 12px var(--lw-sans);
+  transition: border-color 0.14s, background 0.14s, box-shadow 0.14s;
+}
+
+#luminus-whisper-window input:focus {
+  border-color: rgba(142, 162, 255, 0.62);
+  background: rgba(142, 162, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(142, 162, 255, 0.09);
+}
+
+#luminus-whisper-window input::placeholder { color: var(--lw-muted); }
+
+#luminus-whisper-window .cw-new-form input {
+  flex: 1;
+  padding: 6px 9px;
+}
+
+#luminus-whisper-window button {
+  font-family: var(--lw-sans);
+}
+
+#luminus-whisper-window .cw-new-form button,
+#luminus-whisper-window .cw-thread-head button,
+#luminus-whisper-window .cw-composer button {
+  border: 1px solid rgba(142, 162, 255, 0.28);
+  border-radius: 7px;
+  background: rgba(142, 162, 255, 0.11);
+  color: #cbd3ff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#luminus-whisper-window .cw-new-form button { padding: 5px 10px; }
+
+#luminus-whisper-window .cw-tabs {
+  position: relative;
+  display: flex;
+  gap: 3px;
+  padding: 8px 12px 9px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--lw-border);
+}
+
+#luminus-whisper-window .cw-tabs::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(142, 162, 255, 0.72), transparent);
+  content: "";
+  pointer-events: none;
+}
+
+#luminus-whisper-window .cw-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--lw-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#luminus-whisper-window .cw-tabs button:hover {
+  background: var(--lw-plate);
+  color: var(--lw-text);
+}
+
+#luminus-whisper-window .cw-tabs button.active {
+  border-color: rgba(142, 162, 255, 0.24);
+  background: rgba(142, 162, 255, 0.12);
+  color: #dce1ff;
+  box-shadow: inset 0 -2px 0 #8ea2ff;
+}
+
+#luminus-whisper-window .cw-status {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(140, 145, 172, 0.5);
+}
+
+#luminus-whisper-window .cw-status.online {
+  background: #8ea2ff;
+  box-shadow: 0 0 6px rgba(142, 162, 255, 0.75);
+}
+
+#luminus-whisper-window .cw-thread-head {
+  justify-content: space-between;
+  padding: 11px 15px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+#luminus-whisper-window .cw-thread-head div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#luminus-whisper-window .cw-thread-head strong {
+  color: var(--lw-text);
+  font-size: 12px;
+}
+
+#luminus-whisper-window .cw-thread-head span {
+  color: var(--lw-muted);
+  font: 9px var(--lw-mono);
+}
+
+#luminus-whisper-window .cw-thread-head button { padding: 4px 8px; }
+
+#luminus-whisper-window .cw-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  background:
+    linear-gradient(rgba(142, 162, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(142, 162, 255, 0.018) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+#luminus-whisper-window .cw-empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--lw-muted);
+}
+
+#luminus-whisper-window .cw-empty span { font-size: 12px; }
+#luminus-whisper-window .cw-empty small { font: 10px var(--lw-mono); }
+
+#luminus-whisper-window .cw-day,
+.lm-float-window .lw-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 7px 14px;
+  color: var(--lw-muted);
+  font: 9px var(--lw-mono);
+  text-transform: capitalize;
+}
+
+#luminus-whisper-window .cw-day { margin: 7px 0; }
+
+#luminus-whisper-window .cw-day::before,
+#luminus-whisper-window .cw-day::after,
+.lm-float-window .lw-day::before,
+.lm-float-window .lw-day::after {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, rgba(142, 162, 255, 0.24));
+  content: "";
+}
+
+#luminus-whisper-window .cw-day::after,
+.lm-float-window .lw-day::after { transform: scaleX(-1); }
+
+#luminus-whisper-window .cw-message {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  max-width: 82%;
+}
+
+#luminus-whisper-window .cw-message.mine {
+  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+#luminus-whisper-window .cw-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid var(--lw-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--lw-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#luminus-whisper-window .cw-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#luminus-whisper-window .cw-bubble {
+  min-width: 90px;
+  padding: 7px 9px;
+  border: 1px solid var(--lw-border);
+  border-radius: 5px 12px 12px 12px;
+  background: rgba(255, 255, 255, 0.052);
+}
+
+#luminus-whisper-window .mine .cw-bubble {
+  border-color: rgba(142, 162, 255, 0.22);
+  border-radius: 12px 5px 12px 12px;
+  background: linear-gradient(135deg, rgba(106, 124, 220, 0.26), rgba(142, 162, 255, 0.11));
+}
+
+#luminus-whisper-window .cw-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+  color: var(--lw-muted);
+  font: 9px var(--lw-mono);
+}
+
+#luminus-whisper-window .cw-meta button {
+  all: unset;
+  color: #b7c2ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#luminus-whisper-window .cw-meta button:hover { color: #fff; }
+#luminus-whisper-window .cw-meta time { margin-left: auto; }
+
+#luminus-whisper-window .cw-bubble p {
+  margin: 0;
+  color: rgba(232, 235, 252, 0.9);
+  font-size: 12px;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+#luminus-whisper-window .cw-composer {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--lw-border);
+  background: rgba(9, 11, 18, 0.28);
+}
+
+#luminus-whisper-window .cw-composer input {
+  flex: 1;
+  padding: 9px 11px;
+}
+
+#luminus-whisper-window .cw-composer button {
+  padding: 8px 13px;
+  background: linear-gradient(135deg, rgba(142, 162, 255, 0.34), rgba(91, 111, 214, 0.24));
+}
+
+#luminus-whisper-window button:hover:not(:disabled) { filter: brightness(1.16); }
+#luminus-whisper-window button:disabled,
+#luminus-whisper-window input:disabled { opacity: 0.42; cursor: not-allowed; }
+
+#luminus-whisper-window .cw-error {
+  padding: 0 14px 10px;
+  background: rgba(9, 11, 18, 0.28);
+  color: #ff9f9f;
+  font-size: 10px;
+}
+
+#luminus-whisper-window :focus-visible {
+  outline: 2px solid rgba(174, 186, 255, 0.85);
+  outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+  #luminus-whisper-window {
+    inset: 52px 10px 10px;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+  }
+  #luminus-whisper-window .cw-channel-label { display: none; }
+  #luminus-whisper-window .cw-message { max-width: 94%; }
 }
 `;

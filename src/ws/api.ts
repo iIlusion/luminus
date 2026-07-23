@@ -3,12 +3,16 @@ import { RoomUnitWalkComposer } from "../messages/outgoing/RoomUnitWalkComposer"
 import { RoomUnitActionComposer } from "../messages/outgoing/RoomUnitActionComposer";
 import { UserFigureComposer } from "../messages/outgoing/UserFigureComposer";
 import { RoomUnitChatComposer } from "../messages/outgoing/RoomUnitChatComposer";
+import { RoomUnitWhisperComposer } from "../messages/outgoing/RoomUnitWhisperComposer";
 import { UserIgnoreComposer } from "../messages/outgoing/UserIgnoreComposer";
 import { UserUnignoreComposer } from "../messages/outgoing/UserUnignoreComposer";
 import type { PacketComposer, PacketHandler } from "../protocol/types";
 import { PacketBridge } from "./PacketBridge";
 import { readPref, writePref } from "../util/prefs";
 import type { MuteAllState } from "../room/muteAll";
+import type { AchievementData } from "../messages/incoming/AchievementsParser";
+import type { BadgePointLimit } from "../messages/incoming/BadgePointLimitsParser";
+import type { BadgeProgress, LevelThreshold } from "../achievements/achievementStore";
 
 type SendTarget = number | string | PacketComposer;
 
@@ -33,6 +37,7 @@ export interface LuminusApi {
     RoomUnitAction: typeof RoomUnitActionComposer;
     UserFigure: typeof UserFigureComposer;
     RoomUnitChat: typeof RoomUnitChatComposer;
+    RoomUnitWhisper: typeof RoomUnitWhisperComposer;
     UserIgnore: typeof UserIgnoreComposer;
     UserUnignore: typeof UserUnignoreComposer;
   };
@@ -41,11 +46,24 @@ export interface LuminusApi {
     subscribe(listener: (state: MuteAllState) => void): () => void;
     setEnabled(on: boolean): void;
     setHideAvatars(on: boolean): void;
+    setShowMuteIcons(on: boolean): void;
     addWhitelist(name: string): void;
     removeWhitelist(name: string): void;
     muteUser(name: string): void;
     desmuteUser(name: string): void;
     isNameMuted(name: string): boolean;
+  };
+  achievements?: {
+    list(): BadgeProgress[];
+    get(badgeIdOrBase: string): BadgeProgress | null;
+    getLevelTable(badgeIdOrBase: string): LevelThreshold[];
+    fetch(timeoutMs?: number): Promise<AchievementData[]>;
+    fetchPointLimits(timeoutMs?: number): Promise<BadgePointLimit[]>;
+    fetchAll(timeoutMs?: number): Promise<{
+      progress: BadgeProgress[];
+      tables: Record<string, LevelThreshold[]>;
+    }>;
+    subscribe(listener: (entries: BadgeProgress[]) => void): () => void;
   };
   debug: {
     isEnabled(): boolean;
@@ -91,6 +109,7 @@ export function createApi(bridge: PacketBridge): LuminusApi {
       RoomUnitAction: RoomUnitActionComposer,
       UserFigure: UserFigureComposer,
       RoomUnitChat: RoomUnitChatComposer,
+      RoomUnitWhisper: RoomUnitWhisperComposer,
       UserIgnore: UserIgnoreComposer,
       UserUnignore: UserUnignoreComposer,
     },

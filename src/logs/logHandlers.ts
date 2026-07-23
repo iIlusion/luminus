@@ -8,6 +8,8 @@ import { PacketReader } from "../protocol/wrapper";
 import { addLog } from "./logStore";
 import { gmPost } from "../util/gmFetch";
 import { linkClickMessage } from "../ui/profileLinks";
+import { consumeGroupWhisperRoute, type GroupWhisperRoute } from "../chat/groupWhisperRouting";
+import { NATIVE_GROUP_RESET_PREFIX } from "../chat/nativeGroupWhisperResetPrefix";
 
 export interface LogsConfig {
   chatEnabled: boolean;
@@ -77,8 +79,15 @@ const REL_LABEL: Record<number, string> = {
   3: "Inimigo(a)",
 };
 
-// Last outgoing whisper recipient (captured from outgoing 1543, consumed by incoming 2704 echo)
-let pendingWhisperTarget: string | null = null;
+interface PendingWhisper {
+  target: string;
+  message: string;
+  groupRoute?: GroupWhisperRoute;
+}
+
+// Outgoing recipients in FIFO order, consumed by incoming 2704 echoes.
+const pendingWhispers: PendingWhisper[] = [];
+const pendingGroupEchoes = new Map<number, { members: string[]; remaining: number; logged: boolean }>();
 
 type FollowFailReason = "invisible" | "timeout";
 
@@ -414,9 +423,22 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
   unsubs.push(api.onOutgoing(1543, ({ packet }) => {
     try {
       const reader = new PacketReader(1543, packet.body);
-      pendingWhisperTarget = reader.readString().split(" ")[0] || null;
+      const value = reader.readString();
+      const separator = value.indexOf(" ");
+      const target = separator === -1 ? value : value.slice(0, separator);
+      const message = separator === -1 ? "" : value.slice(separator + 1);
+      if (target) {
+        if (normalizeTxt(target) === normalizeTxt(api.myself?.username ?? "") && message.startsWith(NATIVE_GROUP_RESET_PREFIX)) return;
+        const groupRoute = consumeGroupWhisperRoute() ?? undefined;
+        if (groupRoute) {
+          const pending = pendingGroupEchoes.get(groupRoute.id) ?? { members: groupRoute.members, remaining: 0, logged: false };
+          pending.remaining++;
+          pendingGroupEchoes.set(groupRoute.id, pending);
+        }
+        pendingWhispers.push({ target, message, groupRoute });
+      }
     } catch {
-      pendingWhisperTarget = null;
+      // Keep earlier queued recipients intact when one packet is malformed.
     }
   }));
 
@@ -431,17 +453,16 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
     if (!normalizeTxt(clean).includes("clicou em voce!")) return;
     const actor = clean.match(/^(.+?)\s+clicou/i)?.[1]?.trim() ?? "?";
     linkClickMessage(api, actor, clean);
-    if (!cfg.chatEnabled) return;
     const actorFigure = [...api.room.units.values()].find(u => u.name === actor)?.figure;
-    const myself = api.myself?.username ?? "";
     addLog({ ts: Date.now(), type: "click", actor, figure: actorFigure, message: clean });
+    if (!cfg.chatEnabled) return;
     sendWebhook(cfg.chatWebhook, "click", actor, clean, actorFigure);
   }));
 
   // UNIT_CHAT_WHISPER 2704 — incoming or echo of own outgoing
   unsubs.push(api.onIncoming(2704, ({ packet }) => {
     const cfg = getConfig();
-    if (!cfg.chatEnabled || !packet.parsed) return;
+    if (!packet.parsed) return;
     const { roomIndex, message, bubble } = packet.parsed as RoomChat;
     if ([34, 2].includes(bubble)) return;
 
@@ -450,17 +471,29 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
 
     if (isMine) {
       // Echo of my own whisper — actor = me, target = who I sent it to
-      const target = pendingWhisperTarget ?? "?";
-      pendingWhisperTarget = null;
+      const pending = pendingWhispers.shift();
+      if (pending?.groupRoute) {
+        const state = pendingGroupEchoes.get(pending.groupRoute.id);
+        if (state && !state.logged) {
+          state.logged = true;
+          const figure = api.myself?.figure;
+          const groupMessage = pending.message || message;
+          addLog({ ts: Date.now(), type: "whisper", actor: myself, target: "group", figure, message: groupMessage, groupMembers: state.members });
+          if (cfg.chatEnabled) sendWebhook(cfg.chatWebhook, "whisper", `${myself} → Grupo`, groupMessage, figure);
+        }
+        if (state && --state.remaining <= 0) pendingGroupEchoes.delete(pending.groupRoute.id);
+        return;
+      }
+      const target = pending?.target ?? "?";
       const figure = api.myself?.figure;
       addLog({ ts: Date.now(), type: "whisper", actor: myself, target, figure, message });
-      sendWebhook(cfg.chatWebhook, "whisper", `${myself} → ${target}`, message, figure);
+      if (cfg.chatEnabled) sendWebhook(cfg.chatWebhook, "whisper", `${myself} → ${target}`, message, figure);
     } else {
       // Incoming whisper from someone else → actor = them, target = me
       const unit = api.room.units.get(roomIndex);
       const actor = unit?.name ?? `#${roomIndex}`;
       addLog({ ts: Date.now(), type: "whisper", actor, target: myself || undefined, figure: unit?.figure, message });
-      sendWebhook(cfg.chatWebhook, "whisper", `${actor} → ${myself}`, message, unit?.figure);
+      if (cfg.chatEnabled) sendWebhook(cfg.chatWebhook, "whisper", `${actor} → ${myself}`, message, unit?.figure);
     }
   }));
 
@@ -539,5 +572,6 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
 export function teardownLogHandlers(): void {
   unsubs.forEach(u => u());
   unsubs = [];
-  pendingWhisperTarget = null;
+  pendingWhispers.length = 0;
+  pendingGroupEchoes.clear();
 }

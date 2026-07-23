@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
@@ -43,7 +44,7 @@ export default defineConfig(({ mode }) => {
 // @author       ak
 // @icon         ${logoIcon}
 // @homepageURL  https://github.com/iIlusion/luminus
-// @supportURL   https://discord.gg/g5BYdnxcnS
+// @supportURL   https://discord.gg/HmVkadXGVz
 // @downloadURL  https://github.com/iIlusion/luminus/releases/latest/download/luminus.user.js
 // @updateURL    https://github.com/iIlusion/luminus/releases/latest/download/luminus.user.js
 // @match        https://www.habblet.city/hotel*
@@ -61,6 +62,7 @@ ${localConnect}// ==/UserScript==`;
   return {
     resolve: {
       alias: [
+        { find: "lucide-react", replacement: path.resolve(fileURLToPath(new URL(".", import.meta.url)), "node_modules/lucide-react/dist/esm/lucide-react.mjs") },
         ...(!target.mcp ? [
           { find: /^.*[/\\]bridge[/\\]mcpBridge$/, replacement: fileURLToPath(new URL("./src/build/noMcp.ts", import.meta.url)) },
         ] : []),

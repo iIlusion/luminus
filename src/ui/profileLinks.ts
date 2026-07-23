@@ -1,9 +1,28 @@
 import type { LuminusApi } from "../ws/api";
 import type { MessengerSearch } from "../messages/incoming/MessengerSearchParser";
+import type { RoomUnit } from "../messages/incoming/UsersParser";
 import { UserProfileComposer } from "../messages/outgoing/UserProfileComposer";
 import { HabboSearchComposer } from "../messages/outgoing/HabboSearchComposer";
+import { ensureRoomEngine } from "../room/nitroWorldOverlay";
+import { getTargetWindow } from "../ws/interceptWebSocket";
+import { findRoomUnitByName, handleCtrlUserClick } from "./userClickActions";
+
+const ROOM_UNIT_CATEGORY = 100;
+
+interface NitroRoomEngine {
+  objectEventHandler?: {
+    setSelectedObject?(roomId: number, objectId: number, category: number): void;
+  };
+}
 
 export function openUserProfile(api: LuminusApi, name: string): void {
+  const roomUnit = findRoomUnitByName(api, name);
+  if (roomUnit) {
+    openRoomUserUi(api, roomUnit);
+    api.send(new UserProfileComposer(roomUnit.id));
+    return;
+  }
+
   let done = false;
   const unsubscribe = api.onIncoming(973, ({ packet }) => {
     if (done) return;
@@ -33,6 +52,13 @@ function normalizeText(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function openRoomUserUi(api: LuminusApi, unit: RoomUnit): void {
+  const roomId = api.room.id;
+  const roomEngine = ensureRoomEngine(getTargetWindow()) as NitroRoomEngine | null;
+  if (roomId == null) return;
+  roomEngine?.objectEventHandler?.setSelectedObject?.(roomId, unit.index, ROOM_UNIT_CATEGORY);
+}
+
 export function bindProfileLink(element: HTMLElement, name: string, api: LuminusApi): void {
   if (element.dataset.luminusProfileName === name) return;
 
@@ -40,11 +66,17 @@ export function bindProfileLink(element: HTMLElement, name: string, api: Luminus
   element.classList.add("luminus-profile-link");
   element.setAttribute("role", "button");
   element.tabIndex = 0;
+  let lastOpenAt = 0;
   const open = (event: Event) => {
+    if (event instanceof MouseEvent && handleCtrlUserClick(event, api, name)) return;
     event.preventDefault();
     event.stopPropagation();
+    const now = Date.now();
+    if (now - lastOpenAt < 350) return;
+    lastOpenAt = now;
     openUserProfile(api, name);
   };
+  element.addEventListener("pointerup", open, true);
   element.addEventListener("click", open);
   element.addEventListener("keydown", event => {
     if (event instanceof KeyboardEvent && (event.key === "Enter" || event.key === " ")) open(event);

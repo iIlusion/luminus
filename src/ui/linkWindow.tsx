@@ -7,6 +7,7 @@ import {
   isLinkBlocked, toggleLinkBlocked, getGenderFor, type LinkRecord,
 } from "../links/linkStore";
 import { toUrl } from "../links/linkDomains";
+import { handleCtrlUserClick } from "./userClickActions";
 
 interface Props {
   api: LuminusApi;
@@ -14,21 +15,37 @@ interface Props {
   onClose: () => void;
 }
 
+const LINK_PAGE_SIZE = 30;
+
 /** Normalize link for duplicate detection across accounts. */
 function linkKey(link: string): string {
   return link.trim().toLowerCase().replace(/\/+$/, "");
 }
 
-type LinkFilter = "all" | "multi" | "dup" | "blocked" | "favorites" | "unopened";
+/** Combinable link filters (AND). Empty set = show everyone. */
+type LinkFilterId = "multi" | "dup" | "blocked" | "favorites" | "unopened";
 
-const LINK_FILTERS: { id: LinkFilter; label: string; title: string }[] = [
-  { id: "all", label: "Todos", title: "Mostrar todas as pessoas" },
-  { id: "multi", label: "Vários links", title: "Pessoas com mais de um link" },
-  { id: "dup", label: "Link duplicado", title: "Mesmo link em duas ou mais contas" },
-  { id: "blocked", label: "Bloqueados", title: "Pessoas com algum link bloqueado no ícone" },
-  { id: "favorites", label: "Favoritos", title: "Somente favoritos" },
-  { id: "unopened", label: "Não abertos", title: "Ainda não clicou em nenhum link dessa pessoa" },
+const LINK_FILTERS: { id: LinkFilterId; label: string; title: string }[] = [
+  { id: "multi", label: "Vários links", title: "Pessoas com mais de um link (combinável)" },
+  { id: "dup", label: "Link duplicado", title: "Mesmo link em duas ou mais contas (combinável)" },
+  { id: "blocked", label: "Bloqueados", title: "Pessoas com algum link bloqueado (combinável)" },
+  { id: "favorites", label: "Favoritos", title: "Somente favoritos (combinável)" },
+  { id: "unopened", label: "Não abertos", title: "Ainda não clicou em nenhum link dessa pessoa (combinável)" },
 ];
+
+function personMatchesLinkFilter(
+  id: LinkFilterId,
+  name: string,
+  links: LinkRecord[],
+  peopleWithSharedLink: Set<string>,
+): boolean {
+  if (id === "multi") return links.length >= 2;
+  if (id === "dup") return peopleWithSharedLink.has(name);
+  if (id === "blocked") return links.some(r => r.blocked === true);
+  if (id === "favorites") return isFavorite(name);
+  if (id === "unopened") return links.every(r => (r.clicks ?? 0) === 0);
+  return true;
+}
 
 /** linkKey → list of person names that share it (only keys with 2+ names). */
 function buildSharedLinkIndex(all: Array<[string, LinkRecord[]]>): Map<string, string[]> {
@@ -95,8 +112,24 @@ export function LinkWindow({ api, open, onClose }: Props) {
   const [, setTick] = React.useState(0);
   const [search, setSearch] = React.useState("");
   const [genderFilter, setGenderFilter] = React.useState("");
-  const [linkFilter, setLinkFilter] = React.useState<LinkFilter>("all");
-  React.useEffect(() => onLinksChange(() => setTick(t => t + 1)), []);
+  const [visibleCount, setVisibleCount] = React.useState(LINK_PAGE_SIZE);
+  /** Active link filters — multiple can be on at once (AND). */
+  const [linkFilters, setLinkFilters] = React.useState<Set<LinkFilterId>>(() => new Set());
+  React.useEffect(() => onLinksChange(() => setTick(value => value + 1)), []);
+  React.useEffect(() => setVisibleCount(LINK_PAGE_SIZE), [search, genderFilter, linkFilters, open]);
+
+  function toggleLinkFilter(id: LinkFilterId) {
+    setLinkFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function clearLinkFilters() {
+    setLinkFilters(new Set());
+  }
 
   if (!open) return null;
 
@@ -104,40 +137,40 @@ export function LinkWindow({ api, open, onClose }: Props) {
   const sharedByLink = buildSharedLinkIndex(all);
   const peopleWithSharedLink = new Set<string>();
   for (const names of sharedByLink.values()) {
-    for (const n of names) peopleWithSharedLink.add(n);
+    for (const name of names) peopleWithSharedLink.add(name);
   }
 
   const query = search.trim().toLowerCase();
+  const activeFilters = [...linkFilters];
   const filtered = all.filter(([name, links]) => {
     const matchesSearch = !query
       || name.toLowerCase().includes(query)
       || links.some(record => record.link.toLowerCase().includes(query));
-
     const gender = getGenderFor(name);
     const matchesGender = !genderFilter
       || (genderFilter === "unknown" ? !gender : gender === genderFilter);
-
-    let matchesLink = true;
-    if (linkFilter === "multi") matchesLink = links.length >= 2;
-    else if (linkFilter === "dup") matchesLink = peopleWithSharedLink.has(name);
-    else if (linkFilter === "blocked") matchesLink = links.some(r => r.blocked === true);
-    else if (linkFilter === "favorites") matchesLink = isFavorite(name);
-    else if (linkFilter === "unopened") matchesLink = links.every(r => (r.clicks ?? 0) === 0);
-
+    const matchesLink = activeFilters.length === 0
+      || activeFilters.every(id => personMatchesLinkFilter(id, name, links, peopleWithSharedLink));
     return matchesSearch && matchesGender && matchesLink;
   });
-
-  // favorites first, then alphabetical within each group — keeps a growing list scannable.
   const entries = [...filtered].sort(([a], [b]) => {
-    const fa = isFavorite(a), fb = isFavorite(b);
-    if (fa !== fb) return fa ? -1 : 1;
+    const favoriteA = isFavorite(a);
+    const favoriteB = isFavorite(b);
+    if (favoriteA !== favoriteB) return favoriteA ? -1 : 1;
     return a.localeCompare(b);
   });
+  const visibleEntries = entries.slice(0, visibleCount);
 
   function sharedWith(name: string, link: string): string[] {
     const others = sharedByLink.get(linkKey(link));
     if (!others) return [];
     return others.filter(n => n !== name);
+  }
+
+  function onListScroll(event: React.UIEvent<HTMLDivElement>) {
+    const list = event.currentTarget;
+    if (list.scrollHeight - list.scrollTop - list.clientHeight > 240) return;
+    setVisibleCount(count => Math.min(entries.length, count + LINK_PAGE_SIZE));
   }
 
   function onDragMouseDown(e: React.MouseEvent) {
@@ -223,33 +256,45 @@ export function LinkWindow({ api, open, onClose }: Props) {
         </button>
       </div>
 
-      <div className="lw-filterbar lw-filterbar-secondary" role="group" aria-label="Filtrar por tipo de link">
-        {LINK_FILTERS.map(f => (
-          <button
-            key={f.id}
-            type="button"
-            className={`lw-filter-btn${linkFilter === f.id ? " active" : ""}`}
-            title={f.title}
-            aria-pressed={linkFilter === f.id}
-            onClick={() => setLinkFilter(f.id)}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="lw-filterbar lw-filterbar-secondary" role="group" aria-label="Filtrar por tipo de link (combináveis)">
+        <button
+          type="button"
+          className={`lw-filter-btn${linkFilters.size === 0 ? " active" : ""}`}
+          title="Limpar filtros de tipo (mostrar todos)"
+          aria-pressed={linkFilters.size === 0}
+          onClick={clearLinkFilters}
+        >
+          Todos
+        </button>
+        {LINK_FILTERS.map(f => {
+          const on = linkFilters.has(f.id);
+          return (
+            <button
+              key={f.id}
+              type="button"
+              className={`lw-filter-btn${on ? " active" : ""}`}
+              title={f.title}
+              aria-pressed={on}
+              onClick={() => toggleLinkFilter(f.id)}
+            >
+              {f.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="lw-list">
+      <div className="lw-list" onScroll={onListScroll}>
         {all.length === 0 && (
           <div className="lw-empty">Nenhum link encontrado</div>
         )}
         {all.length > 0 && entries.length === 0 && (
           <div className="lw-empty">
-            {query || genderFilter || linkFilter !== "all"
+            {query || genderFilter || linkFilters.size > 0
               ? "Nenhuma pessoa encontrada com esses filtros"
               : "Nenhuma pessoa encontrada"}
           </div>
         )}
-        {entries.map(([name, links]) => (
+        {visibleEntries.map(([name, links]) => (
           <div key={name} className="lk-entry">
             <div className="lk-entry-top">
               <button
@@ -264,7 +309,10 @@ export function LinkWindow({ api, open, onClose }: Props) {
                 role="button"
                 tabIndex={0}
                 title="Abrir perfil"
-                onClick={() => openUserProfile(api, name)}
+                onClick={event => {
+                  if (handleCtrlUserClick(event, api, name)) return;
+                  openUserProfile(api, name);
+                }}
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") openUserProfile(api, name); }}
               >{name}</span>
               {getGenderFor(name) && (

@@ -271,9 +271,41 @@ function processNameOnlyContextMenus(root: ParentNode = document): void {
 const CALAR_LABEL = "Calar";
 const OUVIR_LABEL = "Ouvir Habblet";
 
+function menuItemLabel(item: HTMLElement): string {
+  return (item.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+function isCalarMenuItem(item: HTMLElement): boolean {
+  if (item.dataset.luminusMuteItem === "1") return true;
+  const text = menuItemLabel(item);
+  if (!text) return false;
+  // Exact or contains (icons/extra nodes sometimes wrap the label).
+  if (text === CALAR_LABEL || text === OUVIR_LABEL) return true;
+  if (text.includes(OUVIR_LABEL)) return true;
+  // "Calar" alone as word — avoid matching unrelated long labels.
+  return /^calar$/i.test(text) || text.toLowerCase() === "calar";
+}
+
+function contextMenuUserName(menu: HTMLElement): string {
+  const header = menu.querySelector<HTMLElement>(".menu-header");
+  if (!header) return "";
+  // Prefer direct text nodes / non-icon children (header may nest status UI).
+  const fromNodes = [...header.childNodes]
+    .filter(n => !(n instanceof Element && (
+      n.classList.contains("luminus-name-only-link-icon")
+      || n.classList.contains("luminus-person-link-icon")
+    )))
+    .map(n => n.textContent ?? "")
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (fromNodes) return fromNodes;
+  return (header.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
 /**
  * Habblet user menu: `.position-absolute.nitro-context-menu.visible`
- * When the target is muted by Luminus, rewrite "Calar" → "Ouvir Habblet" and intercept click.
+ * When the target is muted by Luminus (incl. Mutar geral), rewrite "Calar" → "Ouvir Habblet".
  */
 function processUserContextMenu(menu: HTMLElement): void {
   if (!menu.classList.contains("nitro-context-menu")) return;
@@ -286,24 +318,17 @@ function processUserContextMenu(menu: HTMLElement): void {
   }
 
   const header = menu.querySelector<HTMLElement>(".menu-header");
-  // Header text may include our icon label if nested — take first text-ish content.
-  const name = (header
-    ? [...header.childNodes]
-      .filter(n => !(n instanceof Element && n.classList.contains("luminus-name-only-link-icon")))
-      .map(n => n.textContent ?? "")
-      .join("")
-      .trim()
-    : "") || header?.textContent?.trim() || "";
+  const name = contextMenuUserName(menu);
   if (!name) return;
 
   // Link / eye / blocked icon next to the nickname in the full user menu header.
   if (header) renderContextNameIcon(header, name, menu);
 
-  const items = menu.querySelectorAll<HTMLElement>(".menu-item.list-item");
+  // Prefer .menu-item.list-item; fall back to any .menu-item (Habblet markup drifts).
+  const items = menu.querySelectorAll<HTMLElement>(".menu-item.list-item, .menu-item");
   let calarItem: HTMLElement | null = null;
   for (const item of items) {
-    const text = item.textContent?.trim() ?? "";
-    if (text === CALAR_LABEL || text === OUVIR_LABEL || item.dataset.luminusMuteItem === "1") {
+    if (isCalarMenuItem(item)) {
       calarItem = item;
       break;
     }
@@ -314,12 +339,14 @@ function processUserContextMenu(menu: HTMLElement): void {
   const want = muted ? OUVIR_LABEL : CALAR_LABEL;
   const state = muted ? "ouvir" : "calar";
 
-  if (calarItem.dataset.luminusMuteState !== state || calarItem.textContent?.trim() !== want) {
-    suppressObserverUntil = performance.now() + 50;
+  if (calarItem.dataset.luminusMuteState !== state || menuItemLabel(calarItem) !== want) {
+    suppressObserverUntil = performance.now() + 80;
     calarItem.dataset.luminusMuteItem = "1";
     calarItem.dataset.luminusMuteState = state;
     calarItem.dataset.luminusMuteName = name;
     calarItem.textContent = want;
+  } else {
+    calarItem.dataset.luminusMuteName = name;
   }
 
   // Always route Calar/Ouvir through Luminus so whitelist stays consistent.
@@ -331,7 +358,7 @@ function processUserContextMenu(menu: HTMLElement): void {
       e.stopPropagation();
       e.stopImmediatePropagation();
       const currentName = calarItem!.dataset.luminusMuteName || name;
-      suppressObserverUntil = performance.now() + 50;
+      suppressObserverUntil = performance.now() + 80;
       if (isNameMuted(currentName)) {
         desmuteUser(currentName);
         calarItem!.dataset.luminusMuteState = "calar";
@@ -352,6 +379,17 @@ function processUserContextMenus(root: ParentNode = document): void {
     processUserContextMenu(root);
   }
   root.querySelectorAll?.<HTMLElement>(".nitro-context-menu.visible, .position-absolute.nitro-context-menu").forEach(processUserContextMenu);
+}
+
+/** Nitro sometimes paints "Calar" after our first pass — re-assert while the menu is open. */
+function scheduleUserMenuMuteSync(menu: HTMLElement): void {
+  const run = () => {
+    if (!menu.isConnected) return;
+    processUserContextMenu(menu);
+  };
+  requestAnimationFrame(run);
+  window.setTimeout(run, 50);
+  window.setTimeout(run, 150);
 }
 
 function renderPersonLinkIcon(nameEl: HTMLElement, name: string): void {
@@ -610,6 +648,7 @@ function scheduleInfostandProcess(mutations: MutationRecord[]): void {
       // Name-only menus often only flip `.visible` (attribute) — must re-run icons here.
       processNameOnlyContextMenus(document);
       processUserContextMenus(document);
+      document.querySelectorAll<HTMLElement>(".nitro-context-menu.visible").forEach(scheduleUserMenuMuteSync);
     });
     return;
   }
@@ -646,13 +685,24 @@ function scheduleInfostandProcess(mutations: MutationRecord[]): void {
       const changedMenu = changedElement?.closest<HTMLElement>(".nitro-context-menu");
       if (changedMenu) {
         if (isNameOnlyMenu(changedMenu)) processNameOnlyContextMenu(changedMenu);
-        else processUserContextMenu(changedMenu);
+        else {
+          processUserContextMenu(changedMenu);
+          scheduleUserMenuMuteSync(changedMenu);
+        }
       }
 
       for (const node of mutation.addedNodes) {
         if (!(node instanceof HTMLElement) || isLuminusUiNode(node)) continue;
         processNameOnlyContextMenus(node);
         processUserContextMenus(node);
+        if (node.classList?.contains("nitro-context-menu") || node.querySelector?.(".nitro-context-menu")) {
+          const menus = node.classList?.contains("nitro-context-menu")
+            ? [node as HTMLElement]
+            : [...node.querySelectorAll<HTMLElement>(".nitro-context-menu")];
+          for (const menu of menus) {
+            if (!isNameOnlyMenu(menu)) scheduleUserMenuMuteSync(menu);
+          }
+        }
       }
     }
 

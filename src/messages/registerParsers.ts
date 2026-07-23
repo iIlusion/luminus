@@ -17,6 +17,8 @@ import { MessengerUpdateParser } from "./incoming/MessengerUpdateParser";
 import { MessengerFriendsParser } from "./incoming/MessengerFriendsParser";
 import { ObjectsDataUpdateParser } from "./incoming/ObjectsDataUpdateParser";
 import { RoomUnitChatComposer } from "./outgoing/RoomUnitChatComposer";
+import { RoomUnitWhisperComposer } from "./outgoing/RoomUnitWhisperComposer";
+import { NativeGroupWhisperMemberComposer } from "./outgoing/NativeGroupWhisperMemberComposer";
 import { HabboSearchComposer } from "./outgoing/HabboSearchComposer";
 import { UserProfileComposer } from "./outgoing/UserProfileComposer";
 import { MessengerSearchParser } from "./incoming/MessengerSearchParser";
@@ -29,6 +31,11 @@ import { UserIgnoredResultParser } from "./incoming/UserIgnoredResultParser";
 import { UserIgnoreComposer } from "./outgoing/UserIgnoreComposer";
 import { UserUnignoreComposer } from "./outgoing/UserUnignoreComposer";
 import { UserIgnoreIdComposer } from "./outgoing/UserIgnoreIdComposer";
+import { AchievementProgressedParser, AchievementsListParser } from "./incoming/AchievementsParser";
+import { AchievementListComposer } from "./outgoing/AchievementListComposer";
+import { BadgePointLimitsParser } from "./incoming/BadgePointLimitsParser";
+import { GetBadgePointLimitsComposer } from "./outgoing/GetBadgePointLimitsComposer";
+import { RoomUserClickComposer } from "./outgoing/RoomUserClickComposer";
 
 export function registerParsers(): void {
   packetRegistry.registerIncoming(2725, "UserObject", UserObjectParser);
@@ -53,15 +60,23 @@ export function registerParsers(): void {
   packetRegistry.registerIncoming(360, "WiredMovements", WiredMovementsParser);
   packetRegistry.registerIncoming(126, "UserIgnored", UserIgnoredParser);
   packetRegistry.registerIncoming(207, "UserIgnoredResult", UserIgnoredResultParser);
+  packetRegistry.registerIncoming(305, "AchievementsList", AchievementsListParser);
+  packetRegistry.registerIncoming(2107, "AchievementProgressed", AchievementProgressedParser);
+  packetRegistry.registerIncoming(2501, "BadgePointLimits", BadgePointLimitsParser);
 
+  packetRegistry.registerOutgoing(219, "AchievementList", AchievementListComposer, ["ACHIEVEMENT_LIST"]);
+  packetRegistry.registerOutgoing(1371, "GetBadgePointLimits", GetBadgePointLimitsComposer, ["GET_BADGE_POINTS_LIMITS"]);
   packetRegistry.registerOutgoing(3320, "RoomUnitWalk", RoomUnitWalkComposer, ["UNIT_WALK"]);
   packetRegistry.registerOutgoing(2456, "RoomUnitAction", RoomUnitActionComposer, ["UNIT_ACTION"]);
   packetRegistry.registerOutgoing(2730, "UserFigure", UserFigureComposer, ["USER_FIGURE"]);
   packetRegistry.registerOutgoing(3301, "RoomUnitLook", RoomUnitLookComposer, ["UNIT_LOOK"]);
   packetRegistry.registerOutgoing(1314, "RoomUnitChat", RoomUnitChatComposer, ["UNIT_CHAT"]);
+  packetRegistry.registerOutgoing(1543, "RoomUnitWhisper", RoomUnitWhisperComposer, ["UNIT_CHAT_WHISPER"]);
+  packetRegistry.registerOutgoing(1544, "NativeGroupWhisperMember", NativeGroupWhisperMemberComposer, ["NATIVE_GROUP_WHISPER_MEMBER"]);
   packetRegistry.registerOutgoing(1210, "HabboSearch", HabboSearchComposer, ["HABBO_SEARCH"]);
   packetRegistry.registerOutgoing(3265, "UserProfile", UserProfileComposer, ["USER_PROFILE"]);
   packetRegistry.registerOutgoing(2694, "UserRespect", UserRespectComposer, ["USER_RESPECT"]);
+  packetRegistry.registerOutgoing(431, "RoomUserClick", RoomUserClickComposer, ["ROOM_USER_CLICK"]);
   // Habblet: ArrowUp=1 … Shift=8 (wired keybind, not walk).
   packetRegistry.registerOutgoing(365, "HitKeybind", HitKeybindComposer, ["HIT_KEYBIND"]);
   packetRegistry.registerOutgoing(1117, "UserIgnore", UserIgnoreComposer, ["USER_IGNORE"]);

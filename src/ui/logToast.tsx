@@ -1,5 +1,8 @@
 import * as React from "react";
-import { type LogEntry, getLogs, onLogsChange } from "../logs/logStore";
+import { type LogEntry, getSessionLogs, onLogsChange } from "../logs/logStore";
+import type { LuminusApi } from "../ws/api";
+import { openUserProfile } from "./profileLinks";
+import { handleCtrlUserClick } from "./userClickActions";
 
 const TYPE_COLOR: Record<LogEntry["type"], string> = {
   click:      "#ff9f43",
@@ -21,14 +24,21 @@ interface Toast { id: number; entry: LogEntry; }
 
 let nextId = 0;
 const LIFETIME_MS = 4500;
+const ACTOR_BUTTON_STYLE: React.CSSProperties = {
+  appearance: "none",
+  border: 0,
+  padding: 0,
+  background: "transparent",
+  font: "inherit",
+};
 
-export function LogToast() {
+export function LogToast({ api }: { api: LuminusApi }) {
   const [toasts, setToasts] = React.useState<Toast[]>([]);
-  const lastTsRef = React.useRef<number>(getLogs()[0]?.ts ?? 0);
+  const lastTsRef = React.useRef<number>(getSessionLogs()[0]?.ts ?? 0);
 
   React.useEffect(() => {
     return onLogsChange(() => {
-      const latest = getLogs()[0];
+      const latest = getSessionLogs()[0];
       if (!latest || latest.ts <= lastTsRef.current) return;
       lastTsRef.current = latest.ts;
       const id = nextId++;
@@ -48,7 +58,18 @@ export function LogToast() {
           style={{ "--lm-toast-accent": TYPE_COLOR[entry.type] } as React.CSSProperties}
         >
           <span className="lm-toast-badge">{TYPE_LABEL[entry.type]}</span>
-          <span className="lm-toast-actor">{entry.actor}</span>
+          <button
+            type="button"
+            className="lm-toast-actor"
+            style={ACTOR_BUTTON_STYLE}
+            onClick={event => {
+              if (handleCtrlUserClick(event, api, entry.actor)) return;
+              openUserProfile(api, entry.actor);
+            }}
+            title="Abrir perfil"
+          >
+            {entry.actor}
+          </button>
           <span className="lm-toast-msg">{entry.message}</span>
         </div>
       ))}

@@ -78,7 +78,7 @@ export function interceptWebSocket(target: WebSocketWindow, bridge: PacketBridge
     send(data: Parameters<WebSocket["send"]>[0]): void {
       const result = bridge.handleOutgoing(this, data);
 
-      if (result.action === "block") return;
+      if (result.action === "block" || result.action === "defer") return;
 
       super.send(result.action === "replace" && result.data ? result.data : data);
     }
@@ -86,7 +86,7 @@ export function interceptWebSocket(target: WebSocketWindow, bridge: PacketBridge
     private handleNativeMessage(event: MessageEvent): void {
       const result = bridge.handleIncoming(this, event.data);
 
-      if (result.action === "block") return;
+      if (result.action === "block" || result.action === "defer") return;
 
       const nextEvent =
         result.action === "replace" && result.data

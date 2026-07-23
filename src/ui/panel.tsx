@@ -10,7 +10,6 @@ import { gmFetch, gmPost } from "../util/gmFetch";
 import { setLookEnabled, sendLookAt } from "./keyboardLook";
 import { readPref, writePref } from "../util/prefs";
 import { type LogsConfig, LOGS_CONFIG_DEFAULT, setupLogHandlers, teardownLogHandlers } from "../logs/logHandlers";
-import { type LogEntry, getLogs, clearLogs, onLogsChange } from "../logs/logStore";
 import { LUMINUS_BUILD_NAME, LUMINUS_VERSION } from "../version";
 import {
   getToolbarGlass, getWardrobeStacked, setToolbarGlass, setWardrobeStacked,
@@ -26,9 +25,12 @@ import {
   removeMuteAllWhitelist,
   setMuteAllEnabled,
   setMuteAllHideAvatars,
+  setMuteAllShowIcons,
   subscribeMuteAll,
   type MuteAllState,
 } from "../room/muteAll";
+import { getOutgoingClickAlertEnabled, setOutgoingClickAlertEnabled } from "./userClickActions";
+import { RoomUserClickComposer } from "../messages/outgoing/RoomUserClickComposer";
 
 interface Props {
   api: LuminusApi;
@@ -98,7 +100,6 @@ function ExpandableOption({ label, sub, detailLabel, control, children, defaultO
   );
 }
 
-const LOG_BADGE: Record<LogEntry["type"], string> = { click: "Click", whisper: "Susu", friend: "Amigo", room_enter: "Entrou", room_leave: "Saiu" };
 
 function fmtTime(ts: number): string {
   const d = new Date(ts);
@@ -251,6 +252,7 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
     readPref("luminus.player.blockClickCtrlBypass", false)
   );
   const [saveLinkGender, setSaveLinkGender] = React.useState(() => getSaveGender());
+  const [outgoingClickAlert, setOutgoingClickAlertState] = React.useState(() => getOutgoingClickAlertEnabled());
   const blockClickCtrlBypassRef = React.useRef(blockClickCtrlBypass);
   blockClickCtrlBypassRef.current = blockClickCtrlBypass;
   const ctrlClickBypassUntil = React.useRef(0);
@@ -258,6 +260,11 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
   function toggleBlockClickCtrlBypass(v: boolean) {
     writePref("luminus.player.blockClickCtrlBypass", v);
     setBlockClickCtrlBypassState(v);
+  }
+
+  function toggleOutgoingClickAlert(v: boolean) {
+    setOutgoingClickAlertEnabled(v);
+    setOutgoingClickAlertState(v);
   }
 
   function activatePlayer(key: PlayerKey): (() => void) | null {
@@ -448,14 +455,14 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
       const locked = spamTargetRef.current.trim();
       if (locked) setSpamTargetIfChanged(locked);
       if (spamIntervalId.current !== null) window.clearInterval(spamIntervalId.current);
-      spamIntervalId.current = window.setInterval(() => {
-        const name = spamTargetRef.current.trim();
-        if (!name) return;
-        const unit = [...api.room.units.values()].find(u => u.name === name);
-        if (!unit) return;
-        spamSelfSendUntil.current = Date.now() + 40;
-        api.send(431, [unit.index]);
-      }, 50);
+        spamIntervalId.current = window.setInterval(() => {
+          const name = spamTargetRef.current.trim();
+          if (!name) return;
+          const unit = [...api.room.units.values()].find(u => u.name === name);
+          if (!unit) return;
+          spamSelfSendUntil.current = Date.now() + 40;
+          api.send(new RoomUserClickComposer(unit.index));
+        }, 50);
     } else if (spamIntervalId.current !== null) {
       window.clearInterval(spamIntervalId.current);
       spamIntervalId.current = null;
@@ -473,17 +480,10 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
 
   const [newFriendName, setNewFriendName] = React.useState("");
   const [newRoomName,   setNewRoomName]   = React.useState("");
-  const [logTick, setLogTick] = React.useState(0);
-
-  React.useEffect(() => onLogsChange(() => setLogTick(t => t + 1)), []);
   React.useEffect(() => {
     setupLogHandlers(api, () => logConfigRef.current);
     return teardownLogHandlers;
   }, []);
-
-  // suppress unused warning — logTick triggers re-render for log list
-  void logTick;
-  const logs = getLogs();
 
   function updateLogConfig(patch: Partial<LogsConfig>): void {
     setLogConfig(prev => {
@@ -589,7 +589,7 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
         <div className="lm-header-actions">
           <a
             className="lm-discord"
-            href="https://discord.gg/g5BYdnxcnS"
+            href="https://discord.gg/HmVkadXGVz"
             target="_blank"
             rel="noreferrer"
             title="Entrar no Discord"
@@ -659,6 +659,19 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                       className="lm-switch-root"
                       checked={blockClickCtrlBypass}
                       onCheckedChange={toggleBlockClickCtrlBypass}
+                    >
+                      <Switch.Thumb className="lm-switch-thumb" />
+                    </Switch.Root>
+                  </div>
+                  <div className="lm-row lm-row-sub">
+                    <span className="lm-label">
+                      Avisar quando eu clicar
+                      <span className="lm-sub">Mostra “Você clicou em Fulano” quando um clique passa.</span>
+                    </span>
+                    <Switch.Root
+                      className="lm-switch-root"
+                      checked={outgoingClickAlert}
+                      onCheckedChange={toggleOutgoingClickAlert}
                     >
                       <Switch.Thumb className="lm-switch-thumb" />
                     </Switch.Root>
@@ -742,6 +755,20 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                   checked={muteAll.hideAvatars}
                   onCheckedChange={setMuteAllHideAvatars}
                   aria-label="Esconder personagens no mute geral"
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </div>
+              <div className="lm-row lm-row-sub">
+                <span className="lm-label">
+                  Mostrar balões de mute
+                  <span className="lm-sub">Ícone de “calado” em cima dos mutados. Desligado: continuam mutados, sem balão.</span>
+                </span>
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={muteAll.showMuteIcons}
+                  onCheckedChange={setMuteAllShowIcons}
+                  aria-label="Mostrar balões de mute"
                 >
                   <Switch.Thumb className="lm-switch-thumb" />
                 </Switch.Root>

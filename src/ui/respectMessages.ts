@@ -14,23 +14,22 @@ import type { DecodedPacket } from "../protocol/types";
  * 3. First respect for a target is left alone (Nitro creates bubble-1)
  * 4. Display: hide original `.message`, overlay a `.message.luminus-respect`
  *    clone with "X foi respeitado(a) por Y! (Nx)"
+ * 5. Re-trigger `ping-once` on the bubble (Hibisco visual pulse)
  *
  * Chat does not rise on stack — only the first bubble is updated.
  */
 
-type PendingActor = { name: string; expiresAt: number };
-
-const CHAT_HEADERS = [1446, 1036] as const;
-
-/** Actors from expression 7, consumed on USER_RESPECT / chat (Hibisco `S`). */
-const actorStack: PendingActor[] = [];
+/** Actors from expression 7, consumed LIFO on USER_RESPECT (Hibisco `S`). */
+const actorStack: string[] = [];
 
 let apiRef: LuminusApi | null = null;
+let pendingEnrich: Array<{ target: string; actor: string | null; until: number }> = [];
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Hibisco `C` — prefer stacked overlay text. */
 function messageText(bubble: Element): string {
   const el = bubble.querySelector<HTMLElement>(".message.luminus-respect")
     ?? bubble.querySelector<HTMLElement>(".message:not(.luminus-respect)")
@@ -40,6 +39,8 @@ function messageText(bubble: Element): string {
 
 function genderSuffix(targetName: string): "o" | "a" {
   const unit = findUnitByName(targetName);
+  // Hibisco: M → o, otherwise a
+  if (unit?.sex?.toUpperCase() === "M") return "o";
   if (unit?.sex?.toUpperCase() === "F") return "a";
   return "o";
 }
@@ -62,70 +63,74 @@ function findUnitByWebId(userId: number): RoomUnit | undefined {
 function pushActor(name: string): void {
   const clean = name.trim();
   if (!clean) return;
-  actorStack.push({ name: clean, expiresAt: Date.now() + 4000 });
+  actorStack.push(clean);
   while (actorStack.length > 20) actorStack.shift();
 }
 
-function popActor(targetName?: string): string | null {
-  const now = Date.now();
-  while (actorStack[0] && actorStack[0].expiresAt < now) actorStack.shift();
-  if (!actorStack.length) return null;
-
-  const targetKey = targetName?.toLocaleLowerCase();
-  if (targetKey) {
-    for (let i = actorStack.length - 1; i >= 0; i--) {
-      if (actorStack[i].name.toLocaleLowerCase() !== targetKey) {
-        return actorStack.splice(i, 1)[0].name;
-      }
-    }
-  }
-  return actorStack.pop()?.name ?? null;
+/** Hibisco: `S.length ? S.pop() : null` — pure LIFO. */
+function popActor(): string | null {
+  return actorStack.length ? actorStack.pop()! : null;
 }
 
-/** Hibisco `E` — does this bubble match target (+ optional actor)? */
+function respectBubbles(): Element[] {
+  return [...document.querySelectorAll(
+    ".nitro-chat-widget .bubble-container:not(.luminus-reply):not(.hibisco-reply) > .chat-bubble.bubble-1",
+  )];
+}
+
+/**
+ * Hibisco `E` — bubble matches target (+ optional actor).
+ * No leading `^` (Hibisco) so minor Nitro prefixes still match; `$` anchors end.
+ */
 function bubbleMatchesRespect(bubble: Element, target: string, actor: string | null): boolean {
   const text = messageText(bubble);
-  const t = escapeRegExp(target);
-  const a = actor ? escapeRegExp(actor) : "";
+  if (!text) return false;
+  const tEsc = escapeRegExp(target);
+  const aEsc = actor ? escapeRegExp(actor) : "";
+  // plain: "X foi respeitado!" or "X foi respeitado por Y!"
   const plain = actor
-    ? new RegExp(`^${t} foi respeitad.( por ${a})?!$`, "i")
-    : new RegExp(`^${t} foi respeitad.!?$`, "i");
+    ? new RegExp(`${tEsc} foi respeitad.( por ${aEsc})?!$`, "i")
+    : new RegExp(`${tEsc} foi respeitad.!?$`, "i");
   const withActorCount = actor
-    ? new RegExp(`^${t} foi respeitad. por ${a}! \\((?<amount>[0-9]+)x\\)$`, "i")
+    ? new RegExp(`${tEsc} foi respeitad. por ${aEsc}! \\((?<amount>[0-9]+)x\\)$`, "i")
     : null;
-  const withoutActorCount = new RegExp(`^${t} foi respeitad.! \\((?<amount>[0-9]+)x\\)$`, "i");
+  const withoutActorCount = new RegExp(`${tEsc} foi respeitad.! \\((?<amount>[0-9]+)x\\)$`, "i");
   return plain.test(text)
     || Boolean(withActorCount?.test(text))
     || withoutActorCount.test(text);
 }
 
 function hasRespectBubble(target: string, actor: string | null): boolean {
-  return [...document.querySelectorAll(
-    ".nitro-chat-widget .bubble-container:not(.luminus-reply) > .chat-bubble.bubble-1",
-  )].some(b => bubbleMatchesRespect(b, target, actor));
+  return respectBubbles().some(b => bubbleMatchesRespect(b, target, actor));
+}
+
+/** Hibisco pulse: remove + re-add `ping-once`. */
+function pulseBubble(bubble: HTMLElement): void {
+  bubble.classList.remove("ping-once");
+  window.setTimeout(() => bubble.classList.add("ping-once"), 50);
 }
 
 /**
  * Hibisco `O` — update existing bubble-1 text via overlay (original stays for matching).
  */
-function updateRespectBubble(target: string, actor: string | null): void {
+function updateRespectBubble(target: string, actor: string | null): boolean {
   const sex = genderSuffix(target);
-  const t = escapeRegExp(target);
-  const a = actor ? escapeRegExp(actor) : "";
+  const tEsc = escapeRegExp(target);
+  const aEsc = actor ? escapeRegExp(actor) : "";
 
   const reWithActor = actor
-    ? new RegExp(`^${t} foi respeitad. por ${a}!$`, "i")
+    ? new RegExp(`${tEsc} foi respeitad. por ${aEsc}!$`, "i")
     : null;
   const reWithActorCount = actor
-    ? new RegExp(`^${t} foi respeitad. por ${a}! \\((?<amount>[0-9]+)x\\)$`, "i")
+    ? new RegExp(`${tEsc} foi respeitad. por ${aEsc}! \\((?<amount>[0-9]+)x\\)$`, "i")
     : null;
-  const rePlain = new RegExp(`^${t} foi respeitad.!$`, "i");
-  const rePlainCount = new RegExp(`^${t} foi respeitad.! \\((?<amount>[0-9]+)x\\)$`, "i");
+  const rePlain = new RegExp(`${tEsc} foi respeitad.!$`, "i");
+  const rePlainCount = new RegExp(`${tEsc} foi respeitad.! \\((?<amount>[0-9]+)x\\)$`, "i");
 
-  document.querySelectorAll(
-    ".nitro-chat-widget .bubble-container:not(.luminus-reply) > .chat-bubble.bubble-1",
-  ).forEach(node => {
-    if (!bubbleMatchesRespect(node, target, actor)) return;
+  let updated = false;
+
+  for (const node of respectBubbles()) {
+    if (!bubbleMatchesRespect(node, target, actor)) continue;
 
     const bubble = node as HTMLElement;
     const text = messageText(bubble);
@@ -150,13 +155,14 @@ function updateRespectBubble(target: string, actor: string | null): void {
       }
     }
 
-    if (!next) return;
+    if (!next) continue;
 
     const original = bubble.querySelector<HTMLElement>(".message:not(.luminus-respect)");
-    if (!original) return;
+    if (!original) continue;
 
     bubble.querySelectorAll(".message.luminus-respect").forEach(el => el.remove());
 
+    // Hibisco: clone outerHTML → add class → set text → insertAfter original
     const overlay = original.cloneNode(true) as HTMLElement;
     overlay.classList.add("luminus-respect");
     overlay.textContent = next;
@@ -165,6 +171,28 @@ function updateRespectBubble(target: string, actor: string | null): void {
     overlay.style.visibility = "";
     overlay.style.position = "";
     original.insertAdjacentElement("afterend", overlay);
+    pulseBubble(bubble);
+    updated = true;
+  }
+
+  return updated;
+}
+
+function enqueueEnrich(target: string, actor: string | null): void {
+  pendingEnrich.push({ target, actor, until: Date.now() + 1500 });
+  // Cap queue
+  while (pendingEnrich.length > 30) pendingEnrich.shift();
+}
+
+function tryPendingEnrich(): void {
+  const now = Date.now();
+  pendingEnrich = pendingEnrich.filter(item => {
+    if (item.until < now) return false;
+    if (hasRespectBubble(item.target, item.actor)) {
+      updateRespectBubble(item.target, item.actor);
+      return false;
+    }
+    return true;
   });
 }
 
@@ -179,17 +207,22 @@ function onUserRespect(packet: DecodedPacket): "block" | void {
   const target = findUnitByWebId(data.userId);
   if (!target?.name) return;
 
-  const actor = popActor(target.name);
+  // Hibisco: S.pop() only — no target filtering
+  const actor = popActor();
 
   if (hasRespectBubble(target.name, actor)) {
     updateRespectBubble(target.name, actor);
     return "block";
   }
 
-  // First respect — let Nitro create the bubble, then enrich label shortly after.
+  // First respect — let Nitro create the bubble, then enrich label (actor name).
+  enqueueEnrich(target.name, actor);
   window.setTimeout(() => {
     if (hasRespectBubble(target.name, actor)) updateRespectBubble(target.name, actor);
+    tryPendingEnrich();
   }, 100);
+  window.setTimeout(() => tryPendingEnrich(), 250);
+  window.setTimeout(() => tryPendingEnrich(), 500);
 }
 
 /**
@@ -205,9 +238,11 @@ function onRespectChat(packet: DecodedPacket): "block" | void {
 
   const target = match.groups.target.trim();
   const actorFromMsg = /por\s+(?<actor>[^!]+?)!?\s*$/i.exec(chat.message)?.groups?.actor?.trim() ?? null;
-  const actor = actorFromMsg ?? popActor(target);
+  // Prefer message actor; else LIFO stack (same as Hibisco path).
+  const actor = actorFromMsg ?? (actorStack.length ? actorStack[actorStack.length - 1] : null);
 
   if (hasRespectBubble(target, actor)) {
+    if (!actorFromMsg && actorStack.length) popActor();
     updateRespectBubble(target, actor);
     return "block";
   }
@@ -230,11 +265,19 @@ export function initRespectMessageGrouping(api: LuminusApi): void {
   api.onIncoming(2815, ({ packet }) => onUserRespect(packet));
 
   // Backup cancel of chat lines if they still spawn.
-  for (const header of CHAT_HEADERS) {
+  for (const header of [1446, 1036] as const) {
     api.onIncoming(header, ({ packet }) => onRespectChat(packet));
   }
 
   api.onIncoming(2031, () => {
     actorStack.length = 0;
+    pendingEnrich = [];
   });
+
+  // Catch late Nitro React mounts of bubble-1 for pending enrich.
+  const mo = new MutationObserver(() => {
+    if (!pendingEnrich.length) return;
+    tryPendingEnrich();
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
 }

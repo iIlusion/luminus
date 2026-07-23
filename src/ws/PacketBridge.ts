@@ -36,7 +36,7 @@ import {
 } from "../room/roomStore";
 
 interface PacketAction {
-  action: "pass" | "block" | "replace";
+  action: "pass" | "block" | "defer" | "replace";
   data?: ArrayBuffer;
 }
 
@@ -48,6 +48,7 @@ export class PacketBridge {
   private readonly codec = new EvaWireCodec();
   private readonly incomingHandlers = new Map<number, Set<PacketHandler>>();
   private readonly outgoingHandlers = new Map<number, Set<PacketHandler>>();
+  private readonly outgoingDeferrers = new Map<number, (data: ArrayBuffer, packet: DecodedPacket) => void>();
   private readonly packetListeners = new Set<(packet: DecodedPacket) => void>();
   private debug = true;
   private logParsedOnly = false;
@@ -107,6 +108,11 @@ export class PacketBridge {
     });
   }
 
+  deferOutgoing(header: number, defer: (data: ArrayBuffer, packet: DecodedPacket) => void): () => void {
+    this.outgoingDeferrers.set(header, defer);
+    return () => { if (this.outgoingDeferrers.get(header) === defer) this.outgoingDeferrers.delete(header); };
+  }
+
   // Fires for every decoded packet regardless of header (unlike onIncoming/onOutgoing, which
   // are per-header). Used by the MCP packet-capture ring buffer.
   onPacket(listener: (packet: DecodedPacket) => void): () => void {
@@ -141,6 +147,7 @@ export class PacketBridge {
     const encoded = this.encodeOutgoing(data);
     const result = this.handleOutgoing(socket, encoded, "script");
     if (result.action === "block") return false;
+    if (result.action === "defer") return true;
 
     const outgoing = result.action === "replace" && result.data ? result.data : encoded;
     if (this.nativeSend) this.nativeSend(outgoing);
@@ -160,6 +167,16 @@ export class PacketBridge {
   handleIncoming(socket: WebSocket, data: unknown): PacketAction {
     if (!isBinary(data)) return { action: "pass" };
     return this.handlePackets(socket, "incoming", toArrayBuffer(data), "server");
+  }
+
+  sendQueuedRaw(data: ArrayBuffer): boolean {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.nativeSend) return false;
+    try {
+      this.nativeSend(data);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private handlePackets(
@@ -190,6 +207,11 @@ export class PacketBridge {
       if (decision === "block") return { action: "block" };
       if (typeof decision === "object" && decision.action === "replace") {
         return { action: "replace", data: decision.data };
+      }
+      const defer = direction === "outgoing" ? this.outgoingDeferrers.get(packet.header) : undefined;
+      if (defer) {
+        defer(packet.raw, packet);
+        return { action: "defer" };
       }
     }
 

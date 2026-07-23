@@ -1,8 +1,9 @@
 import * as React from "react";
-import { type LogEntry, getLogs, clearLogs, onLogsChange } from "../logs/logStore";
+import { type LogEntry, getLogs, clearLogs, loadLogs, onLogsChange } from "../logs/logStore";
 import { getActiveSessions, getFriendSessions, fmtDuration } from "../logs/logHandlers";
 import type { LuminusApi } from "../ws/api";
 import { openUserProfile } from "./profileLinks";
+import { handleCtrlUserClick } from "./userClickActions";
 
 interface Props {
   api: LuminusApi;
@@ -48,6 +49,11 @@ function fmtDate(ts: number): string {
   return `${day} ${fmtTime(ts)}`;
 }
 
+function dayKey(ts: number): string {
+  const date = new Date(ts);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
 function avatarUrl(figure: string | undefined, size: "s" | "l" = "s"): string | undefined {
   if (!figure) return undefined;
   return `https://imaging.habblet.city/avatarimage?figure=${figure}&direction=3&head_direction=3&size=${size}`;
@@ -59,7 +65,10 @@ function ProfileName({ api, name }: { api: LuminusApi; name: string }) {
       className="luminus-profile-link"
       role="button"
       tabIndex={0}
-      onClick={event => openUserProfile(api, name)}
+      onClick={event => {
+        if (handleCtrlUserClick(event, api, name)) return;
+        openUserProfile(api, name);
+      }}
       onKeyDown={event => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -84,6 +93,7 @@ export function LogWindow({ api, open, onClose }: Props) {
   React.useEffect(() => onLogsChange(() => setTick(t => t + 1)), []);
   React.useEffect(() => {
     if (!open) return;
+    void loadLogs();
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [open]);
@@ -197,7 +207,11 @@ export function LogWindow({ api, open, onClose }: Props) {
           <div className="lw-empty">Nenhum evento{filter !== "all" ? " nesta categoria" : ""}</div>
         )}
         {filtered.map((entry, i) => (
-          <div key={i} className="lw-entry" style={{ "--lw-accent": TYPE_COLOR[entry.type] } as React.CSSProperties}>
+          <React.Fragment key={`${entry.ts}-${i}`}>
+          {(i === 0 || dayKey(filtered[i - 1].ts) !== dayKey(entry.ts)) && (
+            <div className="lw-day"><span>{new Date(entry.ts).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</span></div>
+          )}
+          <div className="lw-entry" style={{ "--lw-accent": TYPE_COLOR[entry.type] } as React.CSSProperties}>
             {/* Avatar column */}
             <div className="lw-entry-avatar">
               {avatarUrl(entry.figure)
@@ -224,6 +238,7 @@ export function LogWindow({ api, open, onClose }: Props) {
               )}
             </div>
           </div>
+          </React.Fragment>
         ))}
       </div>
 

@@ -18,41 +18,41 @@ export function defineChangelog<const T extends Changelog>(changelog: T): T {
 }
 
 export const CURRENT_CHANGELOG = defineChangelog({
-  title: "Luminus 1.0 — mute, respeitos e links",
-  summary: "Primeira versão pública major: silencie o quarto, organize o chat de respeitos e filtre links com mais controle.",
-  publishedAt: "21 de julho de 2026",
+  title: "Luminus 1.1 - historico privado, grupos e cliques",
+  summary: "O chat privado ficou muito mais completo, os grupos pararam de misturar pessoas antigas e os avisos de clique ganharam mais contexto no jogo.",
+  publishedAt: "23 de julho de 2026",
   sections: [
     {
-      title: "Player",
+      title: "Chat privado",
       items: [
         {
-          title: "Mutar geral",
-          description: "Na aba Player, silencie o chat de todo o quarto só no seu cliente. Use a lista branca para quem você sempre quer ouvir e a opção de esconder os avatares mutados."
+          title: "Historico de chat com abas",
+          description: "Agora voce pode abrir conversas privadas em uma janela propria, com abas por pessoa ou grupo, busca por quem ja falou com voce e resposta direta sem depender de deixar o chat nativo aberto."
         },
         {
-          title: "Calar e ouvir no menu",
-          description: "No menu do jogador e no infostand você pode calar ou voltar a ouvir alguém com um clique. Mutes manuais ficam salvos; o mutar geral não permanece após trocar de quarto ou recarregar."
+          title: "Grupos separados de verdade",
+          description: "Limpar o texto de grupo no chat do Habblet agora tambem limpa os membros daquele grupo. Isso evita herdar pessoas antigas quando voce monta outro grupo diferente."
         },
         {
-          title: "Você nunca some",
-          description: "Seu próprio avatar e suas mensagens não entram no mute nem no esconder, para você não se perder no quarto."
+          title: "Mais controle nas conversas",
+          description: "Cada aba mostra contador de novas mensagens, permite fechar so aquela conversa, apagar mensagens individuais, apagar o chat inteiro e limpar o grupo nativo com um clique."
         }
       ]
     },
     {
-      title: "Chat",
+      title: "Cliques e avisos",
       items: [
         {
-          title: "Respeitos agrupados",
-          description: "Vários respeitos viram uma bolha com contador, sem empurrar o restante do chat e sem deixar espaços vazios."
+          title: "Ctrl + clique para revidar",
+          description: "Segurando Ctrl ao clicar em nomes do Luminus, voce pode mandar o clique de volta sem depender do botao de spam click."
         },
         {
-          title: "Sempre no fim da conversa",
-          description: "Quando chegam novos respeitos, o agrupamento continua na mensagem mais recente, fácil de achar no final do chat."
+          title: "Aviso quando voce clica",
+          description: "Quando o aviso estiver ligado, o quarto tambem mostra a mensagem de que voce clicou em alguem, no mesmo estilo visual das notificacoes ja vistas no jogo."
         },
         {
-          title: "Nome de quem recebeu",
-          description: "O agrupamento mostra corretamente o jogador que recebeu o respeito."
+          title: "Clique repetido agrupado",
+          description: "Mensagens de clique recebidas entram no historico da conversa e, quando a mesma pessoa clicar varias vezes, o contador sobe na propria mensagem."
         }
       ]
     },
@@ -60,33 +60,25 @@ export const CURRENT_CHANGELOG = defineChangelog({
       title: "Links",
       items: [
         {
-          title: "Filtros novos",
-          description: "No Menu de Links: vários links na mesma conta, link duplicado entre contas, bloqueados, favoritos e ainda não abertos."
+          title: "Filtros combinaveis",
+          description: "A janela de Links agora deixa combinar varios filtros ao mesmo tempo, como duplicados, favoritos, bloqueados, varios links e ainda nao abertos."
         },
         {
-          title: "Perfis a partir de placares e logs",
-          description: "Nomes em placares de pontuação e na janela de logs abrem o perfil do Habblet com um clique."
+          title: "Nomes mais uteis",
+          description: "Cliques em nomes pela janela de Links e por partes do historico ficaram mais consistentes para abrir o perfil da pessoa com menos atrito."
         }
       ]
     },
     {
-      title: "Visual e painel",
+      title: "Player e painel",
       items: [
         {
-          title: "Vidro por área",
-          description: "Na aba Visual, ligue o efeito de vidro só nas partes da interface que quiser."
+          title: "Mute geral mais estavel",
+          description: "O mute geral ficou mais previsivel ao esconder ou mostrar avatares, e voce pode escolher se quer ou nao ver os baloes de mute."
         },
         {
-          title: "Opções aninhadas",
-          description: "Configurações extras ficam sob o item principal, com menos poluição no painel."
-        },
-        {
-          title: "Bolsa e logs mais estáveis",
-          description: "A bolsa colapsável ficou mais legível e a aba de Logs não estoura o layout em telas menores."
-        },
-        {
-          title: "Ícones no menu do jogador",
-          description: "Link, olho e bloqueado aparecem no menu por nome e no infostand para saber o estado de cada pessoa."
+          title: "Antispam opcional no privado",
+          description: "O antispam do historico privado agora fica desligado por padrao e tenta segurar menos as conversas quando voce alterna entre mensagens diferentes."
         }
       ]
     }

@@ -4,32 +4,29 @@ import type { RoomChat } from "../messages/incoming/RoomChatParser";
 import type { DecodedPacket } from "../protocol/types";
 import { getTargetWindow } from "../ws/interceptWebSocket";
 import { readPref, writePref } from "../util/prefs";
+import { ensureRoomEngine } from "./nitroWorldOverlay";
 
 const UNIT_CATEGORY = 100;
-
-/** Incoming chat headers (talk / shout / whisper). */
 const CHAT_HEADERS = [1446, 1036, 2704] as const;
 
-// Mute-all bulk toggle is session/room scoped — never persisted.
-// Manual mutes (localMuted) and whitelist survive reload + room changes.
 const PREF_HIDE = "luminus.player.muteAll.hideAvatars";
+const PREF_SHOW_ICONS = "luminus.player.muteAll.showMuteIcons";
 const PREF_WHITELIST = "luminus.player.muteAll.whitelist";
 const PREF_MANUAL = "luminus.player.muteAll.manual";
 
-/**
- * Avatars to process per animation frame for visuals (mute icon + hide).
- * Higher = faster full-room apply; keep bounded so main thread stays smooth.
- */
-const VISUAL_PER_FRAME = 20;
-
-/** Nitro action key used by the client's native "Calar" mute icon. */
 const FIGURE_IS_MUTED = "figure_is_muted";
+const FIGURE_IS_TYPING = "figure_is_typing";
+/** AvatarVisualization.MUTED_BUBBLE_ID — mute balloon is an addition, not body art. */
+const MUTED_BUBBLE_ID = 6;
+/** AvatarVisualization.TYPING_BUBBLE_ID — fights mute for the same extra sprite slot. */
+const TYPING_BUBBLE_ID = 2;
 
 export interface MuteAllState {
   enabled: boolean;
   hideAvatars: boolean;
+  /** When false, mute-all still blocks chat but skips native mute balloons. */
+  showMuteIcons: boolean;
   whitelist: string[];
-  /** UI only — -1 when mute-all is on (everyone except whitelist). */
   mutedCount: number;
 }
 
@@ -40,32 +37,65 @@ type NitroSprite = {
   _alpha?: number;
   visible?: boolean;
   alpha?: number;
-  __lmHide?: boolean;
+  texture?: unknown;
+  _texture?: unknown;
+  _libraryAssetName?: string;
+  _name?: string;
+  offsetX?: number;
+  offsetY?: number;
+  _offsetX?: number;
+  _offsetY?: number;
+};
+
+type MuteAddition = {
+  id?: number;
+  update?: (sprite: NitroSprite, scale: number) => void;
+  dispose?: () => void;
 };
 
 type NitroVisualization = {
   _sprites?: Array<NitroSprite | null | undefined>;
   _shadow?: NitroSprite | null;
-  getSprite?: (id: number) => NitroSprite | null;
+  _additions?: Map<number, MuteAddition>;
+  _extraSpritesStartIndex?: number;
+  updateModelCounter?: number;
+  _lastUpdate?: number;
   update?: (...args: unknown[]) => unknown;
+  updateModel?: (model: NitroModel, scale?: number) => unknown;
   updateShadow?: (...args: unknown[]) => unknown;
-  /** Luminus: fully hide this avatar (body + foot shadow). */
+  getAddition?: (id: number) => MuteAddition | null | undefined;
+  addAddition?: (addition: MuteAddition) => unknown;
+  removeAddition?: (id: number) => unknown;
+  getSprite?: (index: number) => NitroSprite | null;
+  createSpriteAtIndex?: (index: number) => NitroSprite | null;
   __lmForceHidden?: boolean;
   __lmHidePatched?: boolean;
   __lmOrigUpdate?: (...args: unknown[]) => unknown;
   __lmOrigUpdateShadow?: (...args: unknown[]) => unknown;
 };
 
-type NitroRoomObject = {
-  _visualization?: NitroVisualization | null;
-  _model?: {
-    getValue?: (key: string) => unknown;
-    setValue?: (key: string, value: unknown) => void;
-  };
+type NitroModel = {
+  getValue?: (key: string) => unknown;
+  setValue?: (key: string, value: unknown) => void;
+  updateCounter?: number;
 };
 
+type NitroRoomObject = {
+  id?: number;
+  _visualization?: NitroVisualization | null;
+  visualization?: NitroVisualization | null;
+  _model?: NitroModel | null;
+  model?: NitroModel | null;
+};
+
+type RoomGeometry = { scale?: number; updateId?: number };
+
 type RoomEngineLike = {
+  activeRoomId?: number;
   getRoomObject?: (roomId: number, id: number, category: number) => NitroRoomObject | null | undefined;
+  getRoomObjects?: (roomId: number, category: number) => NitroRoomObject[] | null | undefined;
+  getRoomGeometry?: (roomId: number, canvasId?: number) => RoomGeometry | null | undefined;
+  getRoomInstanceGeometry?: (roomId: number, canvasId?: number) => RoomGeometry | null | undefined;
   updateRoomObjectUserAction?: (
     roomId: number,
     objectId: number,
@@ -85,22 +115,17 @@ type RoomEngineLike = {
 let apiRef: LuminusApi | null = null;
 let enabled = false;
 let hideAvatars = false;
-/** lowercased → display name */
+/** Show native Calado balloons while muted (default on). */
+let showMuteIcons = true;
 const whitelist = new Map<string, string>();
-/** Manual local mutes when mute-all is off (lowercased). */
 const localMuted = new Set<string>();
-
 const listeners = new Set<Listener>();
 const unsubs: Array<() => void> = [];
 let started = false;
 
-// ── Visual loop (mute icon always when muted; sprite hide only if option on) ──
 let visualRaf = 0;
-let visualCursor = 0;
-let cachedEngine: RoomEngineLike | null = null;
-/** Indices we forced invisible. */
 const forcedHidden = new Set<number>();
-/** Last mute-icon value we applied per room index (avoid re-spamming Nitro). */
+/** Last desired mute-icon state per index. */
 const iconApplied = new Map<number, boolean>();
 
 function norm(name: string): string {
@@ -111,6 +136,7 @@ function snapshot(): MuteAllState {
   return {
     enabled,
     hideAvatars,
+    showMuteIcons,
     whitelist: [...whitelist.values()].sort((a, b) => a.localeCompare(b)),
     mutedCount: enabled ? -1 : localMuted.size,
   };
@@ -173,16 +199,10 @@ function isWhitelisted(name: string): boolean {
   return whitelist.has(norm(name));
 }
 
-/**
- * True if this unit is under local mute (never self).
- * Priority: explicit Calar/muteUser (localMuted) beats whitelist; whitelist only
- * protects from bulk mute-all.
- */
 export function shouldMuteUnit(unit: RoomUnit): boolean {
   if (!unit.name) return false;
   if (isSelf(unit)) return false;
   const key = norm(unit.name);
-  // Explicit mute always wins — muting a whitelisted user must re-hide/re-mute them.
   if (localMuted.has(key)) return true;
   if (isWhitelisted(unit.name)) return false;
   if (enabled) return true;
@@ -210,113 +230,278 @@ function visualsNeeded(): boolean {
   return enabled || localMuted.size > 0 || hideAvatars || forcedHidden.size > 0 || iconApplied.size > 0;
 }
 
-/**
- * Chat block — O(1), no RoomEngine. Instant mute of speech.
- */
 function shouldBlockChatPacket(packet: DecodedPacket): boolean {
   if (!enabled && localMuted.size === 0) return false;
-
   const chat = packet.parsed as RoomChat | undefined;
   if (!chat || chat.roomIndex == null) return false;
-
   const selfIdx = meIndex();
   if (selfIdx != null && chat.roomIndex === selfIdx) return false;
-
   const unit = apiRef?.room.units.get(chat.roomIndex);
   if (unit) {
     if (isSelf(unit)) return false;
     return shouldMuteUnit(unit);
   }
-
-  // Unknown speaker while mute-all is on (not self): block.
   return enabled;
 }
 
-// ── RoomEngine visuals ──
+// ── RoomEngine ──
 
-function getCachedEngine(): RoomEngineLike | null {
-  if (cachedEngine?.getRoomObject) return cachedEngine;
-  const page = getTargetWindow() as Window & { RoomEngine?: RoomEngineLike };
-  const eng = page.RoomEngine;
-  if (eng && typeof eng.getRoomObject === "function") {
-    cachedEngine = eng;
-    return eng;
+function getEngine(): RoomEngineLike | null {
+  return ensureRoomEngine(getTargetWindow()) as RoomEngineLike | null;
+}
+
+function roomIdOf(): number | null {
+  const id = apiRef?.room.id;
+  if (id != null) return id;
+  return getEngine()?.activeRoomId ?? null;
+}
+
+function getVis(obj: NitroRoomObject | null | undefined): NitroVisualization | null {
+  return obj?._visualization ?? obj?.visualization ?? null;
+}
+
+function getModel(obj: NitroRoomObject | null | undefined): NitroModel | null {
+  return obj?._model ?? obj?.model ?? null;
+}
+
+function roomGeometry(engine: RoomEngineLike, roomId: number): RoomGeometry | null {
+  try {
+    return engine.getRoomGeometry?.(roomId)
+      ?? engine.getRoomGeometry?.(roomId, 1)
+      ?? engine.getRoomInstanceGeometry?.(roomId)
+      ?? engine.getRoomInstanceGeometry?.(roomId, 1)
+      ?? null;
+  } catch {
+    return null;
   }
-  return null;
+}
+
+function roomScale(engine: RoomEngineLike, roomId: number): number {
+  const scale = roomGeometry(engine, roomId)?.scale;
+  if (typeof scale === "number" && scale > 0) return scale;
+  return 64;
+}
+
+/** Drop typing bubble so it cannot share/steal the mute extra-sprite slot. */
+function stripTypingBubble(vis: NitroVisualization, model: NitroModel | null): void {
+  try {
+    if (vis.getAddition?.(TYPING_BUBBLE_ID) || vis._additions?.has(TYPING_BUBBLE_ID)) {
+      vis.removeAddition?.(TYPING_BUBBLE_ID);
+    }
+  } catch { /* soft */ }
+  if (model) {
+    try { model.setValue?.(FIGURE_IS_TYPING, 0); } catch { /* soft */ }
+  }
 }
 
 /**
- * Same path the client uses for "Calar": FIGURE_IS_MUTED action → mute balloon icon.
- * Falls back to changeObjectModelData / model.setValue.
+ * Force a full AvatarVisualization.update so body layers rebuild immediately
+ * after unhide (otherwise Nitro may leave a 1–few frame lag until next engine tick).
  */
-function setNativeMuteIcon(index: number, muted: boolean): void {
-  const engine = getCachedEngine();
-  const roomId = apiRef?.room.id;
-  if (!engine || roomId == null) return;
-  const value = muted ? 1 : 0;
-
-  let ok = false;
-  try {
-    if (engine.updateRoomObjectUserAction) {
-      ok = engine.updateRoomObjectUserAction(roomId, index, FIGURE_IS_MUTED, value) === true;
+function forceVisRedraw(vis: NitroVisualization, model: NitroModel | null, geo: RoomGeometry | null): void {
+  if (model) {
+    try {
+      vis.updateModelCounter = -1;
+      vis.updateModel?.(model);
+    } catch { /* soft */ }
+  }
+  if (geo && typeof vis.update === "function") {
+    try {
+      vis._lastUpdate = 0;
+      vis.update(geo, performance.now() + 1000);
+    } catch {
+      try { vis.update(geo, performance.now() + 1000, true, false); } catch { /* soft */ }
     }
-  } catch { /* soft */ }
-
-  if (!ok) {
-    try {
-      if (engine.changeObjectModelData) {
-        ok = engine.changeObjectModelData(roomId, index, UNIT_CATEGORY, FIGURE_IS_MUTED, value) === true;
-      }
-    } catch { /* soft */ }
   }
-
-  if (!ok) {
-    try {
-      const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
-      obj?._model?.setValue?.(FIGURE_IS_MUTED, value);
-    } catch { /* soft */ }
-  }
-
-  iconApplied.set(index, muted);
+  try { vis.updateShadow?.(1); } catch { /* soft */ }
 }
 
-function forceSpriteHidden(sprite: NitroSprite | null | undefined): void {
+function isMuteBubbleSprite(sprite: NitroSprite | null | undefined): boolean {
+  if (!sprite) return false;
+  if (/muted/i.test(String(sprite._libraryAssetName ?? ""))) return true;
+  if (/muted/i.test(String(sprite._name ?? ""))) return true;
+  const tex = sprite.texture as { textureCacheIds?: unknown[] } | null | undefined;
+  const ids = tex?.textureCacheIds;
+  if (Array.isArray(ids) && ids.some(id => /muted/i.test(String(id)))) return true;
+  return false;
+}
+
+function hideSprite(sprite: NitroSprite | null | undefined): void {
   if (!sprite) return;
-  sprite.__lmHide = true;
   sprite._visible = false;
   sprite.visible = false;
   sprite._alpha = 0;
   if (typeof sprite.alpha === "number") sprite.alpha = 0;
 }
 
-function forceSpriteShown(sprite: NitroSprite | null | undefined): void {
-  if (!sprite || !sprite.__lmHide) return;
-  delete sprite.__lmHide;
+function showSprite(sprite: NitroSprite | null | undefined, alpha = 255): void {
+  if (!sprite) return;
   sprite._visible = true;
   sprite.visible = true;
-  sprite._alpha = 255;
-  if (typeof sprite.alpha === "number") sprite.alpha = 255;
-}
-
-/** Zero every drawable layer (body, head, foot-shadow sprite, _shadow asset). */
-function hideVisualizationLayers(vis: NitroVisualization): void {
-  const sprites = vis._sprites;
-  if (Array.isArray(sprites)) {
-    for (let i = 0; i < sprites.length; i++) forceSpriteHidden(sprites[i]);
-  }
-  if (vis._shadow) forceSpriteHidden(vis._shadow);
-  // Nitro keeps shadow on a fixed layer and updateShadow() sets visible=true every tick.
-  try {
-    if (typeof vis.getSprite === "function") {
-      for (let i = 0; i < 8; i++) forceSpriteHidden(vis.getSprite(i));
-    }
-  } catch { /* soft */ }
+  if (sprite._alpha === 0 || sprite._alpha == null) sprite._alpha = alpha;
+  if (typeof sprite.alpha === "number" && sprite.alpha === 0) sprite.alpha = alpha <= 1 ? 1 : alpha;
 }
 
 /**
- * Nitro's avatar updateShadow() forces the foot shadow visible every frame.
- * Patch update + updateShadow once so after every engine tick we re-hide.
+ * Paint / erase the native mute balloon on the visualization sprites NOW.
+ *
+ * Live-proven (MCP, 170+ units):
+ * - model + updateModel only puts the addition in a Map — balloon still invisible
+ * - need createSpriteAtIndex(extraStart) + addition.update(sprite, scale) to show
+ * - on clear, removeAddition leaves texture on the sprite — must hard-clear it
+ *   or balloons vanish in batches when Nitro later recycles units
  */
+function scrubExtraSprites(vis: NitroVisualization, fromIndex: number): void {
+  const sprites = vis._sprites;
+  if (!Array.isArray(sprites)) return;
+  for (let i = fromIndex; i < sprites.length; i++) {
+    const s = sprites[i];
+    if (!s) continue;
+    hideSprite(s);
+    try { s.texture = null; } catch { /* soft */ }
+    try { s._texture = null; } catch { /* soft */ }
+    try { s._libraryAssetName = ""; } catch { /* soft */ }
+  }
+  // Also scrub any leftover muted texture even if index shifted.
+  for (let i = 0; i < sprites.length; i++) {
+    const s = sprites[i];
+    if (!s || !isMuteBubbleSprite(s)) continue;
+    hideSprite(s);
+    try { s.texture = null; } catch { /* soft */ }
+    try { s._libraryAssetName = ""; } catch { /* soft */ }
+  }
+}
+
+function paintMuteBubble(
+  vis: NitroVisualization,
+  muted: boolean,
+  scale: number,
+  model: NitroModel | null = null,
+): void {
+  const start = vis._extraSpritesStartIndex ?? 2;
+
+  if (muted) {
+    // Typing + mute both use extra sprite slots from _extraSpritesStartIndex.
+    // Nitro's updateModel does NOT remove typing when muted is true (only handles
+    // typing in the !muted branch) → both additions paint alternating → flicker.
+    stripTypingBubble(vis, model);
+
+    const add = vis.getAddition?.(MUTED_BUBBLE_ID) ?? vis._additions?.get(MUTED_BUBBLE_ID);
+    if (!add?.update) return;
+
+    // Only mute should occupy the first extra slot while muted.
+    scrubExtraSprites(vis, start);
+
+    let sprite = vis.getSprite?.(start) ?? vis._sprites?.[start] ?? null;
+    if (!sprite) {
+      try { vis.createSpriteAtIndex?.(start); } catch { /* soft */ }
+      sprite = vis.getSprite?.(start) ?? vis._sprites?.[start] ?? null;
+    }
+    if (!sprite) return;
+    try { add.update(sprite, scale); } catch { /* soft */ }
+    sprite._visible = true;
+    sprite.visible = true;
+    if (sprite._alpha === 0) sprite._alpha = 255;
+    return;
+  }
+
+  // Unmute: drop mute addition then scrub residual mute sprites.
+  try {
+    if (vis.getAddition?.(MUTED_BUBBLE_ID) || vis._additions?.has(MUTED_BUBBLE_ID)) {
+      vis.removeAddition?.(MUTED_BUBBLE_ID);
+    }
+  } catch { /* soft */ }
+
+  scrubExtraSprites(vis, start);
+}
+
+function setNativeMuteIcon(
+  engine: RoomEngineLike,
+  roomId: number,
+  index: number,
+  muted: boolean,
+  scale: number,
+  force = false,
+): void {
+  // Option "sem balões": still mute chat, never paint Calado icons.
+  const wantIcon = muted && showMuteIcons;
+  if (!force && iconApplied.get(index) === wantIcon) return;
+
+  try {
+    engine.updateRoomObjectUserAction?.(roomId, index, FIGURE_IS_MUTED, wantIcon ? 1 : 0);
+  } catch { /* soft */ }
+  try {
+    engine.changeObjectModelData?.(roomId, index, UNIT_CATEGORY, FIGURE_IS_MUTED, wantIcon ? 1 : 0);
+  } catch { /* soft */ }
+
+  // Kill typing flag only when showing mute bubble (typing fights the same sprite slot).
+  // When icons are hidden, leave typing alone so people can still see "digitando".
+  if (wantIcon) {
+    try {
+      engine.updateRoomObjectUserAction?.(roomId, index, FIGURE_IS_TYPING, 0);
+    } catch { /* soft */ }
+    try {
+      engine.changeObjectModelData?.(roomId, index, UNIT_CATEGORY, FIGURE_IS_TYPING, 0);
+    } catch { /* soft */ }
+  }
+
+  const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
+  const vis = getVis(obj);
+  const model = getModel(obj);
+  if (model) {
+    try { model.setValue?.(FIGURE_IS_MUTED, wantIcon ? 1 : 0); } catch { /* soft */ }
+    if (wantIcon) {
+      try { model.setValue?.(FIGURE_IS_TYPING, 0); } catch { /* soft */ }
+    }
+  }
+  if (vis && model) {
+    if (wantIcon) stripTypingBubble(vis, model);
+    try {
+      vis.updateModelCounter = -1;
+      vis.updateModel?.(model);
+    } catch { /* soft */ }
+    if (wantIcon) stripTypingBubble(vis, model);
+  }
+  if (vis) paintMuteBubble(vis, wantIcon, scale, model);
+
+  iconApplied.set(index, wantIcon);
+}
+
+// ── Hide body (all sprites + shadow); patch keeps it hidden after Nitro ticks ──
+
+function hideLayers(vis: NitroVisualization): void {
+  if (Array.isArray(vis._sprites)) {
+    for (const s of vis._sprites) hideSprite(s);
+  }
+  if (vis._shadow) hideSprite(vis._shadow);
+  if (vis._additions) {
+    try {
+      for (const add of vis._additions.values()) {
+        // additions paint via getSprite slots already zeroed above
+        void add;
+      }
+    } catch { /* soft */ }
+  }
+}
+
+function showBodyLayers(vis: NitroVisualization): void {
+  if (Array.isArray(vis._sprites)) {
+    const start = vis._extraSpritesStartIndex ?? 2;
+    for (let i = 0; i < vis._sprites.length; i++) {
+      const s = vis._sprites[i];
+      if (!s) continue;
+      // Never revive mute bubble here — paintMuteBubble owns that.
+      if (isMuteBubbleSprite(s) || i >= start) {
+        hideSprite(s);
+        continue;
+      }
+      // body (0) full alpha; shadow (1) often ~50
+      showSprite(s, i === 1 ? 50 : 255);
+    }
+  }
+  if (vis._shadow) showSprite(vis._shadow, 50);
+}
+
 function ensureHidePatch(vis: NitroVisualization): void {
   if (vis.__lmHidePatched) return;
   vis.__lmHidePatched = true;
@@ -325,7 +510,7 @@ function ensureHidePatch(vis: NitroVisualization): void {
     vis.__lmOrigUpdateShadow = vis.updateShadow.bind(vis);
     vis.updateShadow = function luminusUpdateShadow(this: NitroVisualization, ...args: unknown[]) {
       if (this.__lmForceHidden) {
-        hideVisualizationLayers(this);
+        hideLayers(this);
         return;
       }
       return vis.__lmOrigUpdateShadow?.apply(this, args);
@@ -336,45 +521,52 @@ function ensureHidePatch(vis: NitroVisualization): void {
     vis.__lmOrigUpdate = vis.update.bind(vis);
     vis.update = function luminusUpdate(this: NitroVisualization, ...args: unknown[]) {
       const result = vis.__lmOrigUpdate?.apply(this, args);
-      if (this.__lmForceHidden) hideVisualizationLayers(this);
+      if (this.__lmForceHidden) hideLayers(this);
       return result;
     };
   }
 }
 
-function hideObjectSprites(obj: NitroRoomObject): void {
-  const vis = obj._visualization;
+function removeHidePatch(vis: NitroVisualization): void {
+  if (!vis.__lmHidePatched) {
+    vis.__lmForceHidden = false;
+    return;
+  }
+  if (vis.__lmOrigUpdate) {
+    vis.update = vis.__lmOrigUpdate;
+    delete vis.__lmOrigUpdate;
+  }
+  if (vis.__lmOrigUpdateShadow) {
+    vis.updateShadow = vis.__lmOrigUpdateShadow;
+    delete vis.__lmOrigUpdateShadow;
+  }
+  delete vis.__lmHidePatched;
+  vis.__lmForceHidden = false;
+}
+
+function hideObject(obj: NitroRoomObject): void {
+  const vis = getVis(obj);
   if (!vis) return;
   ensureHidePatch(vis);
   vis.__lmForceHidden = true;
-  hideVisualizationLayers(vis);
+  hideLayers(vis);
 }
 
-function showObjectSprites(obj: NitroRoomObject): void {
-  const vis = obj._visualization;
+function showObject(obj: NitroRoomObject, geo: RoomGeometry | null = null): void {
+  const vis = getVis(obj);
   if (!vis) return;
+  // Clear force flag BEFORE unpatch so an in-flight Nitro update cannot re-hide.
   vis.__lmForceHidden = false;
-  const sprites = vis._sprites;
-  if (Array.isArray(sprites)) {
-    for (let i = 0; i < sprites.length; i++) forceSpriteShown(sprites[i]);
-  }
-  if (vis._shadow) forceSpriteShown(vis._shadow);
-  try {
-    if (typeof vis.getSprite === "function") {
-      for (let i = 0; i < 8; i++) forceSpriteShown(vis.getSprite(i));
-    }
-  } catch { /* soft */ }
-  // Let Nitro rebuild a normal shadow next tick.
-  try { vis.__lmOrigUpdateShadow?.(1); } catch { /* soft */ }
+  removeHidePatch(vis);
+  showBodyLayers(vis);
+  forceVisRedraw(vis, getModel(obj), geo);
 }
 
-/** Room indices that should currently be muted (never self). */
 function listMutedIndices(): number[] {
   const api = apiRef;
   if (!api) return [];
   const selfIdx = meIndex();
   const out: number[] = [];
-
   for (const unit of api.room.units.values()) {
     if (selfIdx != null && unit.index === selfIdx) continue;
     if (!shouldMuteUnit(unit)) continue;
@@ -383,106 +575,179 @@ function listMutedIndices(): number[] {
   return out;
 }
 
+function allTargetIndices(): number[] {
+  const selfIdx = meIndex();
+  const set = new Set<number>();
+  const api = apiRef;
+
+  if (api) {
+    for (const unit of api.room.units.values()) {
+      if (selfIdx != null && unit.index === selfIdx) continue;
+      set.add(unit.index);
+    }
+  }
+
+  const engine = getEngine();
+  const roomId = roomIdOf();
+  if (engine?.getRoomObjects && roomId != null) {
+    try {
+      for (const obj of engine.getRoomObjects(roomId, UNIT_CATEGORY) ?? []) {
+        const id = obj?.id;
+        if (typeof id === "number" && (selfIdx == null || id !== selfIdx)) set.add(id);
+      }
+    } catch { /* soft */ }
+  }
+
+  for (const index of forcedHidden) {
+    if (selfIdx == null || index !== selfIdx) set.add(index);
+  }
+  for (const index of iconApplied.keys()) {
+    if (selfIdx == null || index !== selfIdx) set.add(index);
+  }
+
+  return [...set];
+}
+
 function applyVisualForIndex(
   engine: RoomEngineLike,
   roomId: number,
   index: number,
   wantMuted: boolean,
+  scale: number,
+  force: boolean,
+  geo: RoomGeometry | null,
 ): void {
   const selfIdx = meIndex();
   if (selfIdx != null && index === selfIdx) return;
 
-  // While avatars are fully hidden, NEVER drive figure_is_muted.
-  // updateRoomObjectUserAction rebuilds avatar layers; the hide loop then zeros them
-  // again → "Calado" / body flicker every frame.
-  if (hideAvatars && wantMuted) {
-    if (iconApplied.get(index) === true) {
-      setNativeMuteIcon(index, false);
-    }
-    const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
-    if (obj) {
-      hideObjectSprites(obj);
-      forcedHidden.add(index);
-    }
+  const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
+  if (!obj) return;
+
+  const wantHidden = hideAvatars && wantMuted;
+
+  if (wantHidden) {
+    // Hide body+extras. No mute balloon while fully hidden.
+    setNativeMuteIcon(engine, roomId, index, false, scale, force);
+    hideObject(obj);
+    forcedHidden.add(index);
     return;
   }
 
-  // Native "Calado" icon — only when state changes (or first apply).
-  if (iconApplied.get(index) !== wantMuted) {
-    setNativeMuteIcon(index, wantMuted);
+  if (forcedHidden.has(index) || getVis(obj)?.__lmForceHidden || getVis(obj)?.__lmHidePatched) {
+    showObject(obj, geo);
+    forcedHidden.delete(index);
   }
 
-  if (!wantMuted) {
-    if (forcedHidden.has(index)) {
-      const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
-      if (obj) showObjectSprites(obj);
-      forcedHidden.delete(index);
-    }
+  setNativeMuteIcon(engine, roomId, index, wantMuted, scale, force);
+}
+
+/**
+ * Full-room sync, one synchronous pass.
+ * Stops the rAF loop first so a concurrent re-hide cannot fight unhide mid-pass.
+ */
+function syncAllVisualsNow(force = true): void {
+  // Prevent visualTick from re-hiding while we unhide the whole room.
+  stopVisualLoop();
+
+  const roomId = roomIdOf();
+  const engine = getEngine();
+  if (roomId == null || !engine?.getRoomObject) {
+    startVisualLoop();
     return;
   }
+
+  const geo = roomGeometry(engine, roomId);
+  const scale = typeof geo?.scale === "number" && geo.scale > 0 ? geo.scale : 64;
+  const mutedSet = new Set(listMutedIndices());
+  const indices = allTargetIndices();
+
+  // Unhide pass first (everyone who should be visible), then mute icons.
+  // Ordering matters: hide patches must be gone before paintMuteBubble.
+  for (const index of indices) {
+    applyVisualForIndex(engine, roomId, index, mutedSet.has(index), scale, force, geo);
+  }
+
+  const api = apiRef;
+  if (api) {
+    for (const index of [...iconApplied.keys()]) {
+      if (!api.room.units.has(index) && !mutedSet.has(index)) iconApplied.delete(index);
+    }
+    for (const index of [...forcedHidden]) {
+      if (!api.room.units.has(index) && !mutedSet.has(index)) forcedHidden.delete(index);
+    }
+  }
+
+  if (visualsNeeded()) startVisualLoop();
 }
 
 function visualTick(): void {
   visualRaf = 0;
   if (!visualsNeeded()) return;
 
-  const api = apiRef;
-  const roomId = api?.room.id;
-  const engine = getCachedEngine();
-  if (!api || roomId == null || !engine?.getRoomObject) {
+  const roomId = roomIdOf();
+  const engine = getEngine();
+  if (roomId == null || !engine?.getRoomObject) {
     visualRaf = requestAnimationFrame(visualTick);
     return;
   }
 
-  const muted = listMutedIndices();
-  const mutedSet = new Set(muted);
+  const geo = roomGeometry(engine, roomId);
+  const scale = typeof geo?.scale === "number" && geo.scale > 0 ? geo.scale : 64;
+  const mutedSet = new Set(listMutedIndices());
 
-  // Cheap every-frame re-hide for units already in forcedHidden (stops foot-shadow blink
-  // between batch visits). Patch on visualization also covers engine updates.
-  if (hideAvatars && forcedHidden.size > 0) {
-    const selfIdx = meIndex();
-    for (const index of forcedHidden) {
-      if (selfIdx != null && index === selfIdx) continue;
-      if (!mutedSet.has(index)) continue;
+  // Re-hide (Nitro fights us every update).
+  if (hideAvatars) {
+    for (const index of mutedSet) {
       const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
-      if (obj) hideObjectSprites(obj);
+      if (obj) {
+        hideObject(obj);
+        forcedHidden.add(index);
+      }
     }
   }
 
-  // Also revisit indices that still have icon/hide leftover but are no longer muted.
-  const cleanup: number[] = [];
-  for (const index of iconApplied.keys()) {
-    if (!mutedSet.has(index) && iconApplied.get(index)) cleanup.push(index);
-  }
-  for (const index of forcedHidden) {
-    if (!mutedSet.has(index) && !cleanup.includes(index)) cleanup.push(index);
-  }
-
-  if (muted.length === 0 && cleanup.length === 0) {
-    if (iconApplied.size === 0 && forcedHidden.size === 0 && !enabled && localMuted.size === 0 && !hideAvatars) {
-      return;
-    }
-    visualRaf = requestAnimationFrame(visualTick);
-    return;
-  }
-
-  const queue = muted.length ? [...muted, ...cleanup] : cleanup;
-  const n = queue.length;
-  const start = visualCursor % n;
-  const budget = Math.min(VISUAL_PER_FRAME, n);
-
-  for (let k = 0; k < budget; k++) {
-    const index = queue[(start + k) % n];
-    applyVisualForIndex(engine, roomId, index, mutedSet.has(index));
-  }
-  visualCursor = start + budget;
-
-  // Drop dead room indices from maps.
-  for (const index of [...iconApplied.keys()]) {
-    if (!api.room.units.has(index)) iconApplied.delete(index);
-  }
+  // Unhide stragglers no longer muted/hidden.
   for (const index of [...forcedHidden]) {
-    if (!api.room.units.has(index)) forcedHidden.delete(index);
+    if (!(hideAvatars && mutedSet.has(index))) {
+      const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
+      if (obj) showObject(obj, geo);
+      forcedHidden.delete(index);
+      setNativeMuteIcon(engine, roomId, index, mutedSet.has(index), scale, true);
+    }
+  }
+
+  // Keep mute balloon stable when icons are enabled.
+  if (!hideAvatars && showMuteIcons) {
+    for (const index of mutedSet) {
+      const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
+      const vis = getVis(obj);
+      const model = getModel(obj);
+      if (!vis) continue;
+
+      // Always kill typing addition while muted (typing packets re-add it).
+      if (vis.getAddition?.(TYPING_BUBBLE_ID) || vis._additions?.has(TYPING_BUBBLE_ID)) {
+        stripTypingBubble(vis, model);
+        paintMuteBubble(vis, true, scale, model);
+        continue;
+      }
+
+      const start = vis._extraSpritesStartIndex ?? 2;
+      const slot = vis.getSprite?.(start) ?? vis._sprites?.[start];
+      const hasAdd = !!(vis.getAddition?.(MUTED_BUBBLE_ID) || vis._additions?.has(MUTED_BUBBLE_ID));
+      const painted = isMuteBubbleSprite(slot) && slot?._visible !== false;
+      if (hasAdd && !painted) {
+        paintMuteBubble(vis, true, scale, model);
+      } else if (!hasAdd && iconApplied.get(index) === true) {
+        setNativeMuteIcon(engine, roomId, index, true, scale, true);
+      }
+    }
+  } else if (!hideAvatars && !showMuteIcons) {
+    // Ensure no balloons linger if option was just turned off.
+    for (const index of mutedSet) {
+      if (iconApplied.get(index) === true) {
+        setNativeMuteIcon(engine, roomId, index, true, scale, true);
+      }
+    }
   }
 
   if (visualsNeeded()) visualRaf = requestAnimationFrame(visualTick);
@@ -491,7 +756,6 @@ function visualTick(): void {
 function startVisualLoop(): void {
   if (visualRaf) return;
   if (!visualsNeeded()) return;
-  visualCursor = 0;
   visualRaf = requestAnimationFrame(visualTick);
 }
 
@@ -501,29 +765,25 @@ function stopVisualLoop(): void {
   visualRaf = 0;
 }
 
-/** Clear mute icons + unhide everything we touched. */
 function clearAllVisuals(): void {
   stopVisualLoop();
-  const api = apiRef;
-  const roomId = api?.room.id;
-  const engine = getCachedEngine();
-  if (api && roomId != null && engine) {
-    for (const index of new Set([...iconApplied.keys(), ...forcedHidden])) {
-      if (iconApplied.get(index)) setNativeMuteIcon(index, false);
-      const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
-      if (obj) showObjectSprites(obj);
-    }
+  const roomId = roomIdOf();
+  const engine = getEngine();
+  if (roomId == null || !engine?.getRoomObject) {
+    iconApplied.clear();
+    forcedHidden.clear();
+    return;
+  }
+
+  const geo = roomGeometry(engine, roomId);
+  const scale = typeof geo?.scale === "number" && geo.scale > 0 ? geo.scale : 64;
+  for (const index of allTargetIndices()) {
+    const obj = engine.getRoomObject(roomId, index, UNIT_CATEGORY);
+    if (obj) showObject(obj, geo);
+    setNativeMuteIcon(engine, roomId, index, false, scale, true);
   }
   iconApplied.clear();
   forcedHidden.clear();
-}
-
-/** Apply/clear visuals for one unit immediately (infostand / whitelist). */
-function applyUnitNow(unit: RoomUnit): void {
-  const engine = getCachedEngine();
-  const roomId = apiRef?.room.id;
-  if (!engine || roomId == null || isSelf(unit)) return;
-  applyVisualForIndex(engine, roomId, unit.index, shouldMuteUnit(unit));
 }
 
 export function getMuteAllState(): MuteAllState {
@@ -535,47 +795,21 @@ export function subscribeMuteAll(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-/**
- * Mutar geral ON/OFF — chat filter is instant; visuals batch on rAF.
- * Not saved to prefs: dies on reload and on room change.
- */
 export function setMuteAllEnabled(on: boolean): void {
   if (enabled === on) return;
   enabled = on;
-
-  if (on) {
-    startVisualLoop();
-  } else if (localMuted.size === 0) {
-    // Bulk mute off and no manual mutes → clear room icons/hides.
-    clearAllVisuals();
-  } else {
-    // Keep manual mutes; re-sync icons.
-    startVisualLoop();
-  }
+  if (on) syncAllVisualsNow(true);
+  else if (localMuted.size === 0) clearAllVisuals();
+  else syncAllVisualsNow(true);
   emit();
 }
 
-/**
- * Room change / bulk-only reset: turn mute-all off.
- * Keeps manual mutes (localMuted) and whitelist so Calar survives forever.
- */
 function clearMuteAllBulkOnly(): void {
-  if (!enabled) {
-    // Still drop room-local hide/icon state; re-apply manuals after units load.
-    forcedHidden.clear();
-    iconApplied.clear();
-    cachedEngine = null;
-    if (localMuted.size > 0 || hideAvatars) startVisualLoop();
-    emit();
-    return;
-  }
   enabled = false;
   forcedHidden.clear();
   iconApplied.clear();
-  cachedEngine = null;
-  // Manual mutes stay; re-sync their icons/hide when people are in the new room.
-  if (localMuted.size > 0 || hideAvatars) startVisualLoop();
-  else stopVisualLoop();
+  stopVisualLoop();
+  if (localMuted.size > 0 || hideAvatars) syncAllVisualsNow(true);
   emit();
 }
 
@@ -583,30 +817,16 @@ export function setMuteAllHideAvatars(on: boolean): void {
   if (hideAvatars === on) return;
   hideAvatars = on;
   writePref(PREF_HIDE, on);
+  syncAllVisualsNow(true);
+  emit();
+}
 
-  if (on) {
-    // Drop Calado icons so they don't fight the hide loop.
-    for (const index of [...iconApplied.keys()]) {
-      if (iconApplied.get(index)) setNativeMuteIcon(index, false);
-    }
-    startVisualLoop();
-  } else {
-    // Unhide sprites, then re-apply Calado for anyone still muted.
-    const api = apiRef;
-    const roomId = api?.room.id;
-    const engine = getCachedEngine();
-    if (api && roomId != null && engine) {
-      for (const index of [...forcedHidden]) {
-        const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
-        if (obj) showObjectSprites(obj);
-      }
-    }
-    forcedHidden.clear();
-    // Force icon re-apply on next ticks.
-    iconApplied.clear();
-    if (enabled || localMuted.size > 0) startVisualLoop();
-    else stopVisualLoop();
-  }
+/** Show/hide native mute balloons while people stay muted. */
+export function setMuteAllShowIcons(on: boolean): void {
+  if (showMuteIcons === on) return;
+  showMuteIcons = on;
+  writePref(PREF_SHOW_ICONS, on);
+  syncAllVisualsNow(true);
   emit();
 }
 
@@ -616,10 +836,7 @@ export function addMuteAllWhitelist(name: string): void {
   if (!whitelist.has(key)) whitelist.set(key, name.trim());
   saveWhitelist();
   if (localMuted.delete(key)) saveManualMutes();
-
-  const unit = findUnitByName(name);
-  if (unit) applyUnitNow(unit);
-  startVisualLoop();
+  syncAllVisualsNow(true);
   emit();
 }
 
@@ -628,54 +845,35 @@ export function removeMuteAllWhitelist(name: string): void {
   if (!key || isSelfName(key)) return;
   whitelist.delete(key);
   saveWhitelist();
-  startVisualLoop();
+  syncAllVisualsNow(true);
   emit();
 }
 
-/** Infostand Desmutar — local only. */
 export function desmuteUser(name: string): void {
   const trimmed = name.trim();
   if (!trimmed || isSelfName(trimmed)) return;
-
   localMuted.delete(norm(trimmed));
   saveManualMutes();
   if (enabled) {
     addMuteAllWhitelist(trimmed);
     return;
   }
-
-  const unit = findUnitByName(trimmed);
-  if (unit) applyUnitNow(unit);
-  if (!visualsNeeded()) clearAllVisuals();
-  else startVisualLoop();
+  if (localMuted.size === 0 && !hideAvatars) clearAllVisuals();
+  else syncAllVisualsNow(true);
   emit();
 }
 
-/**
- * Mutar / Calar — always leaves whitelist (if present) and marks explicit local mute.
- * Never self. With "Esconder personagens", they become hidden again.
- */
 export function muteUser(name: string): void {
   const trimmed = name.trim();
   if (!trimmed || isSelfName(trimmed)) return;
-
   const key = norm(trimmed);
-  // Critical: Calar after "Ouvir Habblet" must drop whitelist, otherwise hide skips them
-  // while chat/icon still treat them as special → visible + muted.
   if (whitelist.has(key)) {
     whitelist.delete(key);
     saveWhitelist();
   }
   localMuted.add(key);
   saveManualMutes();
-
-  const unit = findUnitByName(trimmed);
-  if (unit) {
-    // Force icon/hide re-eval even if maps had stale state.
-    iconApplied.delete(unit.index);
-    applyUnitNow(unit);
-  }
-  startVisualLoop();
+  syncAllVisualsNow(true);
   emit();
 }
 
@@ -684,9 +882,13 @@ export function initMuteAll(api: LuminusApi): void {
   started = true;
   apiRef = api;
 
-  // Always start with mute-all off (not persisted).
+  try {
+    getTargetWindow().document.getElementById("luminus-mute-overlay")?.remove();
+  } catch { /* soft */ }
+
   enabled = false;
   hideAvatars = readPref(PREF_HIDE, false);
+  showMuteIcons = readPref(PREF_SHOW_ICONS, true);
   whitelist.clear();
   for (const entry of readPref<string[]>(PREF_WHITELIST, [])) {
     const trimmed = entry.trim();
@@ -704,6 +906,7 @@ export function initMuteAll(api: LuminusApi): void {
     subscribe: subscribeMuteAll,
     setEnabled: setMuteAllEnabled,
     setHideAvatars: setMuteAllHideAvatars,
+    setShowMuteIcons: setMuteAllShowIcons,
     addWhitelist: addMuteAllWhitelist,
     removeWhitelist: removeMuteAllWhitelist,
     muteUser,
@@ -715,16 +918,38 @@ export function initMuteAll(api: LuminusApi): void {
     unsubs.push(api.blockIncoming(header, shouldBlockChatPacket));
   }
 
-  // New users enter → visual loop will pick them up on next frames.
   unsubs.push(api.onIncoming(374, () => {
-    if (enabled || localMuted.size > 0 || hideAvatars) startVisualLoop();
+    if (enabled || localMuted.size > 0 || hideAvatars) syncAllVisualsNow(true);
   }));
 
-  // Room change: only bulk mute-all turns off; manual mutes persist.
+  unsubs.push(api.onIncoming(1640, () => {
+    if (!hideAvatars && !enabled && localMuted.size === 0 && forcedHidden.size === 0) return;
+    // Cheap re-assert after Nitro paints from unit status.
+    const roomId = roomIdOf();
+    const engine = getEngine();
+    if (roomId == null || !engine?.getRoomObject) return;
+    const scale = roomScale(engine, roomId);
+    for (const index of listMutedIndices()) {
+      const obj = engine.getRoomObject(roomId, index, UNIT_CATEGORY);
+      if (!obj) continue;
+      if (hideAvatars) {
+        hideObject(obj);
+        forcedHidden.add(index);
+      } else if (showMuteIcons) {
+        const vis = getVis(obj);
+        const model = getModel(obj);
+        if (vis) {
+          stripTypingBubble(vis, model);
+          paintMuteBubble(vis, true, scale, model);
+        }
+      }
+    }
+  }));
+
   unsubs.push(api.onIncoming(2031, () => {
     clearMuteAllBulkOnly();
   }));
 
-  if (localMuted.size > 0 || hideAvatars) startVisualLoop();
+  if (localMuted.size > 0 || hideAvatars) syncAllVisualsNow(true);
   emit();
 }
