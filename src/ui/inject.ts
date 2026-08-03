@@ -13,7 +13,11 @@ import { getWardrobeStacked, initUiAppearance } from "./toolbarGlass";
 import { initRespectMessageGrouping } from "./respectMessages";
 import { initHighScoreProfileLinks } from "./profileLinks";
 import { LUMINUS_BUILD_NAME } from "../version";
-import { claimCurrentChangelog, type Changelog } from "../changelog";
+import {
+  claimChangelogLayers,
+  LUMINUS_CHANGELOG_LAYER,
+  type ChangelogLayer,
+} from "../changelog";
 import {
   getTotalChatUnread,
   startChatWorkspace,
@@ -29,7 +33,9 @@ let open     = false;
 let logOpen  = false;
 let linkOpen = false;
 let whisperBetaOpen = false;
-let changelog: Changelog | null = null;
+let changelogLayers: ChangelogLayer[] | null = null;
+let uiChangelogLayers: readonly ChangelogLayer[] = [LUMINUS_CHANGELOG_LAYER];
+let uiChangelogPrefsKey = "luminus.changelog.seenVersions";
 
 function render(api: LuminusApi) {
   if (!root) return;
@@ -52,9 +58,9 @@ function render(api: LuminusApi) {
         open: linkOpen,
         onClose: () => { linkOpen = false; render(api); },
       }),
-      changelog && React.createElement(ChangelogModal, {
-        changelog,
-        onClose: () => { changelog = null; render(api); },
+      changelogLayers && changelogLayers.length > 0 && React.createElement(ChangelogModal, {
+        layers: changelogLayers,
+        onClose: () => { changelogLayers = null; render(api); },
       }),
       React.createElement(LogToast, { api }),
     )
@@ -116,7 +122,19 @@ function mountUtilityIcon(toolbar: Element, title: string, svg: string, onClick:
   return btn;
 }
 
-export function initUI(api: LuminusApi): void {
+export type InitUIOptions = {
+  /** Entradas do modal de novidades. Default: changelog do Luminus. */
+  changelogLayers?: readonly ChangelogLayer[];
+  /** Chave de preferência do “já vi estas versões”. */
+  changelogPrefsKey?: string;
+};
+
+export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
+  uiChangelogLayers = options.changelogLayers?.length
+    ? options.changelogLayers
+    : [LUMINUS_CHANGELOG_LAYER];
+  uiChangelogPrefsKey = options.changelogPrefsKey ?? "luminus.changelog.seenVersions";
+
   // inject styles
   const style = document.createElement("style");
   style.id = "luminus-ui-styles";
@@ -153,7 +171,7 @@ export function initUI(api: LuminusApi): void {
       const target = document.querySelector(".nitro-toolbar .d-flex.gap-2.align-items-center:not(.justify-content-between)");
       if (target) {
         observer.disconnect();
-        changelog = claimCurrentChangelog();
+        changelogLayers = claimChangelogLayers(uiChangelogLayers, uiChangelogPrefsKey);
         render(api);
         mountIcon(target, api);
         // Chat (formerly Beta) replaces legacy "Histórico de chat".

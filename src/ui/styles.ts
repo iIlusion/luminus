@@ -3090,6 +3090,36 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
   border-radius: 6px;
 }
 
+#luminus-changelog .lm-changelog-layer + .lm-changelog-layer {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#luminus-changelog .lm-changelog-layer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+#luminus-changelog .lm-changelog-layer-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #c4cdff;
+}
+
+#luminus-changelog .lm-changelog-layer-ver {
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lm-muted, rgba(200, 205, 230, 0.65));
+}
+
 #luminus-changelog .lm-changelog-body {
   min-height: 0;
   padding: 23px 30px 25px;

@@ -6,6 +6,7 @@ import { registerParsers } from "../messages/registerParsers";
 import { getTargetWindow, interceptWebSocket } from "../ws/interceptWebSocket";
 import { PacketBridge } from "../ws/PacketBridge";
 import { initUI } from "../ui/inject";
+import type { ChangelogLayer } from "../changelog";
 import { initKeyboardLook } from "../ui/keyboardLook";
 import { initInfostandLinks } from "../ui/infostandLinks";
 import { setupLogHandlers, LOGS_CONFIG_DEFAULT } from "../logs/logHandlers";
@@ -39,6 +40,10 @@ export type BootLuminusOptions = {
   registerDevMenu?: boolean;
   /** Register always-on support diagnostic menu. Default: true */
   registerSupportMenu?: boolean;
+  /** Entradas do modal de novidades. Default: changelog do Luminus. */
+  changelogLayers?: readonly ChangelogLayer[];
+  /** Chave de preferência do “já vi estas versões”. */
+  changelogPrefsKey?: string;
 };
 
 function readSetting<T>(name: string, defaultValue: T): T {
@@ -146,7 +151,10 @@ export function bootLuminus(options: BootLuminusOptions = {}): BootLuminusResult
   initNativeGroupWhisperReset(api);
   initNativeGroupNoticeHider();
   initKeyboardLook(api);
-  initUI(api);
+  initUI(api, {
+    changelogLayers: options.changelogLayers,
+    changelogPrefsKey: options.changelogPrefsKey,
+  });
   initOutgoingClickAlerts(api);
   initNitroWorldOverlay(api, targetWindow);
   initMuteAll(api);

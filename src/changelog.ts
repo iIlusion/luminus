@@ -1,6 +1,11 @@
 import { readPref, writePref } from "./util/prefs";
 
-export interface Changelog {
+/** Uma entrada do modal de novidades (versão + secções). */
+export interface ChangelogLayer {
+  id: string;
+  label: string;
+  /** Versão desta entrada; o modal reabre se for diferente da última vista. */
+  version: string;
   title: string;
   summary: string;
   publishedAt: string;
@@ -13,83 +18,136 @@ export interface Changelog {
   }[];
 }
 
-export function defineChangelog<const T extends Changelog>(changelog: T): T {
+/** @deprecated Prefer ChangelogLayer — alias para código antigo. */
+export type Changelog = ChangelogLayer;
+
+export function defineChangelog<const T extends ChangelogLayer>(changelog: T): T {
   return changelog;
 }
 
-export const CURRENT_CHANGELOG = defineChangelog({
-  title: "Luminus 1.1 - historico privado, grupos e cliques",
-  summary: "O chat privado ficou muito mais completo, os grupos pararam de misturar pessoas antigas e os avisos de clique ganharam mais contexto no jogo.",
-  publishedAt: "23 de julho de 2026",
+/**
+ * Changelog atual do Luminus.
+ * Atualizar só em release explícita pedida pelo maintainer.
+ */
+export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
+  id: "luminus",
+  label: "Luminus",
+  version: "1.2.0",
+  title: "Luminus 1.2",
+  summary:
+    "Chat privado redesenhado, mais controle sobre mobis e mute, e janelas que se comportam melhor no hotel.",
+  publishedAt: "3 de agosto de 2026",
   sections: [
     {
-      title: "Chat privado",
+      title: "Novo",
       items: [
         {
-          title: "Historico de chat com abas",
-          description: "Agora voce pode abrir conversas privadas em uma janela propria, com abas por pessoa ou grupo, busca por quem ja falou com voce e resposta direta sem depender de deixar o chat nativo aberto."
+          title: "Chat privado redesenhado",
+          description:
+            "O botão Chat abre uma janela própria com abas por conversa, busca, avatares e rolagem mais confortável, sem depender só do chat nativo.",
         },
         {
-          title: "Grupos separados de verdade",
-          description: "Limpar o texto de grupo no chat do Habblet agora tambem limpa os membros daquele grupo. Isso evita herdar pessoas antigas quando voce monta outro grupo diferente."
+          title: "Memória do chat do quarto",
+          description:
+            "O histórico do que foi falado no quarto fica disponível de forma mais estável enquanto você usa o hotel.",
         },
         {
-          title: "Mais controle nas conversas",
-          description: "Cada aba mostra contador de novas mensagens, permite fechar so aquela conversa, apagar mensagens individuais, apagar o chat inteiro e limpar o grupo nativo com um clique."
-        }
-      ]
+          title: "Ocultar classe de mobis",
+          description:
+            "Na aba Renderização e no infostand, você pode esconder tipos de mobi (e ver a lista na janela Mobis) para limpar o visual do quarto.",
+        },
+        {
+          title: "Aba Renderização",
+          description:
+            "Novo atalho no painel para opções de desenho do quarto, inclusive o modo de canvas incremental.",
+        },
+      ],
     },
     {
-      title: "Cliques e avisos",
+      title: "Melhorado",
       items: [
         {
-          title: "Ctrl + clique para revidar",
-          description: "Segurando Ctrl ao clicar em nomes do Luminus, voce pode mandar o clique de volta sem depender do botao de spam click."
+          title: "Mute geral mais estável",
+          description:
+            "Esconder ou mostrar avatares mutados e os balões de mute ficaram mais previsíveis no dia a dia.",
         },
         {
-          title: "Aviso quando voce clica",
-          description: "Quando o aviso estiver ligado, o quarto tambem mostra a mensagem de que voce clicou em alguem, no mesmo estilo visual das notificacoes ja vistas no jogo."
+          title: "Janelas dentro da tela",
+          description:
+            "Painel, logs, links e chat respeitam melhor as bordas da janela do hotel ao arrastar ou redimensionar.",
         },
         {
-          title: "Clique repetido agrupado",
-          description: "Mensagens de clique recebidas entram no historico da conversa e, quando a mesma pessoa clicar varias vezes, o contador sobe na propria mensagem."
-        }
-      ]
+          title: "Logs mais legíveis",
+          description:
+            "A janela de logs e os toasts ficaram mais claros para acompanhar cliques, sussurros e entrada ou saída de pessoas.",
+        },
+        {
+          title: "Figuras e perfis",
+          description:
+            "Avatares e atalhos de perfil em várias partes da UI carregam e respondem de forma mais consistente.",
+        },
+        {
+          title: "Respeitos no chat",
+          description:
+            "Agrupamento e apresentação de respeitos no chat do hotel ficaram mais suaves e menos invasivos.",
+        },
+        {
+          title: "Instalação no navegador",
+          description:
+            "O guia de instalação explica como ativar Allow user scripts no Tampermonkey, passo comum quando o script não inicia.",
+        },
+      ],
     },
     {
-      title: "Links",
+      title: "Corrigido",
       items: [
         {
-          title: "Filtros combinaveis",
-          description: "A janela de Links agora deixa combinar varios filtros ao mesmo tempo, como duplicados, favoritos, bloqueados, varios links e ainda nao abertos."
+          title: "Fila de sussurros",
+          description:
+            "Envio e ritmo de mensagens privadas ficaram mais estáveis em conversas longas ou com várias abas.",
         },
         {
-          title: "Nomes mais uteis",
-          description: "Cliques em nomes pela janela de Links e por partes do historico ficaram mais consistentes para abrir o perfil da pessoa com menos atrito."
-        }
-      ]
+          title: "Grupos nativos",
+          description:
+            "Limpar ou gerenciar grupo de sussurro no Habblet interfere menos no que o Luminus mostra nas suas abas.",
+        },
+        {
+          title: "Estado ao trocar de quarto",
+          description:
+            "Mute, logs de quarto e partes da UI reiniciam de forma mais correta quando você muda de sala.",
+        },
+      ],
     },
-    {
-      title: "Player e painel",
-      items: [
-        {
-          title: "Mute geral mais estavel",
-          description: "O mute geral ficou mais previsivel ao esconder ou mostrar avatares, e voce pode escolher se quer ou nao ver os baloes de mute."
-        },
-        {
-          title: "Antispam opcional no privado",
-          description: "O antispam do historico privado agora fica desligado por padrao e tenta segurar menos as conversas quando voce alterna entre mensagens diferentes."
-        }
-      ]
-    }
-  ]
+  ],
 });
 
-const SEEN_CHANGELOG_KEY = "luminus.changelog.seenContent";
+/** @deprecated Use LUMINUS_CHANGELOG_LAYER */
+export const CURRENT_CHANGELOG = LUMINUS_CHANGELOG_LAYER;
 
-export function claimCurrentChangelog(): Changelog | null {
-  const content = JSON.stringify(CURRENT_CHANGELOG);
-  if (readPref(SEEN_CHANGELOG_KEY, "") === content) return null;
-  writePref(SEEN_CHANGELOG_KEY, content);
-  return CURRENT_CHANGELOG;
+const DEFAULT_SEEN_KEY = "luminus.changelog.seenVersions";
+
+/**
+ * Devolve as camadas a mostrar se alguma versão mudou desde o último visto.
+ * Grava as versões atuais ao reclamar (evita reabrir no mesmo load).
+ */
+export function claimChangelogLayers(
+  layers: readonly ChangelogLayer[],
+  prefsKey: string = DEFAULT_SEEN_KEY,
+): ChangelogLayer[] | null {
+  if (!layers.length) return null;
+  const seen = readPref<Record<string, string>>(prefsKey, {});
+  const changed = layers.some(layer => seen[layer.id] !== layer.version);
+  if (!changed) return null;
+
+  const next: Record<string, string> = { ...seen };
+  for (const layer of layers) {
+    next[layer.id] = layer.version;
+  }
+  writePref(prefsKey, next);
+  return [...layers];
+}
+
+/** Luminus-only claim (compat). */
+export function claimCurrentChangelog(): ChangelogLayer[] | null {
+  return claimChangelogLayers([LUMINUS_CHANGELOG_LAYER]);
 }
