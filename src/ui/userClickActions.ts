@@ -150,7 +150,9 @@ async function emitOutgoingClickAlert(api: LuminusApi, unit: RoomUnit): Promise<
   if (!socket || typeof socket.handleNativeMessage !== "function" || !selfUnit) return;
 
   const look = await refreshFakeLook(api);
-  const message = `Voce clicou em ${unit.name}`;
+  // Runtime only: shows the real room nick so the player knows who they clicked.
+  // Do not hardcode hotel nicks in tests/docs/migrations — only this live feedback path.
+  const message = `Você clicou em ${unit.name}`;
 
   injectIncomingPacket(socket, api, ROOM_USERS_HEADER, [
     1,
