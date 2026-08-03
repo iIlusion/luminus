@@ -1,22 +1,31 @@
-# Luminus â€” notas para contribuidores
+# Luminus — notes for contributors
 
-## Comandos
+## Branches
 
-- `npm run dev` â€” watch `luminus-dev.user.js`
-- `npm run release` â€” typecheck + build de produÃ§Ã£o
+| Branch | Purpose |
+|--------|---------|
+| **`main`** | Final stable releases only. Do not land everyday work here. |
+| **`dev`** | Active development. Commit and open work against this branch. |
+
+Release flow: when `dev` is stable, open a PR **`dev` → `main`**. After merge, tag/release from `main` if needed, then continue on `dev`.
+
+## Commands
+
+- `npm run dev` — watch `luminus-dev.user.js`
+- `npm run release` — typecheck + production build
 - `npm run typecheck`
 
-## Estrutura
+## Structure
 
-- `src/main.ts` â€” entrada
-- `src/ws/` â€” WebSocket e `window.Luminus`
-- `src/protocol/` â€” codec e headers
-- `src/messages/` â€” parsers e composers
-- `src/room/` â€” estado do quarto e mute local
-- `src/ui/` â€” painel e janelas
-- `src/links/`, `src/logs/` â€” links e logs
+- `src/main.ts` — entry
+- `src/ws/` — WebSocket and `window.Luminus`
+- `src/protocol/` — codec and headers
+- `src/messages/` — packet registries, parsers, composers
+- `src/room/` — room state (units, furnis)
+- `src/ui/` — panel and windows
+- `src/links/`, `src/logs/` — links and logs
 
-## Estilo
+## Style
 
-TypeScript strict, 2 espaÃ§os, aspas duplas, ponto e vÃ­rgula.  
-Headers lÃ³gicos apÃ³s offset Habblet; parsers/composers para packets novos.
+TypeScript strict, 2 spaces, double quotes, semicolons.  
+Logical headers after Habblet offset; parsers/composers for new packets.
