@@ -154,7 +154,7 @@ Release:
 1. Não invente feature de servidor (ban, kick real, privilégio de staff).
 2. Não trate mute/hide como efeito global no hotel — é **local no cliente**.
 3. Não hardcode secrets, webhooks ou tokens no código.
-4. Não suba capturas de packet com dados de terceiros.
+4. Não suba capturas de packet com dados de outras pessoas.
 5. Não reescreva histórico público (`main`/`dev`) sem pedido do usuário.
 6. Não adicione dependências npm sem necessidade clara e alinhada ao projeto.
 7. Não documente neste repo produtos ou packages que não existem neste tree.

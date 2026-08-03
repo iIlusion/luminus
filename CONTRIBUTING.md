@@ -161,7 +161,7 @@ Evite mensagens vagas (`fix`, `updates`, `wip`).
 
 - O script roda no navegador do usuário, na página do hotel.
 - Webhooks de log são opcionais e configurados pelo usuário.
-- Não publique tokens, webhooks ou dados de terceiros em issues.
+- Não publique tokens, webhooks ou dados de outras pessoas em issues.
 - Mantenha capturas de packet locais.
 
 ---
