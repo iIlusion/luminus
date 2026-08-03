@@ -48,7 +48,10 @@ export function createWhisperUserContact(name: string): WhisperContact {
 export function getWhisperPeer(entry: LogEntry, myself: string): string | null {
   if (entry.type === "click") return sameName(entry.actor, myself) ? null : entry.actor;
   if (entry.type !== "whisper" || entry.groupMembers?.length) return null;
-  return sameName(entry.actor, myself) ? entry.target ?? null : entry.actor;
+  const peer = sameName(entry.actor, myself) ? entry.target ?? null : entry.actor;
+  // Broken native-group rows used to log target "group" without members — not a real user.
+  if (peer && peer.toLocaleLowerCase("pt-BR") === "group") return null;
+  return peer;
 }
 
 export function getWhisperConversationKey(entry: LogEntry, myself: string): string | null {
@@ -66,6 +69,16 @@ export function hasDirectWhisperHistory(logs: LogEntry[], myself: string, contac
   );
 }
 
+export function getDirectWhisperHistoryKeys(logs: LogEntry[], myself: string): Set<string> {
+  const keys = new Set<string>();
+  for (const entry of logs) {
+    if (entry.type !== "whisper" || entry.groupMembers?.length) continue;
+    const key = getWhisperConversationKey(entry, myself);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
 export function getWhisperContacts(logs: LogEntry[], myself: string): WhisperContact[] {
   const groups = resolveGroups(logs);
   const directWhisperKeys = new Set(
@@ -76,17 +89,22 @@ export function getWhisperContacts(logs: LogEntry[], myself: string): WhisperCon
   );
 
   const contacts: WhisperContact[] = [];
+  const contactKeys = new Set<string>();
   for (const entry of logs) {
     const group = groups.byEntry.get(entry);
     const key = group?.key ?? getWhisperConversationKey(entry, myself);
-    if (!key || contacts.some(contact => contact.key === key)) continue;
+    if (!key || contactKeys.has(key)) continue;
     if (entry.type === "click" && !directWhisperKeys.has(key)) continue;
     if (group) {
       contacts.push(group);
+      contactKeys.add(key);
       continue;
     }
     const peer = getWhisperPeer(entry, myself);
-    if (peer) contacts.push(createWhisperUserContact(peer));
+    if (peer) {
+      contacts.push(createWhisperUserContact(peer));
+      contactKeys.add(key);
+    }
   }
   return contacts;
 }
@@ -100,29 +118,46 @@ export function getWhisperThread(logs: LogEntry[], myself: string, contact: Whis
     .reverse();
 }
 
+/** True when `inner` is a proper subset of `outer` (same group after someone left the room). */
+function isProperSubsetRoster(inner: string[], outer: string[]): boolean {
+  if (inner.length < 2 || inner.length >= outer.length) return false;
+  const O = new Set(outer.map(normalizedName));
+  return inner.every(name => O.has(normalizedName(name)));
+}
+
 function resolveGroups(logs: LogEntry[]): {
   byEntry: Map<LogEntry, WhisperContact>;
 } {
   const byEntry = new Map<LogEntry, WhisperContact>();
-  const byRoster = new Map<string, WhisperContact>();
+  const contacts: WhisperContact[] = [];
 
-  for (const entry of [...logs].reverse()) {
+  // Oldest first: first full roster wins; later smaller rosters (people left room) stay on it.
+  // A *larger* later roster does not absorb an earlier smaller one (that is a different group).
+  const chronological = [...logs].sort((a, b) => a.ts - b.ts);
+
+  for (const entry of chronological) {
     const rawRoster = entry.groupMembers;
     if (!rawRoster?.length) continue;
     const members = uniqueNames(rawRoster);
     const key = groupKey(members);
-    let contact = byRoster.get(key);
+
+    let contact = contacts.find(item => item.historyKeys.includes(key));
+    if (!contact) {
+      contact = contacts.find(item => isProperSubsetRoster(members, item.members));
+    }
 
     if (!contact) {
       contact = {
         key,
         kind: "group",
-        label: `Group ${byRoster.size + 1}`,
+        label: `Group ${contacts.length + 1}`,
         recipient: "group",
         members,
         historyKeys: [key],
       };
-      byRoster.set(key, contact);
+      contacts.push(contact);
+    } else if (!contact.historyKeys.includes(key)) {
+      contact.historyKeys.push(key);
     }
 
     byEntry.set(entry, contact);

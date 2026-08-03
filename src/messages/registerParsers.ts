@@ -36,6 +36,7 @@ import { AchievementListComposer } from "./outgoing/AchievementListComposer";
 import { BadgePointLimitsParser } from "./incoming/BadgePointLimitsParser";
 import { GetBadgePointLimitsComposer } from "./outgoing/GetBadgePointLimitsComposer";
 import { RoomUserClickComposer } from "./outgoing/RoomUserClickComposer";
+import { RoomUnitTypingParser } from "./incoming/RoomUnitTypingParser";
 
 export function registerParsers(): void {
   packetRegistry.registerIncoming(2725, "UserObject", UserObjectParser);
@@ -63,6 +64,7 @@ export function registerParsers(): void {
   packetRegistry.registerIncoming(305, "AchievementsList", AchievementsListParser);
   packetRegistry.registerIncoming(2107, "AchievementProgressed", AchievementProgressedParser);
   packetRegistry.registerIncoming(2501, "BadgePointLimits", BadgePointLimitsParser);
+  packetRegistry.registerIncoming(1717, "RoomUnitTyping", RoomUnitTypingParser);
 
   packetRegistry.registerOutgoing(219, "AchievementList", AchievementListComposer, ["ACHIEVEMENT_LIST"]);
   packetRegistry.registerOutgoing(1371, "GetBadgePointLimits", GetBadgePointLimitsComposer, ["GET_BADGE_POINTS_LIMITS"]);

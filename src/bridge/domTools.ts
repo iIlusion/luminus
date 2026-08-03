@@ -1,3 +1,5 @@
+import { clampResponseLimit, compactResponse } from "./responseBudget";
+
 // DOM access for the MCP bridge. dom.query returns compact per-element summaries instead of
 // full markup so a broad selector doesn't flood the tool result; dom.eval covers anything a
 // selector can't express (computed state, calling window.Luminus.* directly).
@@ -9,6 +11,7 @@ export interface DomQueryParams {
   selector: string;
   limit?: number;
   html?: boolean;
+  maxChars?: number;
 }
 
 export interface DomElementSummary {
@@ -21,7 +24,7 @@ export interface DomElementSummary {
 }
 
 export function domQuery(params: DomQueryParams): DomElementSummary[] | { error: string } {
-  const limit = params.limit ?? 20;
+  const limit = clampResponseLimit(params.limit, 10, 50);
   let elements: Element[];
 
   try {
@@ -30,7 +33,8 @@ export function domQuery(params: DomQueryParams): DomElementSummary[] | { error:
     return { error: `Seletor inválido: ${error instanceof Error ? error.message : String(error)}` };
   }
 
-  return elements.slice(0, limit).map((el) => summarizeElement(el, !!params.html));
+  const result = elements.slice(0, limit).map((el) => summarizeElement(el, !!params.html));
+  return compactResponse(result, { maxChars: params.maxChars }).value as DomElementSummary[];
 }
 
 function summarizeElement(el: Element, includeHtml: boolean): DomElementSummary {
@@ -55,28 +59,25 @@ function summarizeElement(el: Element, includeHtml: boolean): DomElementSummary 
 
 export interface DomEvalParams {
   code: string;
+  maxChars?: number;
+  raw?: boolean;
 }
 
 export async function domEval(params: DomEvalParams): Promise<unknown> {
   // eslint-disable-next-line no-new-func
   const fn = new Function(`"use strict"; return (async () => { ${params.code} })();`);
   const result = await fn();
-  return toJsonSafe(result);
-}
-
-function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
-  if (value instanceof Element) return summarizeElement(value, false);
-  if (value === undefined) return null;
-  if (typeof value === "function") return `[function ${value.name || "anonymous"}]`;
-  if (typeof value !== "object" || value === null) return value;
-  if (seen.has(value)) return "[circular]";
-  seen.add(value);
-
-  if (Array.isArray(value)) return value.map((v) => toJsonSafe(v, seen));
-
-  const out: Record<string, unknown> = {};
-  for (const key of Object.keys(value as Record<string, unknown>)) {
-    out[key] = toJsonSafe((value as Record<string, unknown>)[key], seen);
-  }
-  return out;
+  const compacted = compactResponse(result, {
+    maxChars: params.maxChars,
+    maxDepth: params.raw ? 6 : 3,
+    maxArrayItems: params.raw ? 128 : 64,
+    maxObjectKeys: params.raw ? 48 : 24,
+    maxStringChars: params.raw ? 1_000 : 500,
+    onObject: value => {
+      if (typeof Element !== "undefined" && value instanceof Element) return summarizeElement(value, false);
+      if (value instanceof Function) return `[function ${value.name || "anonymous"}]`;
+      return undefined;
+    }
+  });
+  return compacted.value;
 }

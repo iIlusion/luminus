@@ -219,8 +219,7 @@ export function ensureRoomEngine(target: Window = window): RoomEngine | null {
 }
 
 /**
- * RoomEngine discovery only. Public Luminus does not draw a head marker here.
- * Other builds may attach their own room markers elsewhere.
+ * Discover Nitro RoomEngine on the page and expose it for room tools.
  */
 export function initNitroWorldOverlay(_api: LuminusApi, target: Window): void {
   const page = target as NitroWindow;

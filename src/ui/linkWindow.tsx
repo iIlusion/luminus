@@ -8,6 +8,11 @@ import {
 } from "../links/linkStore";
 import { toUrl } from "../links/linkDomains";
 import { handleCtrlUserClick } from "./userClickActions";
+import {
+  beginClampedCornerResize,
+  beginClampedWindowDrag,
+  fitElementInSafeBounds,
+} from "./windowBounds";
 
 interface Props {
   api: LuminusApi;
@@ -104,10 +109,16 @@ const ClockIcon = () => (
   </svg>
 );
 
+/** Ban / block circle — color via CSS currentColor (gray off, red on). */
+const BlockIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M6.5 6.5l11 11" />
+  </svg>
+);
+
 export function LinkWindow({ api, open, onClose }: Props) {
   const ref = React.useRef<HTMLDivElement>(null);
-  const drag = React.useRef({ x: 0, y: 0 });
-  const startSize = React.useRef({ w: 0, h: 0, x: 0, y: 0 });
 
   const [, setTick] = React.useState(0);
   const [search, setSearch] = React.useState("");
@@ -117,6 +128,11 @@ export function LinkWindow({ api, open, onClose }: Props) {
   const [linkFilters, setLinkFilters] = React.useState<Set<LinkFilterId>>(() => new Set());
   React.useEffect(() => onLinksChange(() => setTick(value => value + 1)), []);
   React.useEffect(() => setVisibleCount(LINK_PAGE_SIZE), [search, genderFilter, linkFilters, open]);
+  React.useEffect(() => {
+    if (!open || !ref.current) return;
+    // Prefer a wider shell so multi-link rows can sit horizontally.
+    fitElementInSafeBounds(ref.current, { minWidth: 480, minHeight: 260, forceHeight: true });
+  }, [open]);
 
   function toggleLinkFilter(id: LinkFilterId) {
     setLinkFilters(prev => {
@@ -174,32 +190,13 @@ export function LinkWindow({ api, open, onClose }: Props) {
   }
 
   function onDragMouseDown(e: React.MouseEvent) {
-    e.preventDefault();
-    const rect = ref.current!.getBoundingClientRect();
-    drag.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    const move = (ev: MouseEvent) => {
-      const p = ref.current!;
-      p.style.left   = `${ev.clientX - drag.current.x}px`;
-      p.style.top    = `${ev.clientY - drag.current.y}px`;
-      p.style.right  = "auto";
-      p.style.bottom = "auto";
-    };
-    const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
+    if (!ref.current) return;
+    beginClampedWindowDrag(ref.current, e);
   }
 
   function onResizeMouseDown(e: React.MouseEvent) {
-    e.preventDefault(); e.stopPropagation();
-    const p = ref.current!;
-    startSize.current = { w: p.offsetWidth, h: p.offsetHeight, x: e.clientX, y: e.clientY };
-    const move = (ev: MouseEvent) => {
-      p.style.width  = `${Math.max(420, startSize.current.w + ev.clientX - startSize.current.x)}px`;
-      p.style.height = `${Math.max(300, startSize.current.h + ev.clientY - startSize.current.y)}px`;
-    };
-    const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
+    if (!ref.current) return;
+    beginClampedCornerResize(ref.current, e, { minWidth: 440, minHeight: 260 });
   }
 
   function handleRemovePerson(name: string) {
@@ -207,7 +204,7 @@ export function LinkWindow({ api, open, onClose }: Props) {
   }
 
   return (
-    <div id="luminus-linkwindow" className="lm-float-window" ref={ref} style={{ top: 90, left: 420 }}>
+    <div id="luminus-linkwindow" className="lm-float-window" ref={ref}>
       <div className="lw-header" onMouseDown={onDragMouseDown}>
         <span className="lw-title">
           <span className="lw-title-dot" />
@@ -346,9 +343,17 @@ export function LinkWindow({ api, open, onClose }: Props) {
             <div className="lk-links">
               {links.map(rec => {
                 const others = sharedWith(name, rec.link);
+                const blocked = isLinkBlocked(name, rec.link);
                 return (
                   <div key={rec.link} className={`lk-link-chip${others.length ? " is-shared" : ""}`}>
-                    <a className="lk-link-main" href={toUrl(rec.link)} target="_blank" rel="noreferrer" title={`Abrir ${rec.link}`} onClick={() => recordLink(name, rec.link)}>
+                    <a
+                      className="lk-link-main"
+                      href={toUrl(rec.link)}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={`${rec.link}${others.length ? `\nTambém em: ${others.join(", ")}` : ""}\n${rec.clicks} clique(s) · ${fmtLastClicked(rec)}`}
+                      onClick={() => recordLink(name, rec.link)}
+                    >
                       <span className="lk-link-url">{rec.link}</span>
                       <span className="lk-link-meta">
                         {others.length > 0 && (
@@ -356,29 +361,32 @@ export function LinkWindow({ api, open, onClose }: Props) {
                             className="lk-meta-badge lk-meta-shared"
                             title={`Mesmo link em: ${others.join(", ")}`}
                           >
-                            também: {others.slice(0, 3).join(", ")}{others.length > 3 ? ` +${others.length - 3}` : ""}
+                            +{others.length}
                           </span>
                         )}
-                        {rec.gender && <span className="lk-meta-badge" title="Gênero salvo">{rec.gender}</span>}
                         <span className="lk-meta-badge" title={`${rec.clicks} clique${rec.clicks === 1 ? "" : "s"}`}>
                           <ClickIcon />{rec.clicks}
                         </span>
-                        <span className="lk-meta-badge" title={`Último clique em ${fmtLastClicked(rec)}`}>
+                        <span className="lk-meta-badge" title={`Último clique: ${fmtLastClicked(rec)}`}>
                           <ClockIcon />
                         </span>
                         <button
+                          type="button"
+                          className={`lk-link-block${blocked ? " is-active" : ""}`}
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); toggleLinkBlocked(name, rec.link); }}
+                          title={blocked ? "Desbloquear ícone" : "Bloquear ícone"}
+                          aria-pressed={blocked}
+                          aria-label={blocked ? "Desbloquear ícone" : "Bloquear ícone"}
+                        >
+                          <BlockIcon />
+                        </button>
+                        <button
+                          type="button"
                           className="lk-link-remove"
                           onClick={e => { e.preventDefault(); e.stopPropagation(); removeLink(name, rec.link); }}
                           title="Remover este link"
                         >
                           <CloseIcon />
-                        </button>
-                        <button
-                          className="lk-link-block"
-                          onClick={e => { e.preventDefault(); e.stopPropagation(); toggleLinkBlocked(name, rec.link); }}
-                          title={isLinkBlocked(name, rec.link) ? "Desbloquear ícone" : "Bloquear ícone"}
-                        >
-                          {isLinkBlocked(name, rec.link) ? "Desbloquear" : "Bloquear"}
                         </button>
                       </span>
                     </a>

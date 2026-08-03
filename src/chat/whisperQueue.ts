@@ -4,6 +4,8 @@ import { NATIVE_GROUP_RESET_PREFIX } from "./nativeGroupWhisperResetPrefix.ts";
 
 export const WHISPER_REPEAT_WINDOW_MS = 2 * 60 * 1000;
 export const WHISPER_REPEAT_COOLDOWN_MS = 5000;
+/** Minimum spacing between any two real whispers (incl. group). Prevents lag-burst mutes. */
+export const WHISPER_MIN_GAP_MS = 450;
 export const WHISPER_ANTISPAM_PREF = "luminus.chat.whisperAntispam";
 const RETRY_MS = 500;
 
@@ -22,15 +24,18 @@ export class WhisperQueue {
   private readonly send: (data: ArrayBuffer) => boolean;
   private readonly schedule: Schedule;
   private readonly now: () => number;
+  private readonly minGapMs: number;
 
   constructor(
     send: (data: ArrayBuffer) => boolean,
     schedule: Schedule = (callback, delay) => window.setTimeout(callback, delay),
-    now: () => number = Date.now
+    now: () => number = Date.now,
+    minGapMs: number = WHISPER_MIN_GAP_MS,
   ) {
     this.send = send;
     this.schedule = schedule;
     this.now = now;
+    this.minGapMs = Math.max(0, minGapMs);
   }
 
   enqueue(data: ArrayBuffer, contentKey = ""): void {
@@ -42,23 +47,20 @@ export class WhisperQueue {
     if (this.timer !== null || !this.items.length) return;
     const now = this.now();
     this.repeatedAt = this.repeatedAt.filter(item => now - item.timestamp < WHISPER_REPEAT_WINDOW_MS);
-    let repeatReadyAt = Infinity;
 
-    for (let index = 0; index < this.items.length; index++) {
-      const readyAt = this.getRepeatReadyAt(this.items[index].contentKey, now);
-      repeatReadyAt = Math.min(repeatReadyAt, readyAt);
-      if (readyAt <= now) break;
+    let nextReadyAt = Infinity;
+    for (const item of this.items) {
+      const itemReadyAt = Math.max(this.getMinGapReadyAt(now), this.getRepeatReadyAt(item.contentKey, now));
+      if (itemReadyAt < nextReadyAt) nextReadyAt = itemReadyAt;
     }
+    if (!Number.isFinite(nextReadyAt)) return;
 
-    const delay = Math.max(0, repeatReadyAt - now);
+    const delay = Math.max(0, nextReadyAt - now);
     this.timer = this.schedule(() => {
       this.timer = null;
-      if (delay > 0) {
-        this.pump();
-        return;
-      }
-      const nextIndex = this.findReadyItemIndex(this.now());
-      const item = this.items[nextIndex];
+      const tick = this.now();
+      const nextIndex = this.findReadyItemIndex(tick);
+      const item = nextIndex >= 0 ? this.items[nextIndex] : undefined;
       if (!item) {
         this.pump();
         return;
@@ -75,7 +77,13 @@ export class WhisperQueue {
   }
 
   private findReadyItemIndex(now: number): number {
+    if (this.getMinGapReadyAt(now) > now) return -1;
     return this.items.findIndex(item => this.getRepeatReadyAt(item.contentKey, now) <= now);
+  }
+
+  private getMinGapReadyAt(now: number): number {
+    if (this.lastSentAt == null || this.minGapMs <= 0) return now;
+    return this.lastSentAt + this.minGapMs;
   }
 
   private getRepeatReadyAt(contentKey: string, now: number): number {
@@ -96,11 +104,11 @@ export function normalizeWhisperContent(content: string): string {
   return normalized || content.trim().toLocaleLowerCase("pt-BR");
 }
 
+/** Only native group *reset* self-whispers skip the pace queue (must hit Habblet immediately). */
 export function shouldBypassWhisperQueue(value: string, myself = ""): boolean {
   const separator = value.indexOf(" ");
   const target = separator === -1 ? value : value.slice(0, separator);
   const message = separator === -1 ? "" : value.slice(separator + 1);
-  if (target.toLocaleLowerCase("pt-BR") === "group") return true;
   return Boolean(myself)
     && target.localeCompare(myself, undefined, { sensitivity: "accent" }) === 0
     && message.startsWith(NATIVE_GROUP_RESET_PREFIX);
@@ -122,12 +130,9 @@ function readWhisperValue(body: ArrayBuffer): string {
 }
 
 export function initWhisperQueue(bridge: PacketBridge): () => void {
+  // Always pace 1543 (group + DM). Lag recovery otherwise dumps a mute-worthy burst.
   const queue = new WhisperQueue(data => bridge.sendQueuedRaw(data));
   return bridge.deferOutgoing(1543, (data, packet) => {
-    if (!isWhisperAntispamEnabled()) {
-      bridge.sendQueuedRaw(data);
-      return;
-    }
     try {
       const value = readWhisperValue(packet.body);
       if (shouldBypassWhisperQueue(value, bridge.myself?.username ?? "")) {
@@ -135,7 +140,10 @@ export function initWhisperQueue(bridge: PacketBridge): () => void {
         return;
       }
       const separator = value.indexOf(" ");
-      queue.enqueue(data, separator === -1 ? "" : normalizeWhisperContent(value.slice(separator + 1)));
+      const contentKey = isWhisperAntispamEnabled()
+        ? (separator === -1 ? "" : normalizeWhisperContent(value.slice(separator + 1)))
+        : "";
+      queue.enqueue(data, contentKey);
     } catch {
       queue.enqueue(data);
     }

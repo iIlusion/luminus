@@ -41,6 +41,8 @@ export function LogToast({ api }: { api: LuminusApi }) {
       const latest = getSessionLogs()[0];
       if (!latest || latest.ts <= lastTsRef.current) return;
       lastTsRef.current = latest.ts;
+      // Toast for friend log, room monitor, and clicks — not whispers.
+      if (latest.type === "whisper") return;
       const id = nextId++;
       setToasts(prev => [...prev, { id, entry: latest }]);
       window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), LIFETIME_MS);

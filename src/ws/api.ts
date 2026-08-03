@@ -10,9 +10,13 @@ import type { PacketComposer, PacketHandler } from "../protocol/types";
 import { PacketBridge } from "./PacketBridge";
 import { readPref, writePref } from "../util/prefs";
 import type { MuteAllState } from "../room/muteAll";
+import type { FurniClassHideState } from "../room/furniClassHide";
 import type { AchievementData } from "../messages/incoming/AchievementsParser";
 import type { BadgePointLimit } from "../messages/incoming/BadgePointLimitsParser";
 import type { BadgeProgress, LevelThreshold } from "../achievements/achievementStore";
+import { runChatBetaDiag } from "../diag/chatBetaDiag";
+import { chatStressApi, runChatThreadStress } from "../diag/chatStress";
+import { runNitroWeightProbe } from "../diag/nitroWeightProbe";
 
 type SendTarget = number | string | PacketComposer;
 
@@ -53,6 +57,19 @@ export interface LuminusApi {
     desmuteUser(name: string): void;
     isNameMuted(name: string): boolean;
   };
+  /** Session hide of furniture classes (infostand eye + Mobis chooser). */
+  furniClassHide?: {
+    getState(): FurniClassHideState;
+    subscribe(listener: (state: FurniClassHideState) => void): () => void;
+    setEnabled(on: boolean): void;
+    hideFocused(): boolean;
+    showHidden(): void;
+    isFocusHidden(): boolean;
+    isTypeHidden(type: string | null | undefined): boolean;
+    toggleType(type: string, label?: string | null): boolean;
+    hideType(type: string, label?: string | null): boolean;
+    showType(type: string): boolean;
+  };
   achievements?: {
     list(): BadgeProgress[];
     get(badgeIdOrBase: string): BadgeProgress | null;
@@ -73,6 +90,19 @@ export interface LuminusApi {
   };
   // Gates the panel's Packets/Debug tabs — callable as Luminus.toggleDevMode().
   toggleDevMode(): boolean;
+  runChatBetaDiag(options?: { leaveOpen?: boolean }): Promise<unknown>;
+  runChatThreadStress(options?: {
+    peer?: string;
+    seedCount?: number;
+    streamMs?: number;
+    streamIntervalMs?: number;
+    loadAllVisible?: boolean;
+    probeMs?: number;
+    samples?: number;
+    keepSeed?: boolean;
+  }): Promise<unknown>;
+  chatStress: typeof chatStressApi;
+  runNitroWeightProbe(options?: { frameSampleMs?: number; quick?: boolean }): Promise<unknown>;
 }
 
 export function createApi(bridge: PacketBridge): LuminusApi {
@@ -124,6 +154,10 @@ export function createApi(bridge: PacketBridge): LuminusApi {
       writePref("luminus.devMode", enabled);
       console.log(`[Luminus] devMode ${enabled ? "ativado" : "desativado"} — recarregue a página.`);
       return enabled;
-    }
+    },
+    runChatBetaDiag,
+    runChatThreadStress,
+    chatStress: chatStressApi,
+    runNitroWeightProbe,
   };
 }

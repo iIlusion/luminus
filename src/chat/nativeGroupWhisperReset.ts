@@ -1,5 +1,6 @@
 import { RoomUnitWhisperComposer } from "../messages/outgoing/RoomUnitWhisperComposer";
 import type { LuminusApi } from "../ws/api";
+import { markNativeGroupCleared } from "./nativeGroupMount";
 import { NATIVE_GROUP_RESET_PREFIX } from "./nativeGroupWhisperResetPrefix";
 
 type NativeChatInput = HTMLInputElement & Record<string, unknown>;
@@ -28,7 +29,9 @@ export function resetNativeGroupMembers(api?: LuminusApi, force = false): boolea
   if (!force && now - lastResetAt < 1000) return true;
   lastResetAt = now;
 
-  return api.send(new RoomUnitWhisperComposer(username, `${NATIVE_GROUP_RESET_PREFIX}${now.toString(36).slice(-4)}`));
+  const ok = api.send(new RoomUnitWhisperComposer(username, `${NATIVE_GROUP_RESET_PREFIX}${now.toString(36).slice(-4)}`));
+  if (ok) markNativeGroupCleared();
+  return ok;
 }
 
 export function clearNativeGroupWhisperInput(api?: LuminusApi): boolean {

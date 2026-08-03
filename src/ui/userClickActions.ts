@@ -8,7 +8,7 @@ import type { LuminusApi } from "../ws/api";
 
 const OUTGOING_CLICK_ALERT_PREF = "luminus.player.outgoingClickAlert";
 const CLIENT_CTRL_CLICK_WINDOW_MS = 750;
-const PLAYER_API_URL = "https://api.habblet.city/player/timido";
+const PLAYER_API_URL = "https://api.habblet.city/player/Bi";
 const PLAYER_CACHE_TTL_MS = 5 * 60 * 1000;
 const FAKE_USER_ID = 91337001;
 const FAKE_USER_INDEX = -1337;
@@ -21,7 +21,7 @@ const ROOM_CHAT_GESTURE = 0;
 const ROOM_CHAT_BUBBLE = 56;
 const ROOM_CHAT_URL_COUNT = 0;
 
-interface TimidoProfileResponse {
+interface PlayerProfileResponse {
   figure?: string;
   gender?: string;
 }
@@ -60,7 +60,7 @@ async function refreshFakeLook(api: LuminusApi): Promise<FakePlayerLookCache> {
 
   fakeLookRefresh = (async () => {
     try {
-      const data = await gmFetch<TimidoProfileResponse>(PLAYER_API_URL);
+      const data = await gmFetch<PlayerProfileResponse>(PLAYER_API_URL);
       fakeLookCache = {
         figure: data.figure?.trim() || api.myself?.figure || cached.figure,
         gender: (data.gender?.trim() || api.myself?.gender || cached.gender || "M").toUpperCase().startsWith("F") ? "F" : "M",

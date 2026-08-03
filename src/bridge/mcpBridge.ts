@@ -1,8 +1,9 @@
 import type { LuminusApi } from "../ws/api";
 import { readPref, writePref } from "../util/prefs";
-import { initConsoleCapture, getConsoleLogs, type ConsoleQuery } from "./consoleCapture";
-import { initPacketCapture, getPackets, type PacketQuery } from "./packetCapture";
+import { initConsoleCapture, stopConsoleCapture, getConsoleLogs, type ConsoleQuery } from "./consoleCapture";
+import { initPacketCapture, stopPacketCapture, getPackets, type PacketQuery } from "./packetCapture";
 import { domQuery, domEval, type DomQueryParams, type DomEvalParams } from "./domTools";
+import { compactResponse } from "./responseBudget";
 
 const PREF_KEY = "luminus.mcpBridge.enabled";
 const REQUEST_EVENT = "luminus-mcp-request";
@@ -14,6 +15,12 @@ const READY_EVENT = "luminus-mcp-transport-ready";
 type RpcRequest = { id: string; method: string; params?: Record<string, unknown> };
 type RpcResponse = { id: string; result?: unknown; error?: string };
 type Status = "disconnected" | "connecting" | "connected";
+type ProbeParams = {
+  dom?: DomQueryParams;
+  console?: ConsoleQuery;
+  packets?: PacketQuery;
+  maxChars?: number;
+};
 
 let initialized = false;
 let enabled = false;
@@ -28,13 +35,18 @@ const handlers: Record<string, (params: any) => unknown | Promise<unknown>> = {
   "packets.send": (params: { header: number | string; values?: unknown[] }) => {
     if (!apiRef) return { error: "api indisponível" };
     return { ok: apiRef.send(params.header, params.values) };
+  },
+  "probe": (params: ProbeParams) => {
+    const result: Record<string, unknown> = {};
+    if (params.dom) result.dom = domQuery(params.dom);
+    if (params.console) result.console = getConsoleLogs(params.console);
+    if (params.packets) result.packets = getPackets(params.packets);
+    return compactResponse(result, { maxChars: params.maxChars }).value;
   }
 };
 
 export function initMcpBridge(api: LuminusApi): void {
   apiRef = api;
-  initConsoleCapture();
-  initPacketCapture(api);
 
   if (!initialized) {
     initialized = true;
@@ -44,6 +56,7 @@ export function initMcpBridge(api: LuminusApi): void {
   }
 
   enabled = readPref(PREF_KEY, false);
+  syncCapture();
   setStatus(enabled ? "connecting" : "disconnected");
   syncTransport();
 }
@@ -51,8 +64,19 @@ export function initMcpBridge(api: LuminusApi): void {
 export function setMcpBridgeEnabled(value: boolean): void {
   enabled = value;
   writePref(PREF_KEY, value);
+  syncCapture();
   setStatus(value ? "connecting" : "disconnected");
   syncTransport();
+}
+
+function syncCapture(): void {
+  if (enabled && apiRef) {
+    initConsoleCapture();
+    initPacketCapture(apiRef);
+    return;
+  }
+  stopConsoleCapture();
+  stopPacketCapture();
 }
 
 export function getMcpBridgeEnabled(): boolean {

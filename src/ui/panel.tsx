@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as Switch from "@radix-ui/react-switch";
 
-import { ArrowLeft, Bug, ChevronDown, Gamepad2, PanelsTopLeft, RadioTower, ScrollText } from "lucide-react";
+import { ArrowLeft, Bug, ChevronDown, EyeOff, Gamepad2, PanelsTopLeft, RadioTower, ScrollText } from "lucide-react";
 
 import type { LuminusApi } from "../ws/api";
 import type { UnitIdle } from "../messages/incoming/UnitIdleParser";
@@ -18,7 +18,6 @@ import {
 } from "./toolbarGlass";
 import { getMcpBridgeEnabled, setMcpBridgeEnabled, getMcpBridgeStatus } from "../bridge/mcpBridge";
 
-import { getSaveGender, setSaveGender } from "../links/linkStore";
 import {
   addMuteAllWhitelist,
   getMuteAllState,
@@ -31,6 +30,21 @@ import {
 } from "../room/muteAll";
 import { getOutgoingClickAlertEnabled, setOutgoingClickAlertEnabled } from "./userClickActions";
 import { RoomUserClickComposer } from "../messages/outgoing/RoomUserClickComposer";
+import {
+  getIncrementalRoomCanvasEnabled,
+  setIncrementalRoomCanvasEnabled,
+} from "../room/incrementalRoomCanvas";
+import {
+  getState as getFurniClassHideState,
+  setFurniClassHideEnabled,
+  subscribeFurniClassHide,
+  type FurniClassHideState,
+} from "../room/furniClassHide";
+import {
+  applyClampedSize,
+  beginClampedWindowDrag,
+  fitElementInSafeBounds,
+} from "./windowBounds";
 
 interface Props {
   api: LuminusApi;
@@ -41,12 +55,13 @@ interface Props {
 }
 
 
-type PanelView = "launcher" | "player" | "logs" | "visual" | "packets" | "debug";
+type PanelView = "launcher" | "player" | "logs" | "visual" | "render" | "packets" | "debug";
 
 function viewLabel(view: Exclude<PanelView, "launcher">): string {
   if (view === "player") return "Player";
   if (view === "logs") return "Logs";
   if (view === "visual") return "Visual";
+  if (view === "render") return "Renderização";
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return "Packets";
   return "Debug";
 }
@@ -56,6 +71,7 @@ function ViewIcon({ view, size = 20 }: { view: Exclude<PanelView, "launcher">; s
   if (view === "player") return <Gamepad2 {...props} />;
   if (view === "logs") return <ScrollText {...props} />;
   if (view === "visual") return <PanelsTopLeft {...props} />;
+  if (view === "render") return <EyeOff {...props} />;
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return <RadioTower {...props} />;
   return <Bug {...props} />;
 }
@@ -137,34 +153,29 @@ const PLAYER_OUTGOING: Record<Exclude<PlayerKey, "antiIdle" | "ctrlLook">, numbe
 
 export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Props) {
   const panelRef = React.useRef<HTMLDivElement>(null);
-  const dragOffset = React.useRef({ x: 0, y: 0 });
+  /** True after the user resizes via the side handles — keep that size across tabs. */
+  const userResizedRef = React.useRef(false);
   const [view, setView] = React.useState<PanelView>("launcher");
 
   React.useEffect(() => {
     if (!open) setView("launcher");
   }, [open]);
 
+  // Keep header inside the Nitro-safe band (never above the top / over the toolbar).
+  // Without a user resize, reflow height with content so small tabs don't shrink the shell.
+  React.useEffect(() => {
+    if (!open || !panelRef.current) return;
+    fitElementInSafeBounds(panelRef.current, {
+      minWidth: 280,
+      minHeight: 200,
+      autoSize: !userResizedRef.current,
+    });
+  }, [open, view]);
+
   // drag
   function onHeaderMouseDown(e: React.MouseEvent) {
-    e.preventDefault();
-    const rect = panelRef.current!.getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-
-    const move = (ev: MouseEvent) => {
-      const p = panelRef.current!;
-      p.style.left = `${ev.clientX - dragOffset.current.x}px`;
-      p.style.top  = `${ev.clientY - dragOffset.current.y}px`;
-      p.style.right = "auto";
-      p.style.bottom = "auto";
-    };
-
-    const up = () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-    };
-
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
+    if (!panelRef.current) return;
+    beginClampedWindowDrag(panelRef.current, e);
   }
 
   // resize
@@ -177,19 +188,38 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
     const startY = e.clientY;
     const startW = p.offsetWidth;
     const startH = p.offsetHeight;
+    // Match CSS --lm-panel-min-h intent: never shorter than header+footer+body band.
+    const minH = 200;
+    let moved = false;
 
     const move = (ev: MouseEvent) => {
+      moved = true;
       const width = Math.max(280, startW + (side === "left" ? startX - ev.clientX : ev.clientX - startX));
-      p.style.width = `${width}px`;
-      p.style.height = `${Math.max(180, startH + ev.clientY - startY)}px`;
+      const height = Math.max(minH, startH + (ev.clientY - startY));
       if (side === "left") {
+        // Anchor right edge, then clamp whole rect into safe band.
         p.style.left = `${rect.right - width}px`;
         p.style.right = "auto";
+        p.style.width = `${width}px`;
+        applyClampedSize(p, width, height, { minWidth: 280, minHeight: minH, anchorLeft: true });
+        // re-apply left-anchor after clamp by preserving right edge intent
+        const after = p.getBoundingClientRect();
+        if (after.right < rect.right - 1 || after.right > rect.right + 1) {
+          p.style.left = `${Math.max(8, rect.right - after.width)}px`;
+        }
+      } else {
+        applyClampedSize(p, width, height, { minWidth: 280, minHeight: minH });
       }
     };
     const up = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
+      if (moved) userResizedRef.current = true;
+      fitElementInSafeBounds(p, {
+        minWidth: 280,
+        minHeight: minH,
+        forceHeight: userResizedRef.current,
+      });
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -206,15 +236,16 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
   const [lookupLoading, setLookupLoading] = React.useState(false);
 
   React.useEffect(() => {
+    // Click on avatar in room → always use live room figure (never Habblet API).
     return api.onOutgoing(2091, ({ packet }) => {
       const userId = new DataView(packet.body).getInt32(0, false);
       for (const unit of api.room.units.values()) {
-        if (unit.id === userId && unit.figure) {
-          setCopiedFigure(unit.figure);
-          setCopiedGender(unit.sex ?? "M");
-          setCopiedName(unit.name);
-          break;
-        }
+        if (unit.type !== 1) continue;
+        if (unit.id !== userId || !unit.figure) continue;
+        setCopiedFigure(unit.figure);
+        setCopiedGender((unit.sex ?? "M").toUpperCase().startsWith("F") ? "F" : "M");
+        setCopiedName(unit.name);
+        break;
       }
     });
   }, []);
@@ -222,13 +253,26 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
   async function handleLookup() {
     const name = lookupName.trim();
     if (!name) return;
+
+    // Prefer current room figure when the person is in the room.
+    const wanted = name.toLocaleLowerCase().normalize("NFC");
+    for (const unit of api.room.units.values()) {
+      if (unit.type !== 1 || !unit.figure) continue;
+      if (unit.name.toLocaleLowerCase().normalize("NFC") !== wanted) continue;
+      setCopiedFigure(unit.figure);
+      setCopiedGender((unit.sex ?? "M").toUpperCase().startsWith("F") ? "F" : "M");
+      setCopiedName(unit.name);
+      return;
+    }
+
+    // API only for search when the user is not in the current room.
     setLookupLoading(true);
     try {
       const data = await gmFetch<{ figure?: string; gender?: string; username?: string }>(
-        `https://api.habblet.city/player/${name}`
+        `https://api.habblet.city/player/${encodeURIComponent(name)}`
       );
       setCopiedFigure(data.figure ?? "");
-      setCopiedGender(data.gender ?? "M");
+      setCopiedGender((data.gender ?? "M").toUpperCase().startsWith("F") ? "F" : "M");
       setCopiedName(data.username ?? name);
     } catch {
       // request falhou — mantém estado atual
@@ -251,15 +295,30 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
   const [blockClickCtrlBypass, setBlockClickCtrlBypassState] = React.useState(() =>
     readPref("luminus.player.blockClickCtrlBypass", false)
   );
-  const [saveLinkGender, setSaveLinkGender] = React.useState(() => getSaveGender());
+  /** With Ctrl+click bypass: also allow UNIT_LOOK (anti-girar) during the same window. */
+  const [blockClickCtrlBypassAntiLook, setBlockClickCtrlBypassAntiLookState] = React.useState(() =>
+    readPref("luminus.player.blockClickCtrlBypassAntiLook", false)
+  );
   const [outgoingClickAlert, setOutgoingClickAlertState] = React.useState(() => getOutgoingClickAlertEnabled());
   const blockClickCtrlBypassRef = React.useRef(blockClickCtrlBypass);
   blockClickCtrlBypassRef.current = blockClickCtrlBypass;
+  const blockClickCtrlBypassAntiLookRef = React.useRef(blockClickCtrlBypassAntiLook);
+  blockClickCtrlBypassAntiLookRef.current = blockClickCtrlBypassAntiLook;
   const ctrlClickBypassUntil = React.useRef(0);
 
   function toggleBlockClickCtrlBypass(v: boolean) {
     writePref("luminus.player.blockClickCtrlBypass", v);
     setBlockClickCtrlBypassState(v);
+    // Nested option only makes sense with parent on.
+    if (!v) {
+      writePref("luminus.player.blockClickCtrlBypassAntiLook", false);
+      setBlockClickCtrlBypassAntiLookState(false);
+    }
+  }
+
+  function toggleBlockClickCtrlBypassAntiLook(v: boolean) {
+    writePref("luminus.player.blockClickCtrlBypassAntiLook", v);
+    setBlockClickCtrlBypassAntiLookState(v);
   }
 
   function toggleOutgoingClickAlert(v: boolean) {
@@ -283,22 +342,32 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
     if (key === "blockClick") {
       const markCtrlClick = (e: PointerEvent) => {
         if (blockClickCtrlBypassRef.current && e.button === 0 && e.ctrlKey) {
+          // Keep a short open window so both ROOM_USER_CLICK (431) and UNIT_LOOK (3301) can pass.
           ctrlClickBypassUntil.current = Date.now() + 750;
         }
       };
       window.addEventListener("pointerdown", markCtrlClick, true);
       const unblock = api.blockOutgoing(431, () => {
-        const ctrlClickBypass = Date.now() <= ctrlClickBypassUntil.current;
-        if (ctrlClickBypass) {
-          ctrlClickBypassUntil.current = 0;
-          return false;
-        }
-        return true;
+        // Allow for the whole window (do not clear on first packet — look may follow click).
+        return Date.now() > ctrlClickBypassUntil.current;
       });
       return () => {
         window.removeEventListener("pointerdown", markCtrlClick, true);
         unblock();
       };
+    }
+    // Anti-girar: hard-block UNIT_LOOK, except during Ctrl+click bypass when the sub-option is on.
+    if (key === "antiLook") {
+      return api.blockOutgoing(3301, () => {
+        if (
+          blockClickCtrlBypassRef.current
+          && blockClickCtrlBypassAntiLookRef.current
+          && Date.now() <= ctrlClickBypassUntil.current
+        ) {
+          return false;
+        }
+        return true;
+      });
     }
     if (key in PLAYER_OUTGOING) {
       return api.blockOutgoing(PLAYER_OUTGOING[key as keyof typeof PLAYER_OUTGOING]);
@@ -365,9 +434,11 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
 
   // --- Mutar geral ---
   const [muteAll, setMuteAll] = React.useState<MuteAllState>(() => getMuteAllState());
+  const [furniClassHide, setFurniClassHide] = React.useState<FurniClassHideState>(() => getFurniClassHideState());
   const [muteWhitelistInput, setMuteWhitelistInput] = React.useState("");
 
   React.useEffect(() => subscribeMuteAll(setMuteAll), []);
+  React.useEffect(() => subscribeFurniClassHide(setFurniClassHide), []);
 
   function addWhitelistName() {
     const name = muteWhitelistInput.trim();
@@ -557,6 +628,13 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
     setWardrobeStacked(v);
     setWardrobeStackedState(v);
   }
+  const [incrementalRoomCanvas, setIncrementalRoomCanvasState] = React.useState(
+    () => getIncrementalRoomCanvasEnabled(),
+  );
+  function toggleIncrementalRoomCanvas(enabled: boolean) {
+    setIncrementalRoomCanvasEnabled(enabled);
+    setIncrementalRoomCanvasState(enabled);
+  }
   
     const backTarget = (): PanelView => "launcher";
 
@@ -621,6 +699,10 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
           <span className="lm-launcher-icon"><PanelsTopLeft aria-hidden="true" /></span>
           <span>Visual</span>
         </button>
+        <button className="lm-launcher-item is-render" onClick={() => setView("render")}>
+          <span className="lm-launcher-icon"><EyeOff aria-hidden="true" /></span>
+          <span>Renderização</span>
+        </button>
         
         {devMode && <button className="lm-launcher-item is-dev" onClick={() => setView("packets")}>
           <span className="lm-launcher-icon"><RadioTower aria-hidden="true" /></span>
@@ -659,6 +741,22 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                       className="lm-switch-root"
                       checked={blockClickCtrlBypass}
                       onCheckedChange={toggleBlockClickCtrlBypass}
+                    >
+                      <Switch.Thumb className="lm-switch-thumb" />
+                    </Switch.Root>
+                  </div>
+                  <div className="lm-row lm-row-sub lm-row-sub2">
+                    <span className="lm-label">
+                      Ctrl + clique libera anti-girar
+                      <span className="lm-sub">
+                        No mesmo Ctrl+clique, também deixa passar o olhar/giro (desbloqueia o Anti-Girar por um instante).
+                      </span>
+                    </span>
+                    <Switch.Root
+                      className="lm-switch-root"
+                      checked={blockClickCtrlBypassAntiLook}
+                      disabled={!blockClickCtrlBypass}
+                      onCheckedChange={toggleBlockClickCtrlBypassAntiLook}
                     >
                       <Switch.Thumb className="lm-switch-thumb" />
                     </Switch.Root>
@@ -705,23 +803,6 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 </div>
               );
             })}
-          </div>
-
-          <div className="lm-section">
-            <div className="lm-section-title">Links</div>
-            <div className="lm-row">
-              <span className="lm-label">
-                Salvar gênero nos links
-                <span className="lm-sub">Guarda o gênero informado pelo quarto junto de cada link.</span>
-              </span>
-              <Switch.Root
-                className="lm-switch-root"
-                checked={saveLinkGender}
-                onCheckedChange={value => { setSaveLinkGender(value); setSaveGender(value); }}
-              >
-                <Switch.Thumb className="lm-switch-thumb" />
-              </Switch.Root>
-            </div>
           </div>
 
           <div className="lm-section">
@@ -1008,6 +1089,22 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
             </div>
           </div>
           <div className="lm-section">
+            <div className="lm-section-title">Desempenho</div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Carregamento suave de quartos
+                <span className="lm-sub">Distribui personagens e mobis ao entrar. Reentre no quarto para comparar.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={incrementalRoomCanvas}
+                onCheckedChange={toggleIncrementalRoomCanvas}
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+          </div>
+          <div className="lm-section">
             <div className="lm-section-title">Guarda-Roupa</div>
             <div className="lm-row">
               <span className="lm-label">
@@ -1022,6 +1119,44 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 <Switch.Thumb className="lm-switch-thumb" />
               </Switch.Root>
             </div>
+          </div>
+        </div>}
+
+        {view === "render" && <div className="lm-tab-content">
+          <div className="lm-section">
+            <div className="lm-section-title">Mobis</div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Ocultar classe (infostand + Mobis)
+                <span className="lm-sub">
+                  Olho no infostand do mobi e em cada linha da janela Mobis (:furnis).
+                  Só o olho devolve a visibilidade — fechar o infostand não restaura.
+                </span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={furniClassHide.enabled}
+                onCheckedChange={setFurniClassHideEnabled}
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+            {furniClassHide.enabled && (
+              <div className="lm-status-grid">
+                <span>
+                  <b>Foco</b>
+                  {furniClassHide.focusLabel
+                    ? `${furniClassHide.focusLabel}${furniClassHide.focusHidden ? " · oculto" : ""}${furniClassHide.focusCount ? ` · ${furniClassHide.focusCount}×` : ""}`
+                    : "nenhum mobi aberto"}
+                </span>
+                <span>
+                  <b>Classes ocultas</b>
+                  {furniClassHide.hiddenTypes?.length
+                    ? `${furniClassHide.hiddenTypes.length} · ${furniClassHide.hiddenCount} mobis`
+                    : "—"}
+                </span>
+              </div>
+            )}
           </div>
         </div>}
 

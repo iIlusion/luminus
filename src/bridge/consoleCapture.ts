@@ -11,18 +11,29 @@ export interface ConsoleEntry {
 
 const buffer: ConsoleEntry[] = [];
 let patched = false;
+const originals = new Map<ConsoleEntry["level"], (...args: unknown[]) => void>();
+const MAX_QUERY_LIMIT = 100;
 
 export function initConsoleCapture(): void {
   if (patched) return;
   patched = true;
 
   (["log", "info", "warn", "error", "debug"] as const).forEach((level) => {
-    const original = console[level].bind(console);
+    const original = console[level];
+    originals.set(level, original);
     console[level] = (...args: unknown[]) => {
-      original(...args);
+      original.apply(console, args);
       push(level, args);
     };
   });
+}
+
+export function stopConsoleCapture(): void {
+  if (!patched) return;
+  patched = false;
+  for (const [level, original] of originals) console[level] = original as Console[typeof level];
+  originals.clear();
+  buffer.length = 0;
 }
 
 function push(level: ConsoleEntry["level"], args: unknown[]): void {
@@ -49,7 +60,7 @@ export interface ConsoleQuery {
 }
 
 export function getConsoleLogs(query: ConsoleQuery = {}): ConsoleEntry[] {
-  const limit = query.limit ?? 50;
+  const limit = Math.min(MAX_QUERY_LIMIT, Math.max(1, Math.floor(query.limit ?? 20)));
   let entries = buffer;
 
   if (query.level) entries = entries.filter((e) => e.level === query.level);

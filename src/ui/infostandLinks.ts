@@ -7,6 +7,13 @@ import {
   isLinkBlocked, toggleLinkBlocked, fmtClickInfo
 } from "../links/linkStore";
 import { desmuteUser, isNameMuted, muteUser, subscribeMuteAll } from "../room/muteAll";
+import {
+  getState as getFurniClassHideState,
+  isFocusHidden,
+  onFurnitureInfostand,
+  subscribeFurniClassHide,
+  toggleFocusedClass,
+} from "../room/furniClassHide";
 
 const ACTIONS: { label: string; cmd: string }[] = [
   { label: "Abraçar",  cmd: "abracar" },
@@ -22,6 +29,20 @@ let openMenuFor: string | null = null;
 const EYE_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" stroke="#26de81" stroke-width="2"/>
     <circle cx="12" cy="12" r="3" fill="#26de81"/>
+  </svg>`;
+
+/** Open eye — class currently visible (click to hide). */
+const FURNI_EYE_OPEN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" stroke="currentColor" stroke-width="2"/>
+    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+  </svg>`;
+
+/** Eye-off — class currently hidden (click to show). */
+const FURNI_EYE_OFF_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M1 1l22 22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
   </svg>`;
 
 const LINK_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -546,6 +567,7 @@ function updateMuteButton(btn: HTMLButtonElement, name: string): void {
 function processInfostand(container: Element): void {
   const nameEl = container.querySelector<HTMLElement>(".goldfish.fw-bold");
   const mottoEl = container.querySelector<HTMLElement>(".motto-content .goldfish");
+  const isFurniture = Boolean(container.querySelector(".furni-image"));
   if (!nameEl || !mottoEl) {
     // Not a player infostand (e.g. furniture) — clear any stale player UI.
     if (container.classList.contains("luminus-user-infostand")) {
@@ -553,8 +575,20 @@ function processInfostand(container: Element): void {
     }
     removeActionBar();
     closeLinkMenu();
+    if (isFurniture && nameEl) {
+      const title = nameEl.textContent?.trim() || null;
+      onFurnitureInfostand(title);
+      renderFurniHideEye(container, nameEl, title);
+    } else {
+      onFurnitureInfostand(null);
+      removeFurniHideEye();
+    }
     return;
   }
+
+  // Player card — furniture hide never sticks across people.
+  onFurnitureInfostand(null);
+  removeFurniHideEye();
 
   if (!container.classList.contains("luminus-user-infostand")) {
     suppressObserverUntil = performance.now() + 50;
@@ -562,6 +596,78 @@ function processInfostand(container: Element): void {
   }
   const name = processMotto(nameEl, mottoEl);
   renderActionBar(container, name);
+}
+
+function removeFurniHideEye(): void {
+  document.getElementById("luminus-furni-hide-eye")?.remove();
+}
+
+/**
+ * Eye toggle on the furniture title row (next to the name), not a bottom button.
+ * Open eye = visible class; eye-off = hidden — click flips instantly via Nitro alpha API.
+ */
+function renderFurniHideEye(container: Element, nameEl: HTMLElement, title: string | null): void {
+  const state = getFurniClassHideState();
+  if (!state.enabled || !title) {
+    removeFurniHideEye();
+    return;
+  }
+
+  let eye = document.getElementById("luminus-furni-hide-eye") as HTMLButtonElement | null;
+  const header = nameEl.parentElement;
+  if (!header) {
+    removeFurniHideEye();
+    return;
+  }
+
+  if (eye && (eye.dataset.title !== title || !header.contains(eye))) {
+    eye.remove();
+    eye = null;
+  }
+
+  if (!eye) {
+    eye = document.createElement("button");
+    eye.type = "button";
+    eye.id = "luminus-furni-hide-eye";
+    eye.className = "luminus-furni-hide-eye";
+    eye.dataset.luminusUi = "1";
+    eye.dataset.title = title;
+    eye.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      suppressObserverUntil = performance.now() + 80;
+      // Sync focus + hide/show in the same tick (no wait for poll).
+      onFurnitureInfostand(title);
+      toggleFocusedClass();
+      updateFurniHideEye(eye!);
+    });
+    // Prefer insert right after the title text.
+    suppressObserverUntil = performance.now() + 50;
+    if (nameEl.nextSibling) header.insertBefore(eye, nameEl.nextSibling);
+    else header.appendChild(eye);
+  }
+
+  updateFurniHideEye(eye);
+}
+
+function updateFurniHideEye(eye: HTMLButtonElement): void {
+  const state = getFurniClassHideState();
+  const hidden = Boolean(state.focusHidden ?? isFocusHidden());
+  const next = hidden ? "1" : "0";
+  if (eye.dataset.hideState === next && eye.dataset.focusType === (state.focusType ?? "")) return;
+
+  suppressObserverUntil = performance.now() + 50;
+  eye.dataset.hideState = next;
+  eye.dataset.focusType = state.focusType ?? "";
+  eye.classList.toggle("is-hidden", hidden);
+  eye.innerHTML = hidden ? FURNI_EYE_OFF_SVG : FURNI_EYE_OPEN_SVG;
+  const count = state.focusCount;
+  const countLabel = count > 0 ? ` (${count})` : "";
+  eye.title = hidden
+    ? `Reaparecer classe${countLabel}`
+    : `Ocultar todos desta classe${countLabel}`;
+  eye.setAttribute("aria-label", eye.title);
+  eye.setAttribute("aria-pressed", hidden ? "true" : "false");
 }
 
 // Full "Perfil Habblet" window — same motto-link + eye icon treatment, no action bar
@@ -591,17 +697,21 @@ let pendingMutations: MutationRecord[] = [];
 function isLuminusUiNode(node: Node | null): boolean {
   if (!node) return false;
   if (node instanceof HTMLElement) {
-    if (node.id === "luminus-action-bar" || node.dataset.luminusUi === "1") return true;
+    if (
+      node.id === "luminus-action-bar"
+      || node.id === "luminus-furni-hide-eye"
+      || node.dataset.luminusUi === "1"
+    ) return true;
     return Boolean(
       node.closest(
-        "#luminus-action-bar, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
+        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
       ),
     );
   }
   if (node instanceof Element) {
     return Boolean(
       node.closest(
-        "#luminus-action-bar, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
+        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
       ),
     );
   }
@@ -669,7 +779,11 @@ function scheduleInfostandProcess(mutations: MutationRecord[]): void {
 
     const infostand = document.querySelector(".nitro-infostand-container");
     if (infostand) processInfostand(infostand);
-    else removeActionBar();
+    else {
+      removeActionBar();
+      removeFurniHideEye();
+      onFurnitureInfostand(null);
+    }
 
     const profileCard = document.querySelector(".user-profile");
     if (profileCard) processProfile(profileCard);
@@ -720,6 +834,13 @@ export function initInfostandLinks(api: LuminusApi): void {
     const muteBtn = bar?.querySelector<HTMLButtonElement>("[data-role='mute-toggle']");
     if (name && muteBtn) updateMuteButton(muteBtn, name);
     processUserContextMenus(document);
+  });
+
+  // Refresh eye icon when hide state changes (counts / toggle).
+  subscribeFurniClassHide(() => {
+    const eye = document.getElementById("luminus-furni-hide-eye") as HTMLButtonElement | null;
+    if (eye) updateFurniHideEye(eye);
+    if (!getFurniClassHideState().enabled) removeFurniHideEye();
   });
 
   const start = () => {

@@ -6,7 +6,9 @@ import { filterObjectUpdateNoise } from "./objectUpdateNoise";
 // stringify so noisy room updates cannot stall the game's main thread.
 const MAX_ENTRIES = 3_000;
 const MAX_PARSED_LEN = 800;
+const MAX_PARSE_ERROR_LEN = 400;
 const MAX_ARRAY_ITEMS = 64;
+const MAX_QUERY_LIMIT = 100;
 
 export interface PacketEntry {
   ts: number;
@@ -19,13 +21,12 @@ export interface PacketEntry {
 
 const buffer: PacketEntry[] = [];
 let writeIndex = 0;
-let started = false;
+let stop: (() => void) | null = null;
 
 export function initPacketCapture(api: LuminusApi): void {
-  if (started) return;
-  started = true;
+  if (stop) return;
 
-  api.onPacket((packet) => {
+  stop = api.onPacket((packet) => {
     const parsed = packet.header === 1453 && Array.isArray(packet.parsed)
       ? filterObjectUpdateNoise(packet.parsed as ObjectDataUpdate[], true)
       : packet.parsed;
@@ -37,7 +38,7 @@ export function initPacketCapture(api: LuminusApi): void {
       header: packet.header,
       name: packet.name,
       parsed: parsed === undefined ? undefined : serializeParsed(packet.header, parsed),
-      parseError: packet.parseError
+      parseError: packet.parseError?.slice(0, MAX_PARSE_ERROR_LEN)
     };
 
     if (buffer.length < MAX_ENTRIES) buffer.push(entry);
@@ -46,6 +47,13 @@ export function initPacketCapture(api: LuminusApi): void {
       writeIndex = (writeIndex + 1) % MAX_ENTRIES;
     }
   });
+}
+
+export function stopPacketCapture(): void {
+  stop?.();
+  stop = null;
+  buffer.length = 0;
+  writeIndex = 0;
 }
 
 function serializeParsed(header: number, value: unknown): string {
@@ -114,7 +122,7 @@ export interface PacketQuery {
 }
 
 export function getPackets(query: PacketQuery = {}): PacketEntry[] {
-  const limit = query.limit ?? 20;
+  const limit = Math.min(MAX_QUERY_LIMIT, Math.max(1, Math.floor(query.limit ?? 10)));
   let entries = buffer.length < MAX_ENTRIES || writeIndex === 0
     ? buffer
     : [...buffer.slice(writeIndex), ...buffer.slice(0, writeIndex)];

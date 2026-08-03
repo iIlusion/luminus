@@ -1,5 +1,5 @@
 import type { PacketParser } from "../../protocol/types";
-import type { PacketReader } from "../../protocol/wrapper";
+import { PacketReader } from "../../protocol/wrapper";
 
 export interface RoomUnit {
   id: number;
@@ -19,6 +19,12 @@ export interface RoomUnit {
   swimFigure?: string;
   activityPoints?: number;
   isModerator?: boolean;
+}
+
+export interface RoomUnitPacketEntry {
+  index: number;
+  start: number;
+  end: number;
 }
 
 interface CommonFields extends Omit<RoomUnit, "sex"> {}
@@ -58,6 +64,46 @@ export class UsersParser implements PacketParser<RoomUnit[]> {
   }
 }
 
+/** Returns raw entry boundaries so callers can filter UNIT without re-encoding fields. */
+export function readRoomUnitPacketEntries(body: ArrayBuffer): RoomUnitPacketEntry[] {
+  const reader = new PacketReader(374, body);
+  const count = reader.readInt();
+  if (count < 0 || count > 10000) throw new Error("invalid room unit count");
+
+  const entries: RoomUnitPacketEntry[] = [];
+  for (let i = 0; i < count; i++) {
+    const start = reader.offset;
+    reader.readInt();
+    skipString(reader, 128);
+    skipString(reader, 512);
+    skipString(reader, 1024);
+    const index = reader.readInt();
+    reader.readInt();
+    reader.readInt();
+    skipString(reader, 32);
+    reader.readInt();
+    const type = reader.readInt();
+
+    if (type === 1) {
+      skipString(reader, 16);
+      reader.readInt();
+      reader.readInt();
+      skipString(reader, 128);
+      skipString(reader, 1024);
+      reader.readInt();
+      reader.readByte();
+    } else if (type === 2) {
+      reader.readBytes(33);
+    } else if (type === 4) {
+      reader.readBytes(39);
+    }
+
+    entries.push({ index, start, end: reader.offset });
+  }
+
+  return entries;
+}
+
 function readCommonFields(reader: PacketReader): CommonFields {
   const id = reader.readInt();
   const name = readBoundedString(reader, 128);
@@ -82,6 +128,12 @@ function readBoundedString(reader: PacketReader, maxLength: number): string {
   }
 
   return sanitize(new TextDecoder().decode(reader.readBytes(length)));
+}
+
+function skipString(reader: PacketReader, maxLength: number): void {
+  const length = reader.readShort();
+  if (length < 0 || length > maxLength) throw new Error("invalid room unit string length");
+  reader.readBytes(length);
 }
 
 function sanitize(value: string): string {

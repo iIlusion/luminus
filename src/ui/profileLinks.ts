@@ -8,6 +8,9 @@ import { getTargetWindow } from "../ws/interceptWebSocket";
 import { findRoomUnitByName, handleCtrlUserClick } from "./userClickActions";
 
 const ROOM_UNIT_CATEGORY = 100;
+const PROFILE_OVERLAY_CLASS = "luminus-native-profile-open";
+let profileObserver: MutationObserver | null = null;
+let profileTimeout = 0;
 
 interface NitroRoomEngine {
   objectEventHandler?: {
@@ -16,6 +19,7 @@ interface NitroRoomEngine {
 }
 
 export function openUserProfile(api: LuminusApi, name: string): void {
+  prepareProfileOverlay();
   const roomUnit = findRoomUnitByName(api, name);
   if (roomUnit) {
     openRoomUserUi(api, roomUnit);
@@ -46,6 +50,68 @@ export function openUserProfile(api: LuminusApi, name: string): void {
     done = true;
     unsubscribe();
   }
+}
+
+function prepareProfileOverlay(): void {
+  const body = document.body;
+  if (!body) return;
+
+  ensureProfileOverlayStyles();
+  profileObserver?.disconnect();
+  window.clearTimeout(profileTimeout);
+  body.classList.add(PROFILE_OVERLAY_CLASS);
+
+  let opened = Boolean(document.querySelector(".user-profile"));
+  const sync = () => {
+    const profile = document.querySelector<HTMLElement>(".user-profile");
+    if (profile) {
+      opened = true;
+      profile.classList.add("luminus-native-profile");
+      profile.closest<HTMLElement>(".draggable-window")?.classList.add("luminus-native-profile-window");
+      return;
+    }
+    if (opened) clearProfileOverlay();
+  };
+
+  profileObserver = new MutationObserver(sync);
+  profileObserver.observe(body, { childList: true, subtree: true });
+  sync();
+  profileTimeout = window.setTimeout(() => {
+    if (!document.querySelector(".user-profile")) clearProfileOverlay();
+  }, 5000);
+}
+
+function clearProfileOverlay(): void {
+  profileObserver?.disconnect();
+  profileObserver = null;
+  window.clearTimeout(profileTimeout);
+  profileTimeout = 0;
+  document.body?.classList.remove(PROFILE_OVERLAY_CLASS);
+}
+
+function ensureProfileOverlayStyles(): void {
+  if (document.getElementById("luminus-profile-overlay-styles")) return;
+  const style = document.createElement("style");
+  style.id = "luminus-profile-overlay-styles";
+  style.textContent = `
+body.${PROFILE_OVERLAY_CLASS} #luminus-panel,
+body.${PROFILE_OVERLAY_CLASS} .lm-float-window,
+body.${PROFILE_OVERLAY_CLASS} #luminus-toast-stack,
+body.${PROFILE_OVERLAY_CLASS} #luminus-link-ctxmenu,
+body.${PROFILE_OVERLAY_CLASS} .luminus-chat-beta-menu {
+  z-index: 1000 !important;
+}
+body.${PROFILE_OVERLAY_CLASS} .user-profile.luminus-native-profile {
+  position: relative;
+  z-index: 2147483647 !important;
+}
+body.${PROFILE_OVERLAY_CLASS} .draggable-window.luminus-native-profile-window {
+  z-index: 2147483647 !important;
+}
+body.${PROFILE_OVERLAY_CLASS} #luminus-changelog {
+  visibility: hidden;
+}`;
+  (document.head ?? document.documentElement).appendChild(style);
 }
 
 function normalizeText(value: string): string {

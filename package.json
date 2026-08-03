@@ -1,9 +1,9 @@
 {
   "name": "luminus",
-  "version": "1.1.0",
+  "version": "1.1.55",
   "private": true,
   "type": "module",
-  "description": "Userscript Luminus para o Habblet Hotel â€” painel, player, logs, visual e links.",
+  "description": "Userscript Luminus para o Habblet Hotel — painel, player, logs, visual e links.",
   "homepage": "https://github.com/iIlusion/luminus",
   "bugs": {
     "url": "https://github.com/iIlusion/luminus/issues"
@@ -12,6 +12,13 @@
     "type": "git",
     "url": "https://github.com/iIlusion/luminus.git"
   },
+  "exports": {
+    ".": "./src/boot/bootLuminus.ts",
+    "./boot": "./src/boot/bootLuminus.ts",
+    "./package.json": "./package.json",
+    "./*": "./src/*"
+  },
+  "types": "./src/boot/bootLuminus.ts",
   "scripts": {
     "dev": "vite build --mode main-dev --watch",
     "dev:main": "vite build --mode main-dev --watch",
@@ -37,6 +44,15 @@
     "vite": "7.3.6"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "1.1.23",
+    "@radix-ui/react-avatar": "1.2.6",
+    "@radix-ui/react-context-menu": "2.3.7",
+    "@radix-ui/react-dialog": "1.1.23",
+    "@radix-ui/react-dropdown-menu": "2.1.24",
+    "@radix-ui/react-scroll-area": "1.2.18",
+    "@radix-ui/react-tabs": "1.1.21",
+    "@radix-ui/react-toggle-group": "1.1.19",
+    "@shadcn/react": "0.2.1",
     "lucide-react": "1.24.0"
   }
 }

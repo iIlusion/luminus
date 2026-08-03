@@ -394,8 +394,10 @@ export class PacketBridge {
     if (packet.direction === "incoming" && packet.header === 2661 && typeof packet.parsed === "number") {
       this.room.units.delete(packet.parsed);
       if (this.myself?.index === packet.parsed) {
-        // Only clear self index — do not wipe the whole room store (other users remain).
+        // Self left the room — wipe store so units/furnis/id don't linger in the hotel view.
         this.myself.index = null;
+        resetRoomStore(this.room);
+        this.debugLog("[Luminus] left room — store reset");
       }
     }
   }

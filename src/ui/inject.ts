@@ -4,22 +4,31 @@ import type { LuminusApi } from "../ws/api";
 import { LuminusPanel } from "./panel";
 import { LogWindow } from "./logWindow";
 import { LinkWindow } from "./linkWindow";
-import { WhisperWindow } from "./whisperWindow";
+import { WhisperBetaWindow } from "./whisperBetaWindow";
 import { LogToast } from "./logToast";
 import { ChangelogModal } from "./changelogModal";
 import { PANEL_STYLES } from "./styles";
+import { WHISPER_BETA_STYLES } from "./whisperBetaStyles";
 import { getWardrobeStacked, initUiAppearance } from "./toolbarGlass";
 import { initRespectMessageGrouping } from "./respectMessages";
 import { initHighScoreProfileLinks } from "./profileLinks";
 import { LUMINUS_BUILD_NAME } from "../version";
 import { claimCurrentChangelog, type Changelog } from "../changelog";
+import {
+  getTotalChatUnread,
+  startChatWorkspace,
+  subscribeChatList,
+} from "../chat/chatWorkspaceStore";
+import { startRoomChatSessions } from "../chat/roomChatSessionStore";
+import { startUiSafeBoundsWatch } from "./windowBounds";
 
-// ponytail: single global root, re-render to toggle rather than mount/unmount
+// Keep the experimental chat isolated so a beta render failure cannot unmount the stable UI.
 let root: ReturnType<typeof ReactDOM.createRoot> | null = null;
+let betaRoot: ReturnType<typeof ReactDOM.createRoot> | null = null;
 let open     = false;
 let logOpen  = false;
 let linkOpen = false;
-let whisperOpen = false;
+let whisperBetaOpen = false;
 let changelog: Changelog | null = null;
 
 function render(api: LuminusApi) {
@@ -43,17 +52,22 @@ function render(api: LuminusApi) {
         open: linkOpen,
         onClose: () => { linkOpen = false; render(api); },
       }),
-      React.createElement(WhisperWindow, {
-        api,
-        open: whisperOpen,
-        onClose: () => { whisperOpen = false; render(api); },
-      }),
       changelog && React.createElement(ChangelogModal, {
         changelog,
         onClose: () => { changelog = null; render(api); },
       }),
       React.createElement(LogToast, { api }),
     )
+  );
+}
+
+function renderBeta(api: LuminusApi): void {
+  betaRoot?.render(
+    React.createElement(WhisperBetaWindow, {
+      api,
+      open: whisperBetaOpen,
+      onClose: () => { whisperBetaOpen = false; renderBeta(api); },
+    }),
   );
 }
 
@@ -92,13 +106,14 @@ const CHAT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
   <path d="M8 9h8M8 13h5"/>
 </svg>`;
 
-function mountUtilityIcon(toolbar: Element, title: string, svg: string, onClick: () => void) {
+function mountUtilityIcon(toolbar: Element, title: string, svg: string, onClick: () => void): HTMLDivElement {
   const btn = document.createElement("div");
   btn.className = "luminus-toolbar-btn";
   btn.title = title;
   btn.innerHTML = svg;
   btn.addEventListener("click", onClick);
   toolbar.appendChild(btn);
+  return btn;
 }
 
 export function initUI(api: LuminusApi): void {
@@ -108,7 +123,15 @@ export function initUI(api: LuminusApi): void {
   style.textContent = PANEL_STYLES;
   (document.head ?? document.documentElement).appendChild(style);
 
+  const betaStyle = document.createElement("style");
+  betaStyle.id = "luminus-chat-beta-styles";
+  betaStyle.textContent = WHISPER_BETA_STYLES;
+  (document.head ?? document.documentElement).appendChild(betaStyle);
+
   const mount = () => {
+    startChatWorkspace(api);
+    startRoomChatSessions(api);
+    startUiSafeBoundsWatch();
     initUiAppearance();
     initRespectMessageGrouping(api);
     initHighScoreProfileLinks(api);
@@ -120,6 +143,11 @@ export function initUI(api: LuminusApi): void {
     root = ReactDOM.createRoot(container);
     render(api); // mount immediately so useEffect runs at startup
 
+    const betaContainer = document.createElement("div");
+    document.body.appendChild(betaContainer);
+    betaRoot = ReactDOM.createRoot(betaContainer);
+    renderBeta(api);
+
     // wait for nitro toolbar
     const observer = new MutationObserver(() => {
       const target = document.querySelector(".nitro-toolbar .d-flex.gap-2.align-items-center:not(.justify-content-between)");
@@ -128,7 +156,22 @@ export function initUI(api: LuminusApi): void {
         changelog = claimCurrentChangelog();
         render(api);
         mountIcon(target, api);
-        mountUtilityIcon(target, "Luminus: Histórico de chat", CHAT_ICON_SVG, () => { whisperOpen = !whisperOpen; render(api); });
+        // Chat (formerly Beta) replaces legacy "Histórico de chat".
+        const chatButton = mountUtilityIcon(target, "Luminus: Chat", CHAT_ICON_SVG, () => {
+          whisperBetaOpen = !whisperBetaOpen;
+          renderBeta(api);
+        });
+        chatButton.classList.add("luminus-chat-beta-trigger");
+        const badge = document.createElement("span");
+        badge.className = "luminus-chat-beta-badge";
+        chatButton.appendChild(badge);
+        const updateChatBadge = () => {
+          const unread = getTotalChatUnread();
+          badge.textContent = unread > 99 ? "99+" : String(unread);
+          badge.hidden = unread === 0;
+        };
+        updateChatBadge();
+        subscribeChatList(updateChatBadge);
         mountUtilityIcon(target, "Luminus: Logs", LOGS_ICON_SVG, () => { logOpen = !logOpen; render(api); });
         mountUtilityIcon(target, "Luminus: Links", LINKS_ICON_SVG, () => { linkOpen = !linkOpen; render(api); });
       }

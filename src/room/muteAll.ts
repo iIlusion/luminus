@@ -1,10 +1,12 @@
 import type { LuminusApi } from "../ws/api";
-import type { RoomUnit } from "../messages/incoming/UsersParser";
+import { readRoomUnitPacketEntries, type RoomUnit, type RoomUnitPacketEntry } from "../messages/incoming/UsersParser";
 import type { RoomChat } from "../messages/incoming/RoomChatParser";
-import type { DecodedPacket } from "../protocol/types";
+import type { RoomUnitUpdate } from "../messages/incoming/UserUpdateParser";
 import { getTargetWindow } from "../ws/interceptWebSocket";
 import { readPref, writePref } from "../util/prefs";
 import { ensureRoomEngine } from "./nitroWorldOverlay";
+import { BinaryWriter } from "../protocol/binary";
+import type { DecodedPacket, PacketDecision } from "../protocol/types";
 
 const UNIT_CATEGORY = 100;
 const CHAT_HEADERS = [1446, 1036, 2704] as const;
@@ -123,6 +125,25 @@ const listeners = new Set<Listener>();
 const unsubs: Array<() => void> = [];
 let started = false;
 
+type UsersPacketSnapshot = {
+  roomId: number | null;
+  wireHeader: number;
+  body: ArrayBuffer;
+  entries: RoomUnitPacketEntry[];
+  allEntries: Map<number, ArrayBuffer>;
+  allUnits: Map<number, RoomUnit>;
+  allUpdates: Map<number, RoomUnitUpdate>;
+};
+
+let usersPacketSnapshot: UsersPacketSnapshot | null = null;
+let replayingUsersPacket = false;
+let usersReplayTimer: number | null = null;
+
+/** True while mute-all injects synthetic 374/1640/2661 into Nitro (not real room traffic). */
+export function isUsersPacketReplay(): boolean {
+  return replayingUsersPacket;
+}
+
 let visualRaf = 0;
 const forcedHidden = new Set<number>();
 /** Last desired mute-icon state per index. */
@@ -147,6 +168,11 @@ function emit(): void {
   for (const listener of listeners) {
     try { listener(state); } catch { /* soft */ }
   }
+}
+
+/** The preference may stay checked while the main mute switch is off. */
+function avatarHidingActive(): boolean {
+  return enabled && hideAvatars;
 }
 
 function saveWhitelist(): void {
@@ -227,7 +253,171 @@ function findUnitByName(name: string): RoomUnit | undefined {
 }
 
 function visualsNeeded(): boolean {
-  return enabled || localMuted.size > 0 || hideAvatars || forcedHidden.size > 0 || iconApplied.size > 0;
+  if (avatarHidingActive() && usersPacketSnapshot) return false;
+  return enabled || localMuted.size > 0 || avatarHidingActive() || forcedHidden.size > 0 || iconApplied.size > 0;
+}
+
+function shouldFilterUsersPacket(): boolean {
+  if (!avatarHidingActive() || !usersPacketSnapshot) return false;
+  return [...usersPacketSnapshot.allUnits.values()].some(isHiddenByPacket);
+}
+
+function isHiddenByPacket(unit: RoomUnit): boolean {
+  return avatarHidingActive() && shouldMuteUnit(unit);
+}
+
+function frameIncomingPacket(wireHeader: number, body: ArrayBuffer): ArrayBuffer {
+  return new BinaryWriter()
+    .writeInt(body.byteLength + 2)
+    .writeShort(wireHeader)
+    .writeArrayBuffer(body)
+    .toArrayBuffer();
+}
+
+function buildFilteredUsersBody(body: ArrayBuffer, entries: RoomUnitPacketEntry[], hidden: Set<number>): ArrayBuffer {
+  const kept = entries.filter(entry => !hidden.has(entry.index));
+  const writer = new BinaryWriter().writeInt(kept.length);
+  for (const entry of kept) writer.writeArrayBuffer(body.slice(entry.start, entry.end));
+  return writer.toArrayBuffer();
+}
+
+function buildSnapshotBody(snapshot: UsersPacketSnapshot, hidden: Set<number>): ArrayBuffer {
+  const entries = [...snapshot.allEntries.entries()].filter(([index]) => !hidden.has(index));
+  const writer = new BinaryWriter().writeInt(entries.length);
+  for (const [, bytes] of entries) writer.writeArrayBuffer(bytes);
+  return writer.toArrayBuffer();
+}
+
+function buildSnapshotUpdatesBody(snapshot: UsersPacketSnapshot): ArrayBuffer {
+  const updates = [...snapshot.allUpdates.values()].filter(update => snapshot.allEntries.has(update.index));
+  const writer = new BinaryWriter().writeInt(updates.length);
+  for (const update of updates) {
+    writer
+      .writeInt(update.index)
+      .writeInt(update.x)
+      .writeInt(update.y)
+      .writeString(String(update.z))
+      .writeInt(update.headDirection)
+      .writeInt(update.bodyDirection)
+      .writeString(update.actions);
+  }
+  return writer.toArrayBuffer();
+}
+
+function captureUsersPacket(packet: DecodedPacket): void {
+  if (replayingUsersPacket || !Array.isArray(packet.parsed)) return;
+  try {
+    const roomId = apiRef?.room.id ?? null;
+    const entries = readRoomUnitPacketEntries(packet.body);
+    if (!usersPacketSnapshot || usersPacketSnapshot.roomId !== roomId) {
+      usersPacketSnapshot = {
+        roomId,
+        wireHeader: packet.wireHeader,
+        body: packet.body.slice(0),
+        entries,
+        allEntries: new Map(),
+        allUnits: new Map(),
+        allUpdates: new Map()
+      };
+    } else {
+      usersPacketSnapshot.wireHeader = packet.wireHeader;
+      usersPacketSnapshot.body = packet.body.slice(0);
+      usersPacketSnapshot.entries = entries;
+    }
+
+    for (const entry of entries) {
+      usersPacketSnapshot.allEntries.set(entry.index, packet.body.slice(entry.start, entry.end));
+    }
+    for (const unit of packet.parsed as RoomUnit[]) usersPacketSnapshot.allUnits.set(unit.index, unit);
+  } catch {
+    usersPacketSnapshot = null;
+  }
+}
+
+function filterUsersPacket(packet: DecodedPacket): PacketDecision {
+  if (replayingUsersPacket || !shouldFilterUsersPacket() || !Array.isArray(packet.parsed)) return "pass";
+
+  const units = packet.parsed as RoomUnit[];
+  const hidden = new Set(units.filter(isHiddenByPacket).map(unit => unit.index));
+  if (!hidden.size) return "pass";
+
+  try {
+    const entries = readRoomUnitPacketEntries(packet.body);
+    return {
+      action: "replace",
+      data: frameIncomingPacket(packet.wireHeader, buildFilteredUsersBody(packet.body, entries, hidden))
+    };
+  } catch {
+    return "pass";
+  }
+}
+
+function replayUsersPacket(filtered: boolean): void {
+  const snapshot = usersPacketSnapshot;
+  const socket = apiRef?.socket as (WebSocket & { handleNativeMessage?: (event: MessageEvent) => void }) | null;
+  if (!snapshot || !socket?.handleNativeMessage) return;
+
+  for (const unit of snapshot.allUnits.values()) apiRef?.room.units.set(unit.index, unit);
+  const units = [...snapshot.allUnits.values()];
+  const hidden = new Set(filtered ? units.filter(isHiddenByPacket).map(unit => unit.index) : []);
+  const body = filtered ? buildSnapshotBody(snapshot, hidden) : buildSnapshotBody(snapshot, new Set());
+
+  replayingUsersPacket = true;
+  try {
+    socket.handleNativeMessage(new MessageEvent("message", {
+      data: frameIncomingPacket(snapshot.wireHeader, body)
+    }));
+    if (!filtered) replayUsersUpdates(snapshot, socket);
+  } finally {
+    replayingUsersPacket = false;
+  }
+}
+
+function replayUsersUpdates(
+  snapshot: UsersPacketSnapshot,
+  socket: WebSocket & { handleNativeMessage?: (event: MessageEvent) => void }
+): void {
+  const updates = [...snapshot.allUpdates.values()].filter(update => snapshot.allEntries.has(update.index));
+  if (!updates.length || !socket.handleNativeMessage) return;
+  const wireHeader = 1640 + (apiRef?.getOffsets().incoming ?? 0);
+  socket.handleNativeMessage(new MessageEvent("message", {
+    data: frameIncomingPacket(wireHeader, buildSnapshotUpdatesBody(snapshot))
+  }));
+}
+
+function removeHiddenUnitsImmediately(): void {
+  const snapshot = usersPacketSnapshot;
+  const socket = apiRef?.socket as (WebSocket & { handleNativeMessage?: (event: MessageEvent) => void }) | null;
+  if (!snapshot || !socket?.handleNativeMessage) return;
+
+  const hidden = [...snapshot.allUnits.values()].filter(isHiddenByPacket);
+  const incomingOffset = apiRef?.getOffsets().incoming ?? 0;
+  const wireHeader = 2661 + incomingOffset;
+
+  replayingUsersPacket = true;
+  try {
+    for (const unit of hidden) {
+      const body = new BinaryWriter().writeString(String(unit.index)).toArrayBuffer();
+      socket.handleNativeMessage(new MessageEvent("message", {
+        data: frameIncomingPacket(wireHeader, body)
+      }));
+    }
+  } finally {
+    replayingUsersPacket = false;
+  }
+
+  for (const unit of snapshot.allUnits.values()) apiRef?.room.units.set(unit.index, unit);
+}
+
+function scheduleUsersPacketReplay(): void {
+  if (usersReplayTimer !== null) return;
+  usersReplayTimer = window.setTimeout(() => {
+    usersReplayTimer = null;
+    const filtering = shouldFilterUsersPacket();
+    if (filtering) removeHiddenUnitsImmediately();
+    replayUsersPacket(filtering);
+    if (!filtering) syncAllVisualsNow(true, true);
+  }, 0);
 }
 
 function shouldBlockChatPacket(packet: DecodedPacket): boolean {
@@ -623,7 +813,7 @@ function applyVisualForIndex(
   const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
   if (!obj) return;
 
-  const wantHidden = hideAvatars && wantMuted;
+  const wantHidden = avatarHidingActive() && wantMuted;
 
   if (wantHidden) {
     // Hide body+extras. No mute balloon while fully hidden.
@@ -645,7 +835,15 @@ function applyVisualForIndex(
  * Full-room sync, one synchronous pass.
  * Stops the rAF loop first so a concurrent re-hide cannot fight unhide mid-pass.
  */
-function syncAllVisualsNow(force = true): void {
+function syncAllVisualsNow(force = true, skipPacketReplay = false): void {
+  if (!skipPacketReplay && usersPacketSnapshot && avatarHidingActive()) {
+    stopVisualLoop();
+    forcedHidden.clear();
+    iconApplied.clear();
+    scheduleUsersPacketReplay();
+    return;
+  }
+
   // Prevent visualTick from re-hiding while we unhide the whole room.
   stopVisualLoop();
 
@@ -696,7 +894,7 @@ function visualTick(): void {
   const mutedSet = new Set(listMutedIndices());
 
   // Re-hide (Nitro fights us every update).
-  if (hideAvatars) {
+  if (avatarHidingActive()) {
     for (const index of mutedSet) {
       const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
       if (obj) {
@@ -708,7 +906,7 @@ function visualTick(): void {
 
   // Unhide stragglers no longer muted/hidden.
   for (const index of [...forcedHidden]) {
-    if (!(hideAvatars && mutedSet.has(index))) {
+    if (!(avatarHidingActive() && mutedSet.has(index))) {
       const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
       if (obj) showObject(obj, geo);
       forcedHidden.delete(index);
@@ -717,7 +915,7 @@ function visualTick(): void {
   }
 
   // Keep mute balloon stable when icons are enabled.
-  if (!hideAvatars && showMuteIcons) {
+  if (!avatarHidingActive() && showMuteIcons) {
     for (const index of mutedSet) {
       const obj = engine.getRoomObject?.(roomId, index, UNIT_CATEGORY);
       const vis = getVis(obj);
@@ -741,7 +939,7 @@ function visualTick(): void {
         setNativeMuteIcon(engine, roomId, index, true, scale, true);
       }
     }
-  } else if (!hideAvatars && !showMuteIcons) {
+  } else if (!avatarHidingActive() && !showMuteIcons) {
     // Ensure no balloons linger if option was just turned off.
     for (const index of mutedSet) {
       if (iconApplied.get(index) === true) {
@@ -797,9 +995,15 @@ export function subscribeMuteAll(listener: Listener): () => void {
 
 export function setMuteAllEnabled(on: boolean): void {
   if (enabled === on) return;
+  const wasHiding = avatarHidingActive();
   enabled = on;
   if (on) syncAllVisualsNow(true);
-  else if (localMuted.size === 0) clearAllVisuals();
+  else if (wasHiding && usersPacketSnapshot) {
+    stopVisualLoop();
+    forcedHidden.clear();
+    iconApplied.clear();
+    scheduleUsersPacketReplay();
+  }
   else syncAllVisualsNow(true);
   emit();
 }
@@ -809,16 +1013,26 @@ function clearMuteAllBulkOnly(): void {
   forcedHidden.clear();
   iconApplied.clear();
   stopVisualLoop();
-  if (localMuted.size > 0 || hideAvatars) syncAllVisualsNow(true);
+  if (localMuted.size > 0 || avatarHidingActive()) syncAllVisualsNow(true);
   emit();
 }
 
 export function setMuteAllHideAvatars(on: boolean): void {
+  if (on && !enabled) return;
   if (hideAvatars === on) return;
   hideAvatars = on;
   writePref(PREF_HIDE, on);
-  syncAllVisualsNow(true);
   emit();
+
+  if (usersPacketSnapshot) {
+    stopVisualLoop();
+    forcedHidden.clear();
+    iconApplied.clear();
+    scheduleUsersPacketReplay();
+    return;
+  }
+
+  syncAllVisualsNow(true);
 }
 
 /** Show/hide native mute balloons while people stay muted. */
@@ -858,7 +1072,7 @@ export function desmuteUser(name: string): void {
     addMuteAllWhitelist(trimmed);
     return;
   }
-  if (localMuted.size === 0 && !hideAvatars) clearAllVisuals();
+  if (localMuted.size === 0 && !avatarHidingActive()) clearAllVisuals();
   else syncAllVisualsNow(true);
   emit();
 }
@@ -918,12 +1132,20 @@ export function initMuteAll(api: LuminusApi): void {
     unsubs.push(api.blockIncoming(header, shouldBlockChatPacket));
   }
 
-  unsubs.push(api.onIncoming(374, () => {
-    if (enabled || localMuted.size > 0 || hideAvatars) syncAllVisualsNow(true);
+  unsubs.push(api.onIncoming(374, ({ packet }) => {
+    captureUsersPacket(packet);
+    const decision = filterUsersPacket(packet);
+    if (decision !== "pass") return decision;
+    if ((enabled || localMuted.size > 0 || avatarHidingActive()) && !shouldFilterUsersPacket()) syncAllVisualsNow(true);
   }));
 
-  unsubs.push(api.onIncoming(1640, () => {
-    if (!hideAvatars && !enabled && localMuted.size === 0 && forcedHidden.size === 0) return;
+  unsubs.push(api.onIncoming(1640, ({ packet }) => {
+    if (Array.isArray(packet.parsed) && usersPacketSnapshot && !replayingUsersPacket) {
+      for (const update of packet.parsed as RoomUnitUpdate[]) {
+        usersPacketSnapshot.allUpdates.set(update.index, update);
+      }
+    }
+    if (!avatarHidingActive() && !enabled && localMuted.size === 0 && forcedHidden.size === 0) return;
     // Cheap re-assert after Nitro paints from unit status.
     const roomId = roomIdOf();
     const engine = getEngine();
@@ -932,7 +1154,7 @@ export function initMuteAll(api: LuminusApi): void {
     for (const index of listMutedIndices()) {
       const obj = engine.getRoomObject(roomId, index, UNIT_CATEGORY);
       if (!obj) continue;
-      if (hideAvatars) {
+      if (avatarHidingActive()) {
         hideObject(obj);
         forcedHidden.add(index);
       } else if (showMuteIcons) {
@@ -947,9 +1169,22 @@ export function initMuteAll(api: LuminusApi): void {
   }));
 
   unsubs.push(api.onIncoming(2031, () => {
+    if (usersReplayTimer !== null) {
+      window.clearTimeout(usersReplayTimer);
+      usersReplayTimer = null;
+    }
+    usersPacketSnapshot = null;
+    replayingUsersPacket = false;
     clearMuteAllBulkOnly();
   }));
 
-  if (localMuted.size > 0 || hideAvatars) syncAllVisualsNow(true);
+  unsubs.push(api.onIncoming(2661, ({ packet }) => {
+    if (replayingUsersPacket || typeof packet.parsed !== "number") return;
+    usersPacketSnapshot?.allEntries.delete(packet.parsed);
+    usersPacketSnapshot?.allUnits.delete(packet.parsed);
+    usersPacketSnapshot?.allUpdates.delete(packet.parsed);
+  }));
+
+  if (localMuted.size > 0 || avatarHidingActive()) syncAllVisualsNow(true);
   emit();
 }

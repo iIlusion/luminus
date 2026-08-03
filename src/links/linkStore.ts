@@ -48,7 +48,6 @@ function migrate(raw: Record<string, unknown[]>): LinkStore {
 
 let store: LinkStore = migrate(readPref<Record<string, unknown[]>>("luminus.links.store", {}));
 let favorites: Set<string> = new Set(readPref<string[]>("luminus.links.favorites", []));
-let saveGender = readPref("luminus.links.saveGender", true);
 let opened: Set<string> = new Set([
   ...readPref<string[]>("luminus.links.opened", []),
   ...Object.entries(store)
@@ -56,6 +55,19 @@ let opened: Set<string> = new Set([
     .map(([name]) => name)
 ]);
 const listeners = new Set<() => void>();
+let storeSaveTimer = 0;
+
+function saveStore(): void {
+  if (storeSaveTimer) window.clearTimeout(storeSaveTimer);
+  storeSaveTimer = window.setTimeout(() => {
+    storeSaveTimer = 0;
+    writePref("luminus.links.store", store);
+  }, 200);
+}
+
+window.addEventListener("pagehide", () => {
+  if (storeSaveTimer) writePref("luminus.links.store", store);
+});
 
 function notify(): void {
   listeners.forEach(fn => fn());
@@ -82,15 +94,6 @@ export function hasOpenedLink(name: string): boolean {
   return opened.has(normalizePersonName(name));
 }
 
-export function getSaveGender(): boolean {
-  return saveGender;
-}
-
-export function setSaveGender(value: boolean): void {
-  saveGender = value;
-  writePref("luminus.links.saveGender", value);
-}
-
 export function hasBlockedLink(name: string): boolean {
   return getLinksFor(name).some(record => record.blocked === true);
 }
@@ -105,7 +108,7 @@ export function toggleLinkBlocked(name: string, link: string): void {
     ...store,
     [name]: records.map(record => record.link === link ? { ...record, blocked: !record.blocked } : record)
   };
-  writePref("luminus.links.store", store);
+  saveStore();
   notify();
 }
 
@@ -119,23 +122,24 @@ export function rememberLink(name: string, link: string, gender?: string): void 
     store = { ...store, [name]: merged.filter((record, index, all) => all.findIndex(item => item.link === record.link) === index) };
     delete store[legacyName];
     if (opened.delete(legacyName)) opened.add(name);
-    writePref("luminus.links.store", store);
+    saveStore();
     writePref("luminus.links.opened", [...opened]);
   }
   const existing = store[name] ?? [];
   const current = existing.find(record => record.link === link);
   if (current) {
     const cleanGender = normalizeGender(gender);
-    if (saveGender && cleanGender && current.gender !== cleanGender) {
+    if (cleanGender && current.gender !== cleanGender) {
       current.gender = cleanGender;
-      writePref("luminus.links.store", store);
+      saveStore();
       notify();
     }
     return;
   }
 
-  store = { ...store, [name]: [{ link, clicks: 0, lastClickedAt: 0, ...(saveGender && gender ? { gender } : {}) }, ...existing] };
-  writePref("luminus.links.store", store);
+  const cleanGender = normalizeGender(gender);
+  store = { ...store, [name]: [{ link, clicks: 0, lastClickedAt: 0, ...(cleanGender ? { gender: cleanGender } : {}) }, ...existing] };
+  saveStore();
   notify();
 }
 
@@ -148,11 +152,11 @@ export function recordLink(name: string, link: string, gender?: string): void {
     link,
     clicks: (prev?.clicks ?? 0) + 1,
     lastClickedAt: Date.now(),
-    ...(saveGender && normalizeGender(gender) ? { gender: normalizeGender(gender) } : {})
+    ...(normalizeGender(gender) ? { gender: normalizeGender(gender) } : {})
   };
   store = { ...store, [name]: [rec, ...existing.filter(r => r.link !== link)] };
   opened.add(name);
-  writePref("luminus.links.store", store);
+  saveStore();
   writePref("luminus.links.opened", [...opened]);
   notify();
 }
@@ -164,7 +168,7 @@ export function removeLink(name: string, link: string): void {
   else delete next[name];
   store = next;
   if (!remaining.length) opened.delete(name);
-  writePref("luminus.links.store", store);
+  saveStore();
   writePref("luminus.links.opened", [...opened]);
   notify();
 }
@@ -175,7 +179,7 @@ export function removePerson(name: string): void {
   store = next;
   favorites.delete(name);
   opened.delete(name);
-  writePref("luminus.links.store", store);
+  saveStore();
   writePref("luminus.links.favorites", [...favorites]);
   writePref("luminus.links.opened", [...opened]);
   notify();
@@ -184,7 +188,7 @@ export function removePerson(name: string): void {
 export function clearAllLinks(): void {
   store = {};
   opened.clear();
-  writePref("luminus.links.store", store);
+  saveStore();
   writePref("luminus.links.opened", []);
   notify();
 }
