@@ -55,9 +55,10 @@ while (repeatTasks.length) {
 }
 assert(repeatTimes.join(",") === `0,0,${WHISPER_REPEAT_COOLDOWN_MS}`, "the third similar message must wait only for the repeat cooldown");
 assert(normalizeWhisperContent("  SPÁM!!! ") === normalizeWhisperContent("spam"), "cosmetic differences must share the repeat limit");
-assert(shouldBypassWhisperQueue("group teste", "Timido"), "native group whisper must bypass the queue");
-assert(shouldBypassWhisperQueue(`Timido ${NATIVE_GROUP_RESET_PREFIX}abcd`, "Timido"), "native group reset must bypass the queue");
-assert(!shouldBypassWhisperQueue("Timido oi", "Timido"), "normal self whisper must still use the queue");
+const SELF = "SelfUser";
+assert(shouldBypassWhisperQueue("group teste", SELF), "native group whisper must bypass the queue");
+assert(shouldBypassWhisperQueue(`${SELF} ${NATIVE_GROUP_RESET_PREFIX}abcd`, SELF), "native group reset must bypass the queue");
+assert(!shouldBypassWhisperQueue(`${SELF} oi`, SELF), "normal self whisper must still use the queue");
 
 let bypassNow = 0;
 const bypassTasks: { at: number; run: () => void }[] = [];
@@ -78,12 +79,12 @@ while (bypassTasks.length) {
 }
 assert(bypassSent.join(",") === `spam@0,spam@0,oi@0,spam@${WHISPER_REPEAT_COOLDOWN_MS}`, "a different whisper must bypass a repeated message cooldown");
 
-const routed = withGroupWhisperRoute(["Ana", "Beto"], () => {
+const routed = withGroupWhisperRoute(["PlayerA", "PlayerB"], () => {
   const first = consumeGroupWhisperRoute();
   const second = consumeGroupWhisperRoute();
   if (!first || !second) throw new Error("group route must be available while sending");
-  assert(first.members.join(",") === "Ana,Beto", "group route must reach the outgoing handler");
-  assert(second.members.join(",") === "Ana,Beto" && second.id === first.id, "group route must cover the whole send batch");
+  assert(first.members.join(",") === "PlayerA,PlayerB", "group route must reach the outgoing handler");
+  assert(second.members.join(",") === "PlayerA,PlayerB" && second.id === first.id, "group route must cover the whole send batch");
   return true;
 });
 assert(routed, "group route must preserve the send result");
