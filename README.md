@@ -61,6 +61,13 @@ O Luminus adiciona um painel flutuante e utilitários de uso diário no hotel. V
 
 1. Instale a extensão.
 2. Confirme o ícone do Tampermonkey na barra do navegador.
+3. Ative **Allow User Scripts** (Permitir scripts de usuário) nas configurações do Tampermonkey.
+   - Abra o dashboard do Tampermonkey → **Configurações**.
+   - Ligue a opção **Allow User Scripts**.
+   - Em vários navegadores (sobretudo Chrome e afins) essa opção é **obrigatória** para o script rodar.
+   - Detalhes oficiais: [FAQ do Tampermonkey — Q209](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
+
+**CUIDADO:** Sem **Allow User Scripts** ativo, o Luminus pode instalar e ainda assim **não executar** na página do hotel.
 
 ### 2. Instale o Luminus
 
@@ -86,7 +93,11 @@ O Luminus adiciona um painel flutuante e utilitários de uso diário no hotel. V
 3. O Luminus inicia com a página (`@run-at document-start`).
 4. Abra o painel pelo ícone na interface ou pelo menu do Tampermonkey.
 
-**NOTA:** Se nada aparecer, ative o script no Tampermonkey e confira se o `@match` inclui `habblet.city/hotel`.
+**NOTA:** Se nada aparecer:
+
+1. Confirme que o script está **ativado** no Tampermonkey.
+2. Confirme que **Allow User Scripts** está ligado (veja o passo 3 da instalação da extensão e o [FAQ Q209](https://www.tampermonkey.net/faq.php?locale=en&q=Q209)).
+3. Confira se o `@match` inclui `habblet.city/hotel`.
 
 ---
 
