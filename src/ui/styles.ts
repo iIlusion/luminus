@@ -3006,7 +3006,7 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
 
 #luminus-enables-window .lm-eh-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 8px;
   justify-items: center;
 }
@@ -3017,66 +3017,84 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 100px;
-  height: 180px;
+  width: 112px;
+  height: 200px;
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Luminus glass plate — webp sprites are transparent so CSS owns the fill */
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(142, 162, 255, 0.14), transparent 62%),
+    radial-gradient(90% 70% at 100% 100%, rgba(196, 205, 255, 0.06), transparent 55%),
+    rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   content-visibility: auto;
-  contain-intrinsic-size: 100px 180px;
-  transition: border-color 0.12s, background 0.12s, transform 0.12s;
+  contain-intrinsic-size: 112px 200px;
+  transition: border-color 0.12s, background 0.12s, transform 0.12s, box-shadow 0.12s;
 }
 
 #luminus-enables-window .lm-eh-card:hover {
-  background: rgba(142, 162, 255, 0.1);
-  border-color: rgba(142, 162, 255, 0.35);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(142, 162, 255, 0.22), transparent 62%),
+    radial-gradient(90% 70% at 100% 100%, rgba(196, 205, 255, 0.1), transparent 55%),
+    rgba(142, 162, 255, 0.1);
+  border-color: rgba(142, 162, 255, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 6px 18px rgba(0, 0, 0, 0.28);
   transform: translateY(-1px);
 }
 
 #luminus-enables-window .lm-eh-card.is-fav {
-  border-color: rgba(245, 197, 66, 0.35);
+  border-color: rgba(245, 197, 66, 0.4);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(245, 197, 66, 0.12), transparent 60%),
+    radial-gradient(90% 70% at 100% 100%, rgba(142, 162, 255, 0.08), transparent 55%),
+    rgba(255, 255, 255, 0.05);
 }
 
 #luminus-enables-window .lm-eh-card-top {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
-  padding: 4px 5px;
+  padding: 3px 4px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 4px;
+  gap: 3px;
   pointer-events: none;
 }
 
+/* Full command visible for 3-4 digit ids (e.g. :handitem 1157). */
 #luminus-enables-window .lm-eh-cmd {
-  font-size: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 9px;
   line-height: 1.2;
-  padding: 2px 5px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.45);
-  color: rgba(238, 241, 255, 0.88);
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(238, 241, 255, 0.92);
   font-family: var(--lw-mono);
-  max-width: 72px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: -0.02em;
   white-space: nowrap;
+  overflow: visible;
 }
 
 #luminus-enables-window .lm-eh-star {
   pointer-events: auto;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   color: rgba(238, 241, 255, 0.75);
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
   cursor: pointer;
 }
 
@@ -3086,29 +3104,86 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
 }
 
 #luminus-enables-window .lm-eh-thumb {
-  flex: 1;
+  flex: 1 1 auto;
   width: 100%;
   min-height: 0;
-  background-position: center;
+  /* Reserve bottom band for multi-line name */
+  margin-bottom: 42px;
+  background-position: center 42%;
   background-repeat: no-repeat;
   background-size: contain;
-  background-color: rgba(0, 0, 0, 0.15);
+  background-color: transparent;
+  /* Soft vignette so transparent sprites sit on the card glass cleanly */
+  mask-image: linear-gradient(to bottom, #000 0%, #000 78%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 78%, transparent 100%);
 }
 
+#luminus-enables-window .lm-eh-thumb-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+#luminus-enables-window .lm-eh-remove-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  color: rgba(255, 140, 160, 0.9);
+  background: rgba(255, 100, 120, 0.12);
+  border: 1px solid rgba(255, 140, 160, 0.35);
+}
+
+#luminus-enables-window .lm-eh-card.is-remove {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 120, 140, 0.12), transparent 60%),
+    rgba(255, 100, 120, 0.05);
+  border-color: rgba(255, 140, 160, 0.22);
+}
+
+#luminus-enables-window .lm-eh-card.is-remove:hover {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 120, 140, 0.2), transparent 60%),
+    rgba(255, 100, 120, 0.1);
+  border-color: rgba(255, 140, 160, 0.45);
+}
+
+/* Multi-line names (up to 3 lines); full text still on title tooltip. */
 #luminus-enables-window .lm-eh-name {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 4px 6px 5px;
-  font-size: 11px;
+  z-index: 1;
+  padding: 14px 5px 6px;
+  min-height: 42px;
+  max-height: 48px;
+  box-sizing: border-box;
+  font-size: 10px;
   line-height: 1.25;
   text-align: center;
   color: var(--lw-text);
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72) 40%);
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(0, 0, 0, 0.72) 55%,
+    transparent 100%
+  );
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 

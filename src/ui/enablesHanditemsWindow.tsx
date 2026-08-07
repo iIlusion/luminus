@@ -10,7 +10,6 @@ import {
   type CatalogEntry,
   type EnableEntry,
   type HanditemEntry,
-  REMOVE_PLACEHOLDER_IMG,
   entryCommand,
   entryId,
   getEnables,
@@ -77,11 +76,11 @@ function CatalogCard({
   return (
     <button
       type="button"
-      className={`lm-eh-card${isFavorite ? " is-fav" : ""}`}
+      className={`lm-eh-card${isFavorite ? " is-fav" : ""}${isRemove ? " is-remove" : ""}`}
       onClick={onApply}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      title={cmd}
+      title={`${cmd} — ${entry.name}`}
     >
       <div className="lm-eh-card-top">
         <span className="lm-eh-cmd">{cmd}</span>
@@ -108,14 +107,16 @@ function CatalogCard({
           </span>
         )}
       </div>
-      <div
-        className="lm-eh-thumb"
-        style={
-          entry.img
-            ? { backgroundImage: `url(${entry.img})` }
-            : undefined
-        }
-      />
+      {isRemove ? (
+        <div className="lm-eh-thumb lm-eh-thumb-remove" aria-hidden="true">
+          <span className="lm-eh-remove-icon">✕</span>
+        </div>
+      ) : (
+        <div
+          className="lm-eh-thumb"
+          style={entry.img ? { backgroundImage: `url(${entry.img})` } : undefined}
+        />
+      )}
       <div className="lm-eh-name">{entry.name}</div>
     </button>
   );
@@ -144,13 +145,13 @@ function buildList(
     result.push({
       enable: 0,
       name: "Remover efeito",
-      img: REMOVE_PLACEHOLDER_IMG,
+      img: "",
     });
   } else {
     result.push({
       handitem: 0,
       name: "Remover handitem",
-      img: REMOVE_PLACEHOLDER_IMG,
+      img: "",
     });
   }
 

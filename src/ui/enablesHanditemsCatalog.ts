@@ -98,10 +98,6 @@ export function toggleFavoriteHanditem(id: number): number[] {
   return next;
 }
 
-/** Minimal empty preview for the synthetic "remove" row (id 0). */
-export const REMOVE_PLACEHOLDER_IMG =
-  "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=";
-
 export function entryId(entry: CatalogEntry): number {
   return "enable" in entry && entry.enable !== undefined
     ? entry.enable
