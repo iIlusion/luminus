@@ -59,11 +59,13 @@ const StarIcon = ({ on }: { on: boolean }) => (
 
 function CatalogCard({
   entry,
+  mode,
   isFavorite,
   onApply,
   onToggleFavorite,
 }: {
   entry: CatalogEntry;
+  mode: Tab;
   isFavorite: boolean;
   onApply: () => void;
   onToggleFavorite: () => void;
@@ -76,7 +78,7 @@ function CatalogCard({
   return (
     <button
       type="button"
-      className={`lm-eh-card${isFavorite ? " is-fav" : ""}${isRemove ? " is-remove" : ""}`}
+      className={`lm-eh-card${isFavorite ? " is-fav" : ""}${isRemove ? " is-remove" : ""}${mode === "handitem" ? " is-handitem" : ""}`}
       onClick={onApply}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -113,7 +115,7 @@ function CatalogCard({
         </div>
       ) : (
         <div
-          className="lm-eh-thumb"
+          className={`lm-eh-thumb${mode === "handitem" ? " is-handitem" : ""}`}
           style={entry.img ? { backgroundImage: `url(${entry.img})` } : undefined}
         />
       )}
@@ -363,6 +365,7 @@ export function EnablesHanditemsWindow({ api, open, onClose }: Props) {
                 <CatalogCard
                   key={key}
                   entry={entry}
+                  mode={tab}
                   isFavorite={!!entry.isFavorite || favorites.includes(id)}
                   onApply={() => apply(entry)}
                   onToggleFavorite={() => toggleFav(entry)}

@@ -3118,6 +3118,12 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 78%, transparent 100%);
 }
 
+/* Handitems reframed to similar fill as enables; slight lift for visual balance */
+#luminus-enables-window .lm-eh-thumb.is-handitem {
+  background-position: center 38%;
+  background-size: 108% auto;
+}
+
 #luminus-enables-window .lm-eh-thumb-remove {
   display: flex;
   align-items: center;
