@@ -4,6 +4,7 @@ import type { LuminusApi } from "../ws/api";
 import { LuminusPanel } from "./panel";
 import { LogWindow } from "./logWindow";
 import { LinkWindow } from "./linkWindow";
+import { EnablesHanditemsWindow } from "./enablesHanditemsWindow";
 import { WhisperBetaWindow } from "./whisperBetaWindow";
 import { LogToast } from "./logToast";
 import { ChangelogModal } from "./changelogModal";
@@ -32,6 +33,7 @@ let betaRoot: ReturnType<typeof ReactDOM.createRoot> | null = null;
 let open     = false;
 let logOpen  = false;
 let linkOpen = false;
+let enablesOpen = false;
 let whisperBetaOpen = false;
 let changelogLayers: ChangelogLayer[] | null = null;
 let uiChangelogLayers: readonly ChangelogLayer[] = [LUMINUS_CHANGELOG_LAYER];
@@ -57,6 +59,11 @@ function render(api: LuminusApi) {
         api,
         open: linkOpen,
         onClose: () => { linkOpen = false; render(api); },
+      }),
+      React.createElement(EnablesHanditemsWindow, {
+        api,
+        open: enablesOpen,
+        onClose: () => { enablesOpen = false; render(api); },
       }),
       changelogLayers && changelogLayers.length > 0 && React.createElement(ChangelogModal, {
         layers: changelogLayers,
@@ -110,6 +117,12 @@ const LINKS_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 const CHAT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
   <path d="M8 9h8M8 13h5"/>
+</svg>`;
+
+const ENABLES_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="8" r="3.5"/>
+  <path d="M6 20c.6-3.2 3-5 6-5s5.4 1.8 6 5"/>
+  <path d="M17.5 4.5l1.2-1.2M19.5 7h1.7M17.5 9.5l1.2 1.2"/>
 </svg>`;
 
 function mountUtilityIcon(toolbar: Element, title: string, svg: string, onClick: () => void): HTMLDivElement {
@@ -192,6 +205,10 @@ export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
         subscribeChatList(updateChatBadge);
         mountUtilityIcon(target, "Luminus: Logs", LOGS_ICON_SVG, () => { logOpen = !logOpen; render(api); });
         mountUtilityIcon(target, "Luminus: Links", LINKS_ICON_SVG, () => { linkOpen = !linkOpen; render(api); });
+        mountUtilityIcon(target, "Luminus: Efeitos e Handitems", ENABLES_ICON_SVG, () => {
+          enablesOpen = !enablesOpen;
+          render(api);
+        });
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });

@@ -2958,6 +2958,160 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
   min-height: 0;
 }
 
+/* ── Enables / Handitems window ─────────────────────────────── */
+#luminus-enables-window {
+  width: min(520px, calc(100vw - 24px), var(--lm-safe-width, 100vw));
+  max-width: min(560px, calc(100vw - 16px), var(--lm-safe-width, 100vw));
+  min-width: min(360px, calc(100vw - 16px));
+  height: min(480px, var(--lm-safe-height, calc(100dvh - 80px)));
+  max-height: min(520px, var(--lm-safe-height, calc(100dvh - 80px)));
+  min-height: min(280px, var(--lm-safe-height, 280px));
+}
+
+#luminus-enables-window .lm-eh-tabs {
+  flex-shrink: 0;
+}
+
+#luminus-enables-window .lm-eh-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px 14px;
+}
+
+#luminus-enables-window .lm-eh-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 16px;
+  text-align: center;
+  color: var(--lw-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#luminus-enables-window .lm-eh-error {
+  color: rgba(255, 140, 160, 0.92);
+}
+
+#luminus-enables-window .lm-eh-error-detail {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10px;
+  font-family: var(--lw-mono);
+  color: rgba(255, 140, 160, 0.65);
+  word-break: break-all;
+}
+
+#luminus-enables-window .lm-eh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  justify-items: center;
+}
+
+#luminus-enables-window .lm-eh-card {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100px;
+  height: 180px;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  content-visibility: auto;
+  contain-intrinsic-size: 100px 180px;
+  transition: border-color 0.12s, background 0.12s, transform 0.12s;
+}
+
+#luminus-enables-window .lm-eh-card:hover {
+  background: rgba(142, 162, 255, 0.1);
+  border-color: rgba(142, 162, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+#luminus-enables-window .lm-eh-card.is-fav {
+  border-color: rgba(245, 197, 66, 0.35);
+}
+
+#luminus-enables-window .lm-eh-card-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  padding: 4px 5px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+  pointer-events: none;
+}
+
+#luminus-enables-window .lm-eh-cmd {
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(238, 241, 255, 0.88);
+  font-family: var(--lw-mono);
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#luminus-enables-window .lm-eh-star {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: rgba(238, 241, 255, 0.75);
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+#luminus-enables-window .lm-eh-star:hover {
+  color: #f5c542;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+#luminus-enables-window .lm-eh-thumb {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+#luminus-enables-window .lm-eh-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 6px 5px;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--lw-text);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72) 40%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
 /* Ã¢â€â‚¬Ã¢â€â‚¬ Changelog Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 #luminus-changelog {

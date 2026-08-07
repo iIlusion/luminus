@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => {
 // @grant        GM_xmlhttpRequest
 // @connect      api.habblet.city
 // @connect      discord.com
+// @connect      cdn.jsdelivr.net
 ${localConnect}// ==/UserScript==`;
 
   return {
