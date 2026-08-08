@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/iIlusion/luminus/releases"><img src="https://img.shields.io/github/v/release/iIlusion/luminus?include_prereleases&style=flat-square&label=release" alt="Release" /></a>
-  <a href="https://github.com/iIlusion/luminus/commits/main"><img src="https://img.shields.io/github/last-commit/iIlusion/luminus?style=flat-square" alt="Last commit" /></a>
+  <a href="https://github.com/iIlusion/luminus/commits/main"><img src="https://img.shields.io/github/last-commit/iIlusion/luminus/main?style=flat-square" alt="Last commit" /></a>
   <a href="https://github.com/iIlusion/luminus/stargazers"><img src="https://img.shields.io/github/stars/iIlusion/luminus?style=flat-square" alt="Stars" /></a>
   <a href="https://discord.gg/HmVkadXGVz"><img src="https://img.shields.io/discord/1476244054126891072?style=flat-square&logo=discord&label=Discord&color=5865F2" alt="Discord" /></a>
   <img src="https://img.shields.io/badge/Habblet-Hotel-7c5cff?style=flat-square" alt="Habblet" />
@@ -20,25 +20,33 @@
 </p>
 
 <p align="center">
+  <a href="#identificação">Identificação</a> ·
   <a href="#instalação">Instalação</a> ·
-  <a href="#como-o-script-funciona">Como funciona</a> ·
-  <a href="#funcionalidades">Funcionalidades</a> ·
-  <a href="#como-usar">Como usar</a> ·
+  <a href="#operação">Operação</a> ·
+  <a href="#princípio-de-funcionamento">Funcionamento</a> ·
   <a href="#api-windowluminus">API</a> ·
-  <a href="#desenvolvimento">Desenvolvimento</a> ·
+  <a href="#atualizações">Atualizações</a> ·
   <a href="#suporte">Suporte</a>
 </p>
 
 ---
 
-## O que é
+## Identificação
 
-O **Luminus** é um userscript que roda no navegador junto com o [Habblet Hotel](https://www.habblet.city/hotel).  
-Ele adiciona um painel flutuante e utilitários que melhoram o dia a dia no hotel — sem instalar programa no PC: só o [Tampermonkey](https://www.tampermonkey.net/) (ou gerenciador de userscripts compatível).
+O **Luminus** é um userscript. Ele roda no navegador junto com o [Habblet Hotel](https://www.habblet.city/hotel).
 
-> **Requisito:** conta no Habblet e extensão Tampermonkey (Chrome, Edge, Brave, Firefox, etc.).
+O Luminus adiciona um painel flutuante e utilitários de uso diário no hotel. Você não instala um programa no PC. Você usa o [Tampermonkey](https://www.tampermonkey.net/) (ou um gerenciador de userscripts compatível).
 
-O Luminus **não é oficial** e não é afiliado ao Habblet. Use por sua conta e risco e respeite as regras do hotel.
+| Item | Valor |
+|------|--------|
+| Nome | Luminus |
+| Tipo | Userscript (Tampermonkey) |
+| Alvo | `https://www.habblet.city/hotel*` |
+| Build de uso | `luminus.user.js` (produção) |
+
+**Requisito:** conta no Habblet e extensão Tampermonkey (Chrome, Edge, Brave, Firefox ou similar).
+
+> **AVISO:** O Luminus **não é oficial** e não é afiliado ao Habblet. Use por sua conta e risco. Respeite as regras do hotel.
 
 ---
 
@@ -51,37 +59,152 @@ O Luminus **não é oficial** e não é afiliado ao Habblet. Use por sua conta e
 | Chrome / Brave / Edge | [Chrome Web Store](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) |
 | Firefox | [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/tampermonkey/) |
 
-Confirme que o ícone do Tampermonkey aparece na barra do navegador.
+1. Instale a extensão.
+2. Confirme o ícone do Tampermonkey na barra do navegador.
+3. Ative **Allow user scripts** (Permitir scripts de usuário) na **extensão** do navegador (não no dashboard do Tampermonkey).
+   1. Clique com o **botão direito** no ícone do Tampermonkey na barra do navegador  
+      **ou** abra a página de extensões do navegador (ex.: `brave://extensions/`, `chrome://extensions/`, `edge://extensions/`).
+   2. Clique em **Manage extension** (Gerenciar extensão)  
+      **ou**, na página de extensões, em **Details** (Detalhes) do Tampermonkey.
+   3. Ligue **Allow user scripts** / **Permitir scripts de usuário**.
+   4. Em vários navegadores (Chrome, Brave, Edge e afins) essa opção é **obrigatória** para o script rodar.
+   5. Detalhes oficiais: [FAQ do Tampermonkey — Q209](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
+
+**CUIDADO:** Sem **Allow user scripts** ativo na página da extensão, o Luminus pode instalar e ainda assim **não executar** no hotel.
 
 ### 2. Instale o Luminus
 
-**Opção A — a partir do GitHub (recomendada)**
+**Opção A — GitHub (recomendada)**
 
-1. Abra a [última release](https://github.com/iIlusion/luminus/releases/latest) **ou** o arquivo de build no repositório:
-   - Produção: [`dist/luminus.user.js`](https://github.com/iIlusion/luminus/blob/main/dist/luminus.user.js)  
-     (se o `dist/` estiver no branch; caso contrário use a release)
-2. Clique em **Raw** (texto puro do script).
-3. O Tampermonkey deve abrir a tela de instalação → **Instalar**.
+1. Abra a [última release](https://github.com/iIlusion/luminus/releases/latest).
+2. Baixe ou abra o `luminus.user.js` da release.  
+   Se o repositório publicar o arquivo no branch `main`, você também pode usar o [Raw](https://github.com/iIlusion/luminus/blob/main/dist/luminus.user.js) de `dist/luminus.user.js` quando existir.
+3. O Tampermonkey abre a tela de instalação.
+4. Clique em **Instalar**.
 
 **Opção B — arquivo local**
 
 1. Baixe o `luminus.user.js` da release.
-2. Abra o dashboard do Tampermonkey → **Utilitários** → **Importar** (ou arraste o arquivo).
-3. Confirme a instalação.
+2. Abra o dashboard do Tampermonkey.
+3. Use **Utilitários** → **Importar** (ou arraste o arquivo).
+4. Confirme a instalação.
 
 ### 3. Abra o hotel
 
-1. Acesse [https://www.habblet.city/hotel](https://www.habblet.city/hotel) e entre na sua conta.
-2. O Luminus inicia junto com a página (`@run-at document-start`).
-3. Procure o **ícone / painel do Luminus** na interface, ou use o menu do Tampermonkey.
+1. Acesse [https://www.habblet.city/hotel](https://www.habblet.city/hotel).
+2. Entre na sua conta.
+3. O Luminus inicia com a página (`@run-at document-start`).
+4. Abra o painel pelo ícone na interface ou pelo menu do Tampermonkey.
 
-Se nada aparecer: confira se o script está **ativado** no Tampermonkey e se o `@match` inclui `habblet.city/hotel`.
+**NOTA:** Se nada aparecer:
+
+1. Confirme que o script está **ativado** no Tampermonkey.
+2. Confirme que **Allow User Scripts** está ligado (veja o passo 3 da instalação da extensão e o [FAQ Q209](https://www.tampermonkey.net/faq.php?locale=en&q=Q209)).
+3. Confira se o `@match` inclui `habblet.city/hotel`.
 
 ---
 
-## Como o script funciona
+## Operação
 
-Visão geral em alto nível — útil para jogadores curiosos e para quem for contribuir.
+### Como usar
+
+1. Entre no hotel com o Luminus ativo.
+2. Abra o painel e escolha a aba.
+3. Ajuste as preferências. Elas ficam no navegador (localStorage / armazenamento do Tampermonkey).
+4. Links salvos e mutes manuais permanecem entre sessões.
+5. **Mutar geral** não permanece após F5 nem após troca de quarto.
+
+### Painel flutuante
+
+Janela arrastável com abas:
+
+| Aba | Função |
+|-----|--------|
+| **Player** | Avatar, mute, copiar visual, spam click |
+| **Logs** | Chat, amigos e quarto; webhooks e histórico local |
+| **Visual** | Vidro na UI, rádio, guarda-roupa |
+| **Links** | Histórico de links de missões e perfis |
+
+Builds de **desenvolvimento** podem mostrar abas **Packets** e **Debug** quando o modo dev está ligado.
+
+### Player
+
+| Função | Descrição |
+|--------|-----------|
+| **Anti-Idle** | Reage quando o servidor marca você como ausente |
+| **Anti-Caminhar** | Bloqueia o envio de caminhadas |
+| **Anti-Girar** | Impede mudanças de direção enviadas pelo cliente |
+| **Anti-Digitando** | Não envia o indicador de digitação |
+| **Bloquear clique** | Impede cliques acidentais em outros jogadores; **Ctrl + clique** libera |
+| **Ctrl + setas** | Gira o avatar com o teclado |
+| **Copiar visual** | Copia a figura de outro nick para o seu avatar |
+| **Spam click** | Clique automático em um alvo (nick travável) |
+| **Mutar geral** | Silencia o chat local do quarto **no seu cliente** |
+| ↳ Whitelist | Nicks que o mute geral não silencia |
+| ↳ Esconder avatares | Oculta sprites dos mutados (não afeta você) |
+| ↳ Mutes manuais | Calar ou ouvir por pessoa; **permanecem** entre sessões |
+| ↳ Mute geral | **Não** permanece em reload nem em troca de quarto |
+| **Calar / Ouvir Habblet** | Atalhos no menu nativo e no infostand |
+
+**NOTA:** Mute geral e vários bloqueios de ação são **locais**. Eles não banem ninguém no servidor.
+
+### Logs
+
+| Função | Descrição |
+|--------|-----------|
+| **Chat log** | Cliques e sussurros para webhook Discord opcional |
+| **Friend log** | Amigos online e mudança de quarto |
+| **Room monitor** | Quem entrou ou saiu e o tempo no quarto |
+| **Nicks monitorados** | Lista dedicada e atalhos |
+| **Janela de logs** | Histórico local por tipo |
+
+### Visual
+
+| Função | Descrição |
+|--------|-----------|
+| **Interface em vidro** | Efeito glass por área da UI |
+| **Rádio** | Mostra ou oculta o player de rádio da página |
+| **Guarda-roupa** | Layout horizontal ou empilhado |
+
+### Links
+
+| Função | Descrição |
+|--------|-----------|
+| **Histórico** | Guarda links de missões e perfis que você abre |
+| **Favoritos** | Marca links importantes |
+| **Busca e filtros** | Por gênero e texto |
+| **Vários links / duplicados** | Organização por conta e URL |
+| **Bloqueados / Não abertos** | Filtros de organização |
+| **Abrir perfil** | Atalho de perfil a partir do nick |
+
+### Chat e UI do hotel
+
+| Função | Descrição |
+|--------|-----------|
+| **Respeitos agrupados** | Respeitos empilhados numa bolha com contador |
+| **Ícones no menu** | Link, olho e bloqueado no infostand e no menu por nome |
+| **Remoção de anúncios** | Tenta remover blocos de ads invasivos da página |
+
+### Dicas
+
+- Coloque amigos na whitelist do mute geral se você sempre quer ouvi-los.
+- Use spam click com nick travado para evitar troca acidental de alvo.
+- Webhooks de log são opcionais. Só enviam dados se você configurar a URL.
+
+### Arquivos de build
+
+| Arquivo | Uso |
+|---------|-----|
+| `dist/luminus.user.js` | **Produção** — uso diário |
+| `dist/luminus-dev.user.js` | Desenvolvimento (menu de debug e extras) |
+
+Para contribuir com código, veja [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+---
+
+## Princípio de funcionamento
+
+Visão geral em alto nível.
 
 ```text
   Página do Habblet
@@ -93,297 +216,91 @@ Visão geral em alto nível — útil para jogadores curiosos e para quem for co
         │         │
         │         ▼
         │   PacketBridge
-        │     • decodifica pacotes binários (protocolo Eva)
-        │     • normaliza headers (offsets Habblet por sessão)
-        │     • parsers registrados → estado do quarto / você
-        │     • handlers (mute local, logs, respeito, UI…)
+        │     • decodifica pacotes binários
+        │     • normaliza headers (offset de sessão)
+        │     • parsers → estado do quarto e de você
+        │     • handlers (mute local, logs, UI, …)
         │
-        ├─► window.Luminus  (API pública no console / código)
+        ├─► window.Luminus  (API no console)
         │
-        └─► UI React (painel, logs, links, estilos)
+        └─► UI React (painel, logs, links)
 ```
 
-### Fluxo resumido
+### Fluxo
 
-1. **Injeção cedo** — o script sobe antes do cliente do hotel, para envolver o `WebSocket` original.
-2. **Interceptação** — cada frame binário que entra ou sai passa pelo `PacketBridge`.
-3. **Codec + headers** — o Habblet usa headers “de fio” com **offset de sessão**. O Luminus descobre o offset e trabalha com **headers lógicos** estáveis no código (ex.: chat, usuários, ignore).
-4. **Parsers / composers** — pacotes importantes têm parser (entrada) ou composer (saída). Falhas de parse são suaves: o restante do script continua.
-5. **Estado do quarto** — unidades (avatares), você (`myself`), móveis e eventos alimentam o `roomStore` e as features.
-6. **UI e preferências** — o painel lê/grava toggles (localStorage / `GM_setValue`), sem servidor do Luminus para as funções principais.
+1. O script sobe **antes** do cliente do hotel e envolve o `WebSocket`.
+2. Cada frame binário de entrada ou saída passa pelo `PacketBridge`.
+3. O Habblet usa headers de fio com **offset de sessão**. O Luminus descobre o offset e usa **headers lógicos** no código.
+4. Pacotes importantes têm parser (entrada) ou composer (saída). Falha de parse é isolada.
+5. O estado do quarto (avatares, você, móveis) alimenta as funções.
+6. O painel grava preferências no navegador. As funções principais não dependem de servidor do Luminus.
 
-### O que *não* é
+### O que o Luminus não é
 
 - Não é um client alternativo do hotel.
-- Não grava senha nem substitui o login do Habblet.
-- Mute “geral” e vários bloqueios de ação são **locais no seu cliente** (você deixa de ver/enviar certas coisas), não um ban no servidor.
-
----
-
-## Funcionalidades
-
-### Painel flutuante
-
-Janela arrastável com abas:
-
-| Aba | Função |
-|-----|--------|
-| **Player** | Avatar, mute, copiar visual, spam click |
-| **Logs** | Chat / amigos / quarto → webhooks e histórico local |
-| **Visual** | Vidro na UI, rádio, guarda-roupa |
-| **Links** | Histórico de links de missões e perfis |
-
-Builds de **desenvolvimento** podem expor abas **Packets** e **Debug** (só com modo dev ligado).
-
----
-
-### Player
-
-| Função | Descrição |
-|--------|-----------|
-| **Anti-Idle** | Quando o servidor marca você como ausente, o script reage para evitar idle indesejado |
-| **Anti-Caminhar** | Bloqueia o envio de caminhadas (mesmo clicando no chão) |
-| **Anti-Girar** | Impede mudanças de direção enviadas pelo cliente |
-| **Anti-Digitando** | Não envia o indicador de “está digitando” |
-| **Bloquear clique** | Impede cliques acidentais em outros jogadores; opção **Ctrl + clique** libera |
-| **Ctrl + setas** | Gira o avatar com o teclado |
-| **Copiar visual** | Clica em alguém (ou digita o nick) e aplica a figura no seu avatar |
-| **Spam click** | Clique automático em um alvo (nick travável; opção de mudar alvo ao clicar) |
-| **Mutar geral** | Silencia o **chat local** de todo o quarto no *seu* cliente |
-| ↳ Whitelist | Nicks que nunca são mutados pelo mute geral |
-| ↳ Esconder avatares | Oculta sprites dos mutados (sem mutar/esconder você mesmo) |
-| ↳ Mutes manuais | Calar/ouvir por pessoa; **permanecem** entre sessões/quartos |
-| ↳ Mute geral | **Não** persiste em reload nem troca de quarto |
-| **Calar / Ouvir Habblet** | Atalhos no menu nativo / infostand (além do mute local) |
-
-### Logs
-
-| Função | Descrição |
-|--------|-----------|
-| **Chat log** | Cliques e sussurros (e filtros) para webhook Discord opcional |
-| **Friend log** | Amigos online / mudança de quarto |
-| **Room monitor** | Quem entrou/saiu e tempo no quarto |
-| **Nicks monitorados** | Lista dedicada + atalhos para logs e links salvos |
-| **Janela de logs** | Histórico local com tipos (click, sussurro, amigo, entrou, saiu) |
-
-### Visual
-
-| Função | Descrição |
-|--------|-----------|
-| **Interface em vidro** | Efeito glass por área (toolbar, menus, bolsa, etc.) |
-| **Rádio** | Mostrar ou ocultar o player de rádio da página |
-| **Guarda-roupa** | Layout horizontal / empilhado |
-
-### Links
-
-| Função | Descrição |
-|--------|-----------|
-| **Histórico** | Guarda links de missões e perfis que você abre |
-| **Favoritos** | Marca links importantes |
-| **Busca e filtros** | Por gênero e texto |
-| **Vários links** | Contas com mais de um link |
-| **Link duplicado** | Mesmo URL em duas ou mais contas |
-| **Bloqueados / Não abertos** | Filtros de organização |
-| **Abrir perfil** | Atalho para o perfil Habblet a partir do nick |
-
-### Chat e UI do hotel
-
-| Função | Descrição |
-|--------|-----------|
-| **Respeitos agrupados** | Mensagens de respeito empilhadas numa bolha com contador (sem “empurrar” o chat) |
-| **Ícones no menu** | Link / olho / bloqueado no infostand e menu por nome |
-| **Remoção de anúncios** | Tenta remover blocos de ads invasivos da página do hotel |
-
----
-
-## Como usar
-
-1. Entre no hotel com o Luminus ativo.  
-2. Abra o painel e escolha a aba.  
-3. Preferências ficam no navegador (localStorage / armazenamento do Tampermonkey).  
-4. **Links** e **mutes manuais** persistem entre sessões.  
-5. **Mutar geral** não sobrevive a F5 nem a troca de quarto (por design).
-
-### Dicas
-
-- Whitelist no mute geral: coloque amigos que você sempre quer ouvir.  
-- Spam click com nick travado evita retarget acidental no meio do uso.  
-- Webhooks de log são opcionais: só enviam se você configurar a URL.
-
-### Arquivos de build
-
-| Arquivo | Uso |
-|---------|-----|
-| `dist/luminus.user.js` | **Produção** — use este no dia a dia |
-| `dist/luminus-dev.user.js` | Desenvolvimento (menu de debug, ferramentas extras) |
-
----
-
-## Atualizações
-
-1. Acompanhe as [**Releases**](https://github.com/iIlusion/luminus/releases).  
-2. Baixe o novo `luminus.user.js` **ou** abra o Raw de novo e reinstale (o Tampermonkey pergunta se deseja atualizar).  
-3. Se `@updateURL` / `@downloadURL` apontarem para a release, o Tampermonkey pode oferecer atualização automática.
-
-**Versão:** badge de release no topo desta página, ou campo `@version` no cabeçalho do userscript.
+- Não grava senha e não substitui o login do Habblet.
+- Não aplica ban ou punição no servidor do hotel.
 
 ---
 
 ## API `window.Luminus`
 
-Com o hotel aberto e o script ativo, o console do navegador expõe a API (nomes estáveis para automação e debug):
+Com o hotel aberto e o script ativo, o console do navegador expõe a API:
 
 | Área | Exemplos |
 |------|----------|
-| **Identidade** | `Luminus.myself` — seu usuário na sessão |
-| **Quarto** | `Luminus.room` — unidades, estado derivado dos packets |
-| **Envio** | `Luminus.send(composer)` — preferir composers tipados |
+| **Identidade** | `Luminus.myself` |
+| **Quarto** | `Luminus.room` |
+| **Envio** | `Luminus.send(composer)` — prefira composers tipados |
 | **Eventos** | `Luminus.onIncoming(header, fn)`, `onOutgoing`, `onPacket` |
-| **Bloqueio** | `Luminus.blockIncoming` / `blockOutgoing` (ex.: anti-caminhar) |
+| **Bloqueio** | `Luminus.blockIncoming` / `blockOutgoing` |
 | **Figura** | `Luminus.setFigure(gender, figure)` |
-| **Mute** | `Luminus.muteAll?.setEnabled(true)`, whitelist, hide avatars |
+| **Mute** | `Luminus.muteAll?.setEnabled(true)` |
 | **Debug** | `Luminus.debug.setEnabled(true)`, `toggleDevMode()` |
 | **Composers** | `Luminus.composers.RoomUnitWalk`, `UserIgnore`, etc. |
 
-> **Convenção:** não envie headers numéricos “soltos” se existir composer/parser. Headers de sessão mudam; o código usa headers **lógicos** após offset.
+**NOTA:** Não envie headers numéricos soltos se existir composer. Headers de sessão mudam. O código usa headers **lógicos** após o offset.
 
 ---
 
-## Desenvolvimento
+## Atualizações
 
-Quer contribuir? Leia esta seção antes de abrir um PR.
+1. Acompanhe as [Releases](https://github.com/iIlusion/luminus/releases).
+2. Baixe o novo `luminus.user.js` ou abra o Raw e reinstale.
+3. O Tampermonkey pergunta se deseja atualizar.
+4. Se `@updateURL` / `@downloadURL` apontarem para a release, o Tampermonkey pode oferecer atualização automática.
 
-### Requisitos
-
-- **Node.js** 20+ (LTS recomendado)  
-- **npm** 10+  
-- Git  
-- Tampermonkey para testar no hotel  
-
-### Setup
-
-```bash
-git clone https://github.com/iIlusion/luminus.git
-cd luminus
-npm install
-```
-
-### Scripts npm
-
-| Comando | Descrição |
-|---------|-----------|
-| `npm run dev` | Watch da build de desenvolvimento (`luminus-dev.user.js`) |
-| `npm run build` | Build produção + dev |
-| `npm run build:main` | Só produção (`luminus.user.js`) |
-| `npm run build:main-dev` | Só dev |
-| `npm run typecheck` | TypeScript sem emitir arquivos |
-| `npm run release` | Typecheck + build de **produção** (manual) |
-| `npm run release:full` | Typecheck + produção + dev (manual) |
-
-Não há publish automático obrigatório: **release é intencional** (`npm run release`).
-
-### Como testar no hotel
-
-1. Rode `npm run dev` (ou `npm run release` para produção).  
-2. No Tampermonkey, instale/aponte para o arquivo em `dist/`.  
-3. Recarregue `https://www.habblet.city/hotel`.  
-4. Valide no console: `window.Luminus` deve existir.  
-5. Para abas Packets/Debug: use o menu do Tampermonkey (build dev) ou `Luminus.toggleDevMode()` e recarregue.
-
-### Estrutura do repositório
-
-```text
-src/
-  main.ts              # entrada do userscript
-  version.ts           # versão injetada no build
-  ws/
-    interceptWebSocket.ts   # wrapper do WebSocket
-    PacketBridge.ts         # decode, handlers, room, send
-    api.ts                  # window.Luminus
-  protocol/
-    codec.ts, binary.ts     # leitura/escrita Eva
-    headerOffsets.ts        # offset de sessão Habblet
-    IncomingHeader.ts / OutgoingHeader.ts
-  messages/
-    registerParsers.ts      # registro de headers
-    incoming/*Parser.ts
-    outgoing/*Composer.ts
-  room/
-    roomStore.ts            # unidades / furnis / resets
-    muteAll.ts              # mute local + hide
-  ui/
-    inject.ts, panel.tsx    # montagem e painel
-    linkWindow.tsx, logWindow.tsx
-    respectMessages.ts, infostandLinks.ts
-    toolbarGlass.ts, styles.ts
-  links/                    # store de links de missões
-  logs/                     # handlers e store de logs
-  util/                     # prefs, fetch, timers
-  bridge/                   # capturas opcionais (dev)
-  build/                    # stubs de build
-dist/                       # bundles .user.js gerados
-```
-
-### Arquitetura para contribuidores
-
-| Módulo | Responsabilidade |
-|--------|------------------|
-| `interceptWebSocket` | Substitui `WebSocket` e encaminha frames ao bridge |
-| `PacketBridge` | Pipeline de decode, registry, room state, block/send |
-| `registerParsers` | Fonte de verdade: quais headers têm parser/composer |
-| `roomStore` / `muteAll` | Estado do quarto e mute **local** |
-| `ui/*` | React + CSS injetado; não deve travar o cliente do hotel |
-| `prefs` | Persistência de preferências |
-
-### Convenções de código
-
-- TypeScript strict, **2 espaços**, aspas **duplas**, ponto e vírgula  
-- Nomes explícitos: `FurnitureFloorParser`, `PacketBridge`, `UserIgnoreComposer`  
-- Headers: sempre **lógicos** pós-offset — não hardcodar wire headers de uma sessão  
-- Pacotes novos: criar parser/composer e registrar em `registerParsers.ts`  
-- Parse deve falhar de forma isolada (log continua)  
-- Evite abstrações especulativas; helpers só quando reduzem duplicação real  
-- UI: não faça `MutationObserver` sem filtro — loops travam a página  
-
-### Checklist de PR
-
-1. Fork + branch a partir de `main`  
-2. Mudança focada (uma feature / um bug)  
-3. `npm run typecheck` e `npm run release` (ou `build`) passam  
-4. Descreva o que o **jogador** ganha (PT ou EN)  
-5. Não commite `node_modules/`, dumps de packets sensíveis, tokens ou webhooks  
-
-### Segurança e privacidade
-
-- O script roda **no seu navegador** e só na sessão do hotel (`@match` Habblet).  
-- Webhooks de log são opcionais e configurados por você.  
-- Não compartilhe prints com tokens, webhooks ou dados de terceiros em issues públicas.  
-- Capturas de packets para debug: mantenha locais; não suba dumps com dados pessoais.
-
-### Roadmap de contribuição (ideias)
-
-- Novos parsers com fixtures de packet (JSON local)  
-- Melhorias de acessibilidade no painel  
-- Documentação de um fluxo de feature com captura antes/depois  
-- Testes unitários leves (Node + strip-types) para parsers e utilitários  
+**Versão:** badge de release no topo desta página, ou campo `@version` no cabeçalho do userscript.
 
 ---
 
 ## Suporte
 
-- **Discord:** [entrar no servidor](https://discord.gg/HmVkadXGVz)  
-- **Issues:** [GitHub Issues](https://github.com/iIlusion/luminus/issues)  
-- **Releases:** [github.com/iIlusion/luminus/releases](https://github.com/iIlusion/luminus/releases)
+| Canal | Link |
+|-------|------|
+| Discord | [Entrar no servidor](https://discord.gg/HmVkadXGVz) |
+| Issues | [GitHub Issues](https://github.com/iIlusion/luminus/issues) |
+| Releases | [github.com/iIlusion/luminus/releases](https://github.com/iIlusion/luminus/releases) |
 
 ---
 
 ## Aviso
 
-O Luminus é um projeto da comunidade, **não oficial** e não afiliado ao Habblet Hotel.  
-Use por sua conta e risco e respeite as regras do hotel.
+O Luminus é um projeto da comunidade. Ele **não é oficial** e não é afiliado ao Habblet Hotel.
+
+Use por sua conta e risco. Respeite as regras do hotel.
 
 ---
 
 ## Licença
 
-Consulte o repositório para a licença aplicável ao código. Contribuições assumem os mesmos termos, salvo indicação em contrário.
+Consulte o repositório para a licença do código. Contribuições usam os mesmos termos, salvo indicação em contrário.
+
+---
+
+## Documentação para desenvolvimento
+
+| Documento | Público |
+|-----------|---------|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Pessoas que contribuem com código |
+| [`AGENTS.md`](AGENTS.md) | Agentes de código (automação) |

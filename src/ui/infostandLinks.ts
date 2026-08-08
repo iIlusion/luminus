@@ -148,44 +148,6 @@ function showLinkMenu(name: string, anchor: Element): void {
   }, 0);
 }
 
-// Inserted right after nameEl (not just appended to its parent row) so it lands next to the
-// name even when that row has other siblings after it (e.g. online status, motto in the
-// full profile window), instead of drifting to the end of the row.
-function renderEyeIcon(nameEl: HTMLElement, name: string): void {
-  const existing = nameEl.nextElementSibling;
-  let eye = existing?.classList.contains("luminus-person-link-icon") ? (existing as HTMLElement) : null;
-
-  if (!hasLinks(name)) {
-    eye?.remove();
-    if (openMenuFor === name) closeLinkMenu();
-    return;
-  }
-  const seen = hasOpenedLink(name);
-  const state = seen ? "seen" : "pending";
-  if (eye && eye.dataset.luminusIconState === state) return;
-
-  if (!eye) {
-    eye = document.createElement("span");
-    eye.className = "luminus-person-link-icon";
-    eye.addEventListener("click", e => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (openMenuFor === name) closeLinkMenu();
-      else showLinkMenu(name, nameEl.closest(".nitro-infostand.rounded") ?? nameEl.closest(".nitro-infostand-container") ?? nameEl.closest(".user-profile") ?? nameEl.parentElement ?? nameEl);
-    });
-    nameEl.insertAdjacentElement("afterend", eye);
-  }
-
-  eye.dataset.luminusIconState = state;
-  eye.classList.toggle("luminus-eye", seen);
-  eye.classList.toggle("luminus-link-pending", !seen);
-  eye.title = "Você já clicou em um link dessa pessoa — clique para ver todos";
-  eye.innerHTML = seen ? EYE_ICON_SVG : LINK_ICON_SVG;
-  /* duplicate legacy handler removed */
-      // Anchor to the actual visible card, not its (often larger/padded) container —
-      // otherwise the menu opens with a gap between it and what the user sees.
-}
-
 function isNameOnlyMenu(menu: HTMLElement): boolean {
   if (menu.classList.contains("nitro-widget-high-score")) return false;
   if (menu.classList.contains("name-only") || menu.classList.contains("is-name-only")) return true;
@@ -578,7 +540,7 @@ function processInfostand(container: Element): void {
     if (isFurniture && nameEl) {
       const title = nameEl.textContent?.trim() || null;
       onFurnitureInfostand(title);
-      renderFurniHideEye(container, nameEl, title);
+      renderFurniHideEye(nameEl, title);
     } else {
       onFurnitureInfostand(null);
       removeFurniHideEye();
@@ -606,7 +568,7 @@ function removeFurniHideEye(): void {
  * Eye toggle on the furniture title row (next to the name), not a bottom button.
  * Open eye = visible class; eye-off = hidden — click flips instantly via Nitro alpha API.
  */
-function renderFurniHideEye(container: Element, nameEl: HTMLElement, title: string | null): void {
+function renderFurniHideEye(nameEl: HTMLElement, title: string | null): void {
   const state = getFurniClassHideState();
   if (!state.enabled || !title) {
     removeFurniHideEye();
@@ -743,6 +705,11 @@ function scheduleInfostandProcess(mutations: MutationRecord[]): void {
 
   // Attribute-only noise (class thrash) → only refresh open user context menus.
   const hasChildList = mutations.some(m => m.type === "childList");
+  // Nitro sometimes updates the mission by changing the existing text node
+  // instead of replacing children. Those updates must trigger link wrapping
+  // immediately; otherwise the plain text stays non-clickable until a later
+  // infostand rerender happens to produce a childList mutation.
+  const hasMottoTextChange = mutations.some(m => m.type === "characterData");
   const menuClassChange = mutations.some(m => {
     if (m.type !== "attributes") return false;
     const el = m.target instanceof HTMLElement ? m.target : null;
@@ -763,7 +730,7 @@ function scheduleInfostandProcess(mutations: MutationRecord[]): void {
     return;
   }
 
-  if (!hasChildList) return;
+  if (!hasChildList && !hasMottoTextChange) return;
 
   pendingMutations = mutations;
   if (processScheduled) return;
@@ -852,6 +819,7 @@ export function initInfostandLinks(api: LuminusApi): void {
       childList: true,
       subtree: true,
       attributes: true,
+      characterData: true,
       attributeFilter: ["class", "style"],
     });
   };

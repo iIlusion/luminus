@@ -2330,66 +2330,6 @@ function roomUsersType() {
   return [] as Array<{ id: number; index: number; name: string; figure: string; type: number }>;
 }
 
-function annotateMessages(
-  entries: VisibleLogEntry[],
-  conversation: ChatConversationView,
-): Array<{ entry: VisibleLogEntry; start: boolean; end: boolean }> {
-  return entries.map((entry, index) => {
-    const previous = entries[index - 1];
-    const next = entries[index + 1];
-    return {
-      entry,
-      start: !canGroupMessage(previous, entry, conversation),
-      end: !canGroupMessage(entry, next, conversation),
-    };
-  });
-}
-
-function groupAnnotatedMessages(
-  messages: Array<{ entry: VisibleLogEntry; start: boolean; end: boolean }>,
-): Array<{
-  dayChanged: boolean;
-  items: Array<{ entry: VisibleLogEntry; start: boolean; end: boolean; index: number }>;
-}> {
-  const groups: Array<{
-    dayChanged: boolean;
-    items: Array<{ entry: VisibleLogEntry; start: boolean; end: boolean; index: number }>;
-  }> = [];
-  messages.forEach((message, index) => {
-    const previous = messages[index - 1];
-    const dayChanged = !previous
-      || new Date(previous.entry.ts).toDateString() !== new Date(message.entry.ts).toDateString();
-    const item = { ...message, index };
-    const current = groups[groups.length - 1];
-    if (message.entry.type === "click" || message.start || dayChanged || !current) {
-      groups.push({ dayChanged, items: [item] });
-    } else {
-      current.items.push(item);
-    }
-  });
-  return groups;
-}
-
-function canGroupMessage(
-  first: VisibleLogEntry | undefined,
-  second: VisibleLogEntry | undefined,
-  conversation: ChatConversationView,
-): boolean {
-  const sameSender = first && second && (
-    (isLocalChatMessage(first, conversation) && isLocalChatMessage(second, conversation))
-    || sameName(first.actor, second.actor)
-  );
-  return Boolean(
-    first
-    && second
-    && first.type === "whisper"
-    && second.type === "whisper"
-    && sameSender
-    && second.ts - first.ts <= 5 * 60 * 1000
-    && new Date(first.ts).toDateString() === new Date(second.ts).toDateString(),
-  );
-}
-
 function messageRecipient(entry: LogEntry, myself: string): string {
   if (entry.target && normalizeName(entry.target) !== "group") return entry.target;
   return myself || "Você";

@@ -3,6 +3,7 @@ import type { MessengerSearch } from "../messages/incoming/MessengerSearchParser
 import type { RoomUnit } from "../messages/incoming/UsersParser";
 import { UserProfileComposer } from "../messages/outgoing/UserProfileComposer";
 import { HabboSearchComposer } from "../messages/outgoing/HabboSearchComposer";
+import { textLooksLikeRoomClickNotice } from "../logs/roomClickNotice";
 import { ensureRoomEngine } from "../room/nitroWorldOverlay";
 import { getTargetWindow } from "../ws/interceptWebSocket";
 import { findRoomUnitByName, handleCtrlUserClick } from "./userClickActions";
@@ -177,8 +178,16 @@ export function linkClickMessage(api: LuminusApi, actor: string, message: string
   const tryLink = (): boolean => {
     const bubbles = [...document.querySelectorAll<HTMLElement>(".nitro-chat-widget .chat-bubble")].reverse();
     const bubble = bubbles.find(element => {
-      const text = normalizeText(element.textContent ?? "");
-      return text.includes(expected) || (text.includes(actorText) && text.includes("clicou em voce"));
+      const raw = element.textContent ?? "";
+      const text = normalizeText(raw);
+      if (text.includes(expected)) return true;
+      if (!text.includes(actorText)) return false;
+      // Match flexible click wording (clicou/cutucou … em voce/vc), not only the exact phrase.
+      return (
+        textLooksLikeRoomClickNotice(raw, actor) ||
+        (/\b(clicou|cutucou|tocou|clickou)\b/.test(text) &&
+          /\bem\s+(v[oc]{1,2}e|vc|ti)\b/.test(text))
+      );
     });
     return bubble ? wrapActor(bubble, actor, api) : false;
   };

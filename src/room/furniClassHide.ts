@@ -105,10 +105,7 @@ let enabled = false;
 const hidden = new Map<string, string>();
 let focusType: string | null = null;
 let focusLabel: string | null = null;
-let focusObjectId: number | null = null;
-let focusCategory: number | null = null;
 let keepTimer = 0;
-let watchTimer = 0;
 let chooserObserver: MutationObserver | null = null;
 let lastRoomId: number | null = null;
 const listeners = new Set<Listener>();
@@ -415,8 +412,6 @@ export function onFurnitureInfostand(furniTitle: string | null): void {
     if (focusType !== null || focusLabel !== null) {
       focusType = null;
       focusLabel = null;
-      focusObjectId = null;
-      focusCategory = null;
       notify();
     }
     return;
@@ -426,8 +421,6 @@ export function onFurnitureInfostand(furniTitle: string | null): void {
     if (focusType !== null || focusLabel !== null) {
       focusType = null;
       focusLabel = null;
-      focusObjectId = null;
-      focusCategory = null;
       notify();
     }
     return;
@@ -440,8 +433,6 @@ export function onFurnitureInfostand(furniTitle: string | null): void {
   if (sel.type) {
     focusType = sel.type;
     focusLabel = furniTitle;
-    focusObjectId = sel.objectId;
-    focusCategory = sel.category;
   } else {
     // Keep last type if selection dropped (common after hide); still show title.
     focusLabel = furniTitle;
@@ -457,8 +448,6 @@ export function hideFocusedClass(): boolean {
   if (!type) return false;
   if (sel.type) {
     focusType = sel.type;
-    focusObjectId = sel.objectId;
-    focusCategory = sel.category;
   }
   return hideType(type, focusLabel);
 }
@@ -475,8 +464,6 @@ export function toggleFocusedClass(): boolean {
   if (!type) return false;
   if (sel.type) {
     focusType = sel.type;
-    focusObjectId = sel.objectId;
-    focusCategory = sel.category;
   }
   return toggleType(type, focusLabel);
 }
@@ -657,8 +644,6 @@ export function initFurniClassHide(api: LuminusApi): void {
     lastRoomId = api.room.id;
     focusType = null;
     focusLabel = null;
-    focusObjectId = null;
-    focusCategory = null;
     nameMapCache = null;
     notify();
   }));
@@ -669,7 +654,7 @@ export function initFurniClassHide(api: LuminusApi): void {
   }));
 
   // Focus sync for infostand + chooser paint while open.
-  watchTimer = window.setInterval(() => {
+  window.setInterval(() => {
     if (!enabled) return;
 
     const container = document.querySelector(".nitro-infostand-container");

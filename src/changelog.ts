@@ -1,6 +1,11 @@
 import { readPref, writePref } from "./util/prefs";
 
-export interface Changelog {
+/** Uma entrada do modal de novidades (versão + secções). */
+export interface ChangelogLayer {
+  id: string;
+  label: string;
+  /** Versão desta entrada; o modal reabre se for diferente da última vista. */
+  version: string;
   title: string;
   summary: string;
   publishedAt: string;
@@ -13,83 +18,156 @@ export interface Changelog {
   }[];
 }
 
-export function defineChangelog<const T extends Changelog>(changelog: T): T {
+/** @deprecated Prefer ChangelogLayer — alias para código antigo. */
+export type Changelog = ChangelogLayer;
+
+export function defineChangelog<const T extends ChangelogLayer>(changelog: T): T {
   return changelog;
 }
 
-export const CURRENT_CHANGELOG = defineChangelog({
-  title: "Luminus 1.1 - historico privado, grupos e cliques",
-  summary: "O chat privado ficou muito mais completo, os grupos pararam de misturar pessoas antigas e os avisos de clique ganharam mais contexto no jogo.",
-  publishedAt: "23 de julho de 2026",
+/**
+ * Changelog atual do Luminus.
+ * Atualizar só em release explícita pedida pelo maintainer.
+ */
+export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
+  id: "luminus",
+  label: "Luminus",
+  version: "1.2.0",
+  title: "Luminus 1.2",
+  summary:
+    "Explore novos visuais, organize seus looks e use o hotel com mais conforto.",
+  publishedAt: "8 de agosto de 2026",
   sections: [
     {
-      title: "Chat privado",
+      title: "Novo",
       items: [
         {
-          title: "Historico de chat com abas",
-          description: "Agora voce pode abrir conversas privadas em uma janela propria, com abas por pessoa ou grupo, busca por quem ja falou com voce e resposta direta sem depender de deixar o chat nativo aberto."
+          title: "Menu de enables e handitems",
+          description:
+            "Abra o menu no painel para escolher efeitos e itens de mão animados e ver cada visual com o seu avatar.",
         },
         {
-          title: "Grupos separados de verdade",
-          description: "Limpar o texto de grupo no chat do Habblet agora tambem limpa os membros daquele grupo. Isso evita herdar pessoas antigas quando voce monta outro grupo diferente."
+          title: "Importar e exportar looks",
+          description:
+            "Salve seus looks em um código e recupere-os depois, substituindo os slots ou preenchendo os primeiros slots livres.",
         },
         {
-          title: "Mais controle nas conversas",
-          description: "Cada aba mostra contador de novas mensagens, permite fechar so aquela conversa, apagar mensagens individuais, apagar o chat inteiro e limpar o grupo nativo com um clique."
-        }
-      ]
+          title: "Chat privado redesenhado",
+          description:
+            "Abra conversas separadas, pesquise mensagens e acompanhe o histórico com mais conforto.",
+        },
+        {
+          title: "Histórico do chat do quarto",
+          description:
+            "Consulte o que foi falado na sala enquanto você continua jogando.",
+        },
+        {
+          title: "Controle de mobis",
+          description:
+            "Oculte tipos de mobi pelo painel ou pelo infostand para deixar a sala mais limpa.",
+        },
+        {
+          title: "Opções de renderização",
+          description:
+            "Ajuste o desenho do quarto pelo painel quando quiser mais leveza ou mais detalhes.",
+        },
+      ],
     },
     {
-      title: "Cliques e avisos",
+      title: "Melhorado",
       items: [
         {
-          title: "Ctrl + clique para revidar",
-          description: "Segurando Ctrl ao clicar em nomes do Luminus, voce pode mandar o clique de volta sem depender do botao de spam click."
+          title: "Mute geral",
+          description:
+            "Esconda ou mostre avatares e balões mutados com menos mudanças inesperadas.",
         },
         {
-          title: "Aviso quando voce clica",
-          description: "Quando o aviso estiver ligado, o quarto tambem mostra a mensagem de que voce clicou em alguem, no mesmo estilo visual das notificacoes ja vistas no jogo."
+          title: "Janelas do painel",
+          description:
+            "Mova e redimensione o painel, os logs, os links e o chat sem perder partes da janela.",
         },
         {
-          title: "Clique repetido agrupado",
-          description: "Mensagens de clique recebidas entram no historico da conversa e, quando a mesma pessoa clicar varias vezes, o contador sobe na propria mensagem."
-        }
-      ]
+          title: "Leitura dos logs",
+          description:
+            "Acompanhe cliques, mensagens privadas e entradas ou saídas com mais clareza.",
+        },
+        {
+          title: "Perfis e avatares",
+          description:
+            "Abra perfis e veja avatares com respostas mais rápidas nas janelas do hotel.",
+        },
+        {
+          title: "Mensagens de respeito",
+          description:
+            "As mensagens de respeito ocupam menos espaço e ficam mais fáceis de acompanhar.",
+        },
+      ],
     },
     {
-      title: "Links",
+      title: "Corrigido",
       items: [
         {
-          title: "Filtros combinaveis",
-          description: "A janela de Links agora deixa combinar varios filtros ao mesmo tempo, como duplicados, favoritos, bloqueados, varios links e ainda nao abertos."
+          title: "Escolha de duas cores",
+          description:
+            "Ao escolher um visual com duas cores, as duas paletas ficam visíveis.",
         },
         {
-          title: "Nomes mais uteis",
-          description: "Cliques em nomes pela janela de Links e por partes do historico ficaram mais consistentes para abrir o perfil da pessoa com menos atrito."
-        }
-      ]
+          title: "Avisos de cliques recebidos",
+          description:
+            "Os avisos de cliques recebidos aparecem corretamente nos logs e nas conversas.",
+        },
+        {
+          title: "Links das missões",
+          description:
+            "Os links das missões ficam clicáveis assim que aparecem no perfil.",
+        },
+        {
+          title: "Envio de mensagens privadas",
+          description:
+            "Mensagens privadas chegam com mais regularidade em conversas longas.",
+        },
+        {
+          title: "Grupos de conversa",
+          description:
+            "Gerenciar um grupo de conversa não remove mensagens das suas abas por engano.",
+        },
+        {
+          title: "Troca de quarto",
+          description:
+            "Ao entrar em outra sala, as opções da sala anterior não permanecem por engano.",
+        },
+      ],
     },
-    {
-      title: "Player e painel",
-      items: [
-        {
-          title: "Mute geral mais estavel",
-          description: "O mute geral ficou mais previsivel ao esconder ou mostrar avatares, e voce pode escolher se quer ou nao ver os baloes de mute."
-        },
-        {
-          title: "Antispam opcional no privado",
-          description: "O antispam do historico privado agora fica desligado por padrao e tenta segurar menos as conversas quando voce alterna entre mensagens diferentes."
-        }
-      ]
-    }
-  ]
+  ],
 });
 
-const SEEN_CHANGELOG_KEY = "luminus.changelog.seenContent";
+/** @deprecated Use LUMINUS_CHANGELOG_LAYER */
+export const CURRENT_CHANGELOG = LUMINUS_CHANGELOG_LAYER;
 
-export function claimCurrentChangelog(): Changelog | null {
-  const content = JSON.stringify(CURRENT_CHANGELOG);
-  if (readPref(SEEN_CHANGELOG_KEY, "") === content) return null;
-  writePref(SEEN_CHANGELOG_KEY, content);
-  return CURRENT_CHANGELOG;
+const DEFAULT_SEEN_KEY = "luminus.changelog.seenVersions";
+
+/**
+ * Devolve as camadas a mostrar se alguma versão mudou desde o último visto.
+ * Grava as versões atuais ao reclamar (evita reabrir no mesmo load).
+ */
+export function claimChangelogLayers(
+  layers: readonly ChangelogLayer[],
+  prefsKey: string = DEFAULT_SEEN_KEY,
+): ChangelogLayer[] | null {
+  if (!layers.length) return null;
+  const seen = readPref<Record<string, string>>(prefsKey, {});
+  const changed = layers.some(layer => seen[layer.id] !== layer.version);
+  if (!changed) return null;
+
+  const next: Record<string, string> = { ...seen };
+  for (const layer of layers) {
+    next[layer.id] = layer.version;
+  }
+  writePref(prefsKey, next);
+  return [...layers];
+}
+
+/** Luminus-only claim (compat). */
+export function claimCurrentChangelog(): ChangelogLayer[] | null {
+  return claimChangelogLayers([LUMINUS_CHANGELOG_LAYER]);
 }

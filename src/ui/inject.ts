@@ -4,16 +4,22 @@ import type { LuminusApi } from "../ws/api";
 import { LuminusPanel } from "./panel";
 import { LogWindow } from "./logWindow";
 import { LinkWindow } from "./linkWindow";
+import { EnablesHanditemsWindow } from "./enablesHanditemsWindow";
 import { WhisperBetaWindow } from "./whisperBetaWindow";
 import { LogToast } from "./logToast";
 import { ChangelogModal } from "./changelogModal";
 import { PANEL_STYLES } from "./styles";
 import { WHISPER_BETA_STYLES } from "./whisperBetaStyles";
+import { ENABLES_HANDITEMS_STYLES } from "./enablesHanditemsStyles";
 import { getWardrobeStacked, initUiAppearance } from "./toolbarGlass";
 import { initRespectMessageGrouping } from "./respectMessages";
 import { initHighScoreProfileLinks } from "./profileLinks";
 import { LUMINUS_BUILD_NAME } from "../version";
-import { claimCurrentChangelog, type Changelog } from "../changelog";
+import {
+  claimChangelogLayers,
+  LUMINUS_CHANGELOG_LAYER,
+  type ChangelogLayer,
+} from "../changelog";
 import {
   getTotalChatUnread,
   startChatWorkspace,
@@ -21,6 +27,7 @@ import {
 } from "../chat/chatWorkspaceStore";
 import { startRoomChatSessions } from "../chat/roomChatSessionStore";
 import { startUiSafeBoundsWatch } from "./windowBounds";
+import { initWardrobeTools } from "./wardrobeTools";
 
 // Keep the experimental chat isolated so a beta render failure cannot unmount the stable UI.
 let root: ReturnType<typeof ReactDOM.createRoot> | null = null;
@@ -28,8 +35,11 @@ let betaRoot: ReturnType<typeof ReactDOM.createRoot> | null = null;
 let open     = false;
 let logOpen  = false;
 let linkOpen = false;
+let enablesOpen = false;
 let whisperBetaOpen = false;
-let changelog: Changelog | null = null;
+let changelogLayers: ChangelogLayer[] | null = null;
+let uiChangelogLayers: readonly ChangelogLayer[] = [LUMINUS_CHANGELOG_LAYER];
+let uiChangelogPrefsKey = "luminus.changelog.seenVersions";
 
 function render(api: LuminusApi) {
   if (!root) return;
@@ -52,9 +62,14 @@ function render(api: LuminusApi) {
         open: linkOpen,
         onClose: () => { linkOpen = false; render(api); },
       }),
-      changelog && React.createElement(ChangelogModal, {
-        changelog,
-        onClose: () => { changelog = null; render(api); },
+      React.createElement(EnablesHanditemsWindow, {
+        api,
+        open: enablesOpen,
+        onClose: () => { enablesOpen = false; render(api); },
+      }),
+      changelogLayers && changelogLayers.length > 0 && React.createElement(ChangelogModal, {
+        layers: changelogLayers,
+        onClose: () => { changelogLayers = null; render(api); },
       }),
       React.createElement(LogToast, { api }),
     )
@@ -106,6 +121,12 @@ const CHAT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
   <path d="M8 9h8M8 13h5"/>
 </svg>`;
 
+const ENABLES_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="8" r="3.5"/>
+  <path d="M6 20c.6-3.2 3-5 6-5s5.4 1.8 6 5"/>
+  <path d="M17.5 4.5l1.2-1.2M19.5 7h1.7M17.5 9.5l1.2 1.2"/>
+</svg>`;
+
 function mountUtilityIcon(toolbar: Element, title: string, svg: string, onClick: () => void): HTMLDivElement {
   const btn = document.createElement("div");
   btn.className = "luminus-toolbar-btn";
@@ -116,7 +137,19 @@ function mountUtilityIcon(toolbar: Element, title: string, svg: string, onClick:
   return btn;
 }
 
-export function initUI(api: LuminusApi): void {
+export type InitUIOptions = {
+  /** Entradas do modal de novidades. Default: changelog do Luminus. */
+  changelogLayers?: readonly ChangelogLayer[];
+  /** Chave de preferência do “já vi estas versões”. */
+  changelogPrefsKey?: string;
+};
+
+export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
+  uiChangelogLayers = options.changelogLayers?.length
+    ? options.changelogLayers
+    : [LUMINUS_CHANGELOG_LAYER];
+  uiChangelogPrefsKey = options.changelogPrefsKey ?? "luminus.changelog.seenVersions";
+
   // inject styles
   const style = document.createElement("style");
   style.id = "luminus-ui-styles";
@@ -128,11 +161,18 @@ export function initUI(api: LuminusApi): void {
   betaStyle.textContent = WHISPER_BETA_STYLES;
   (document.head ?? document.documentElement).appendChild(betaStyle);
 
+  // Keep this feature stylesheet independent from the main panel stylesheet.
+  const enablesStyle = document.createElement("style");
+  enablesStyle.id = "luminus-enables-handitems-styles";
+  enablesStyle.textContent = ENABLES_HANDITEMS_STYLES;
+  (document.head ?? document.documentElement).appendChild(enablesStyle);
+
   const mount = () => {
     startChatWorkspace(api);
     startRoomChatSessions(api);
     startUiSafeBoundsWatch();
     initUiAppearance();
+    initWardrobeTools(api);
     initRespectMessageGrouping(api);
     initHighScoreProfileLinks(api);
     document.body.classList.toggle("luminus-wardrobe-stacked", getWardrobeStacked());
@@ -153,7 +193,7 @@ export function initUI(api: LuminusApi): void {
       const target = document.querySelector(".nitro-toolbar .d-flex.gap-2.align-items-center:not(.justify-content-between)");
       if (target) {
         observer.disconnect();
-        changelog = claimCurrentChangelog();
+        changelogLayers = claimChangelogLayers(uiChangelogLayers, uiChangelogPrefsKey);
         render(api);
         mountIcon(target, api);
         // Chat (formerly Beta) replaces legacy "Histórico de chat".
@@ -174,6 +214,10 @@ export function initUI(api: LuminusApi): void {
         subscribeChatList(updateChatBadge);
         mountUtilityIcon(target, "Luminus: Logs", LOGS_ICON_SVG, () => { logOpen = !logOpen; render(api); });
         mountUtilityIcon(target, "Luminus: Links", LINKS_ICON_SVG, () => { linkOpen = !linkOpen; render(api); });
+        mountUtilityIcon(target, "Luminus: Efeitos e Handitems", ENABLES_ICON_SVG, () => {
+          enablesOpen = !enablesOpen;
+          render(api);
+        });
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });

@@ -117,11 +117,6 @@ function ExpandableOption({ label, sub, detailLabel, control, children, defaultO
 }
 
 
-function fmtTime(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-}
-
 const BLOCK_HEADERS = [
   { header: 2725, label: "UserObject",     sub: "#2725" },
   { header: 374,  label: "Users",          sub: "#374"  },

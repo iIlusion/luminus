@@ -10,6 +10,7 @@ import { addLog, type LogEntry } from "./logStore";
 import { normalizeLogEntry } from "./whisperThreads";
 import { gmPost } from "../util/gmFetch";
 import { linkClickMessage } from "../ui/profileLinks";
+import { parseRoomClickNotice } from "./roomClickNotice";
 import { consumeGroupWhisperRoute, type GroupWhisperRoute } from "../chat/groupWhisperRouting";
 import {
   getMountedNativeGroupMembers,
@@ -690,23 +691,27 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
     }));
   }
 
-  // UNIT_CHAT 1446 — "clicou em voce!" detection
-  // The packet is sent FROM a system entity (not the clicker), so roomIndex ≠ clicker.
-  // Extract the actor name from the message text and look up their figure by name.
-  unsubs.push(api.onIncoming(1446, ({ packet }) => {
+  // Room click/prod notices can arrive as normal chat (1446) or shout (1036).
+  // The packet is often FROM a system entity (not the clicker), so roomIndex ≠ clicker.
+  const handleRoomClickNotice = ({ packet }: Parameters<Parameters<LuminusApi["onIncoming"]>[1]>[0]) => {
     const cfg = getConfig();
     if (!packet.parsed) return;
     const { message } = packet.parsed as RoomChat;
-    const clean = stripFormatting(message);
-    if (isNativeGroupManagementNotice(clean)) return;
-    if (!normalizeTxt(clean).includes("clicou em voce!")) return;
-    const actor = clean.match(/^(.+?)\s+clicou/i)?.[1]?.trim() ?? "?";
+    if (isNativeGroupManagementNotice(message)) return;
+    const roomNames = [...api.room.units.values()].map(u => u.name);
+    const notice = parseRoomClickNotice(message, roomNames);
+    if (!notice) return;
+    const { actor } = notice;
+    const clean = notice.message;
     linkClickMessage(api, actor, clean);
-    const actorFigure = [...api.room.units.values()].find(u => u.name === actor)?.figure;
+    const actorFigure = [...api.room.units.values()].find(
+      u => normalizeTxt(u.name) === normalizeTxt(actor),
+    )?.figure;
     addLog({ ts: Date.now(), type: "click", actor, figure: actorFigure, message: clean });
     if (!cfg.chatEnabled) return;
     sendWebhook(cfg.chatWebhook, "click", actor, clean, actorFigure);
-  }));
+  };
+  for (const header of [1446, 1036] as const) unsubs.push(api.onIncoming(header, handleRoomClickNotice));
 
   // UNIT_CHAT_WHISPER 2704 — incoming or echo of own outgoing
   unsubs.push(api.onIncoming(2704, ({ packet }) => {

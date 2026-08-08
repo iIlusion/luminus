@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => {
 // @grant        GM_xmlhttpRequest
 // @connect      api.habblet.city
 // @connect      discord.com
+// @connect      cdn.jsdelivr.net
 ${localConnect}// ==/UserScript==`;
 
   return {
@@ -65,6 +66,9 @@ ${localConnect}// ==/UserScript==`;
         { find: "lucide-react", replacement: path.resolve(fileURLToPath(new URL(".", import.meta.url)), "node_modules/lucide-react/dist/esm/lucide-react.mjs") },
         ...(!target.mcp ? [
           { find: /^.*[/\\]bridge[/\\]mcpBridge$/, replacement: fileURLToPath(new URL("./src/build/noMcp.ts", import.meta.url)) },
+        ] : []),
+        ...(!target.devTools ? [
+          { find: /^.*[/\\]ui[/\\]catalogThumbBakeDev$/, replacement: fileURLToPath(new URL("./src/build/noCatalogThumbBake.ts", import.meta.url)) },
         ] : []),
       ],
     },
@@ -75,15 +79,17 @@ ${localConnect}// ==/UserScript==`;
       __LUMINUS_DEV_TOOLS__: JSON.stringify(target.devTools),
       __LUMINUS_MCP__: JSON.stringify(target.mcp),
     },
-    plugins: [{
-      name: "luminus-userscript-output",
-      generateBundle(_, bundle) {
-        for (const chunk of Object.values(bundle)) {
-          if (chunk.type !== "chunk") continue;
-          chunk.code = `${userscriptHeader}\n${chunk.code}`;
-        }
+    plugins: [
+      {
+        name: "luminus-userscript-output",
+        generateBundle(_, bundle) {
+          for (const chunk of Object.values(bundle)) {
+            if (chunk.type !== "chunk") continue;
+            chunk.code = `${userscriptHeader}\n${chunk.code}`;
+          }
+        },
       },
-    }],
+    ],
     build: {
       emptyOutDir: false,
       minify: target.minify ? "esbuild" : false,

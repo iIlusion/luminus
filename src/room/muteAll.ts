@@ -244,14 +244,6 @@ export function isNameMuted(name: string): boolean {
   return false;
 }
 
-function findUnitByName(name: string): RoomUnit | undefined {
-  const key = norm(name);
-  for (const unit of apiRef?.room.units.values() ?? []) {
-    if (norm(unit.name) === key) return unit;
-  }
-  return undefined;
-}
-
 function visualsNeeded(): boolean {
   if (avatarHidingActive() && usersPacketSnapshot) return false;
   return enabled || localMuted.size > 0 || avatarHidingActive() || forcedHidden.size > 0 || iconApplied.size > 0;

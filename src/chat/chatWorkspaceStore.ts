@@ -635,14 +635,6 @@ function setSnapshot(
   }
 }
 
-function notifyRevision(): void {
-  bumpAllRevisions();
-  publishListSnapshot();
-  publishThreadSnapshot(snapshot.selectedKey);
-  scheduleListNotify();
-  scheduleThreadNotify({ urgent: true });
-}
-
 function bumpAllRevisions(): void {
   const next = snapshot.revision + 1;
   snapshot = {
@@ -789,15 +781,6 @@ function scheduleThrottledListNotify(): void {
     bumpListRevision();
     scheduleListNotify();
   }, LIST_THROTTLE_MS);
-}
-
-function scheduleNotify(): void {
-  scheduleListNotify();
-  scheduleThreadNotify();
-}
-
-function notify(): void {
-  scheduleNotify();
 }
 
 function readWorkspace(): PersistedChatWorkspace {

@@ -1,6 +1,6 @@
 {
   "name": "luminus",
-  "version": "1.1.55",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Userscript Luminus para o Habblet Hotel — painel, player, logs, visual e links.",
@@ -30,7 +30,12 @@
     "release": "npm run typecheck && npm run clean:dist && npm run build:main",
     "release:full": "npm run typecheck && npm run clean:dist && npm run build:main && npm run build:main-dev",
     "test:furniture-floor": "node --experimental-strip-types src/messages/incoming/FurnitureFloorParser.test.ts",
-    "test:reliable-timers": "node --experimental-strip-types src/util/reliableTimers.test.ts"
+    "test:reliable-timers": "node --experimental-strip-types src/util/reliableTimers.test.ts",
+    "test:catalog-thumbs": "node --experimental-strip-types src/ui/catalogThumbManifest.test.ts",
+    "test:catalog-thumb-additive": "node --experimental-strip-types src/ui/catalogThumbAdditive.test.ts",
+    "test:catalog-thumb-load-queue": "node --experimental-strip-types src/ui/catalogThumbLoadQueue.test.ts",
+    "test:catalog-thumb-presentation": "node --experimental-strip-types src/ui/catalogThumbPresentation.test.ts",
+    "test:enables-handitems": "esbuild src/ui/enablesHanditemsCatalog.test.ts --bundle --platform=node --format=esm | node --input-type=module"
   },
   "devDependencies": {
     "@radix-ui/react-separator": "1.1.11",
