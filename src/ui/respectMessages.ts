@@ -187,7 +187,7 @@ function tryPendingEnrich(): void {
   }
 }
 
-function scheduleEnrich(targetName: string): void {
+function scheduleEnrich(): void {
   // Single retry ladder — each step only rewrites absolute text, never increments.
   const delays = [50, 120, 280, 500];
   for (const ms of delays) {
@@ -217,7 +217,7 @@ function onUserRespect(packet: DecodedPacket): "block" | void {
     if (actor) existing.actor = actor;
     existing.lastAt = now;
     existing.pendingEnrich = !applyRespectBubble(existing.targetName, existing.actor, existing.count);
-    if (existing.pendingEnrich) scheduleEnrich(existing.targetName);
+    if (existing.pendingEnrich) scheduleEnrich();
     // Always block after the first — Nitro must not open another chat slot.
     return "block";
   }
@@ -236,11 +236,11 @@ function onUserRespect(packet: DecodedPacket): "block" | void {
   // does not spawn a second bubble for the same respect.
   if (findRespectBubble(target.name)) {
     stack.pendingEnrich = !applyRespectBubble(stack.targetName, stack.actor, stack.count);
-    if (stack.pendingEnrich) scheduleEnrich(stack.targetName);
+    if (stack.pendingEnrich) scheduleEnrich();
     return "block";
   }
 
-  scheduleEnrich(target.name);
+  scheduleEnrich();
   // Allow Nitro to create the first bubble-1.
 }
 

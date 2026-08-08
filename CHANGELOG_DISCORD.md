@@ -1,48 +1,51 @@
 # ✨ Luminus v1.2.0
 
-> Chat privado redesenhado, mais controle sobre mobis e mute, e janelas que se comportam melhor no hotel.
+> Explore novos visuais, organize seus looks e use o hotel com mais conforto.
 
 ## 🆕 Novo
 
+**Menu de enables e handitems**
+Abra o menu no painel para escolher efeitos e itens de mão animados e ver cada visual com o seu avatar.
+
+**Importar e exportar looks**
+Salve seus looks em um código e recupere-os depois, substituindo os slots ou preenchendo os primeiros slots livres.
+
 **Chat privado redesenhado**
-O botão Chat abre uma janela própria com abas por conversa, busca, avatares e rolagem mais confortável.
+Abra conversas separadas, pesquise mensagens e acompanhe o histórico com mais conforto.
 
-**Memória do chat do quarto**
-O histórico do que foi falado no quarto fica mais estável enquanto você usa o hotel.
+**Histórico do chat do quarto**
+Consulte o que foi falado na sala enquanto você continua jogando.
 
-**Ocultar classe de mobis**
-Na Renderização e no infostand você esconde tipos de mobi para limpar o visual do quarto.
-
-**Aba Renderização**
-Novo atalho no painel para opções de desenho do quarto, inclusive canvas incremental.
+**Controle de mobis e renderização**
+Oculte tipos de mobi e ajuste o desenho do quarto pelo painel para deixar a sala mais limpa.
 
 ## ✨ Melhorado
 
-**Mute geral mais estável**
-Esconder ou mostrar avatares mutados e os balões de mute ficaram mais previsíveis.
+**Mute geral**
+Esconda ou mostre avatares e balões mutados com menos mudanças inesperadas.
 
-**Janelas dentro da tela**
-Painel, logs, links e chat respeitam melhor as bordas ao arrastar ou redimensionar.
+**Janelas do painel**
+Mova e redimensione o painel, os logs, os links e o chat sem perder partes da janela.
 
-**Logs mais legíveis**
-Janela de logs e toasts mais claros para cliques, sussurros e entrada ou saída de pessoas.
+**Leitura dos logs**
+Acompanhe cliques, mensagens privadas e entradas ou saídas com mais clareza.
 
-**Figuras e perfis**
-Avatares e atalhos de perfil respondem de forma mais consistente.
-
-**Respeitos no chat**
-Agrupamento de respeitos mais suave e menos invasivo.
-
-**Instalação no navegador**
-Guia explica como ativar Allow user scripts no Tampermonkey.
+**Perfis e mensagens de respeito**
+Perfis carregam melhor e as mensagens de respeito ocupam menos espaço.
 
 ## 🔧 Corrigido
 
-**Fila de sussurros**
-Envio de mensagens privadas mais estável em conversas longas.
+**Escolha de duas cores**
+Ao escolher um visual com duas cores, as duas paletas ficam visíveis.
 
-**Grupos nativos**
-Limpar grupo de sussurro no Habblet interfere menos nas abas do Luminus.
+**Avisos de cliques recebidos**
+Os avisos de cliques recebidos aparecem corretamente nos logs e nas conversas.
 
-**Estado ao trocar de quarto**
-Mute, logs de quarto e partes da UI reiniciam de forma mais correta.
+**Links das missões**
+Os links das missões ficam clicáveis assim que aparecem no perfil.
+
+**Conversas privadas**
+Mensagens privadas chegam com mais regularidade em conversas longas.
+
+**Troca de quarto**
+Ao entrar em outra sala, as opções da sala anterior não permanecem por engano.

@@ -691,9 +691,9 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
     }));
   }
 
-  // UNIT_CHAT 1446 — room click/prod notices (wording varies: "X clicou em você…", "cutucou", etc.)
+  // Room click/prod notices can arrive as normal chat (1446) or shout (1036).
   // The packet is often FROM a system entity (not the clicker), so roomIndex ≠ clicker.
-  unsubs.push(api.onIncoming(1446, ({ packet }) => {
+  const handleRoomClickNotice = ({ packet }: Parameters<Parameters<LuminusApi["onIncoming"]>[1]>[0]) => {
     const cfg = getConfig();
     if (!packet.parsed) return;
     const { message } = packet.parsed as RoomChat;
@@ -710,7 +710,8 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
     addLog({ ts: Date.now(), type: "click", actor, figure: actorFigure, message: clean });
     if (!cfg.chatEnabled) return;
     sendWebhook(cfg.chatWebhook, "click", actor, clean, actorFigure);
-  }));
+  };
+  for (const header of [1446, 1036] as const) unsubs.push(api.onIncoming(header, handleRoomClickNotice));
 
   // UNIT_CHAT_WHISPER 2704 — incoming or echo of own outgoing
   unsubs.push(api.onIncoming(2704, ({ packet }) => {

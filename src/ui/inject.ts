@@ -27,6 +27,7 @@ import {
 } from "../chat/chatWorkspaceStore";
 import { startRoomChatSessions } from "../chat/roomChatSessionStore";
 import { startUiSafeBoundsWatch } from "./windowBounds";
+import { initWardrobeTools } from "./wardrobeTools";
 
 // Keep the experimental chat isolated so a beta render failure cannot unmount the stable UI.
 let root: ReturnType<typeof ReactDOM.createRoot> | null = null;
@@ -171,6 +172,7 @@ export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
     startRoomChatSessions(api);
     startUiSafeBoundsWatch();
     initUiAppearance();
+    initWardrobeTools(api);
     initRespectMessageGrouping(api);
     initHighScoreProfileLinks(api);
     document.body.classList.toggle("luminus-wardrobe-stacked", getWardrobeStacked());

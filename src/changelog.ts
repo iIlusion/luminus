@@ -35,31 +35,41 @@ export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
   version: "1.2.0",
   title: "Luminus 1.2",
   summary:
-    "Chat privado redesenhado, mais controle sobre mobis e mute, e janelas que se comportam melhor no hotel.",
-  publishedAt: "3 de agosto de 2026",
+    "Explore novos visuais, organize seus looks e use o hotel com mais conforto.",
+  publishedAt: "8 de agosto de 2026",
   sections: [
     {
       title: "Novo",
       items: [
         {
+          title: "Menu de enables e handitems",
+          description:
+            "Abra o menu no painel para escolher efeitos e itens de mão animados e ver cada visual com o seu avatar.",
+        },
+        {
+          title: "Importar e exportar looks",
+          description:
+            "Salve seus looks em um código e recupere-os depois, substituindo os slots ou preenchendo os primeiros slots livres.",
+        },
+        {
           title: "Chat privado redesenhado",
           description:
-            "O botão Chat abre uma janela própria com abas por conversa, busca, avatares e rolagem mais confortável, sem depender só do chat nativo.",
+            "Abra conversas separadas, pesquise mensagens e acompanhe o histórico com mais conforto.",
         },
         {
-          title: "Memória do chat do quarto",
+          title: "Histórico do chat do quarto",
           description:
-            "O histórico do que foi falado no quarto fica disponível de forma mais estável enquanto você usa o hotel.",
+            "Consulte o que foi falado na sala enquanto você continua jogando.",
         },
         {
-          title: "Ocultar classe de mobis",
+          title: "Controle de mobis",
           description:
-            "Na aba Renderização e no infostand, você pode esconder tipos de mobi (e ver a lista na janela Mobis) para limpar o visual do quarto.",
+            "Oculte tipos de mobi pelo painel ou pelo infostand para deixar a sala mais limpa.",
         },
         {
-          title: "Aba Renderização",
+          title: "Opções de renderização",
           description:
-            "Novo atalho no painel para opções de desenho do quarto, inclusive o modo de canvas incremental.",
+            "Ajuste o desenho do quarto pelo painel quando quiser mais leveza ou mais detalhes.",
         },
       ],
     },
@@ -67,34 +77,29 @@ export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
       title: "Melhorado",
       items: [
         {
-          title: "Mute geral mais estável",
+          title: "Mute geral",
           description:
-            "Esconder ou mostrar avatares mutados e os balões de mute ficaram mais previsíveis no dia a dia.",
+            "Esconda ou mostre avatares e balões mutados com menos mudanças inesperadas.",
         },
         {
-          title: "Janelas dentro da tela",
+          title: "Janelas do painel",
           description:
-            "Painel, logs, links e chat respeitam melhor as bordas da janela do hotel ao arrastar ou redimensionar.",
+            "Mova e redimensione o painel, os logs, os links e o chat sem perder partes da janela.",
         },
         {
-          title: "Logs mais legíveis",
+          title: "Leitura dos logs",
           description:
-            "A janela de logs e os toasts ficaram mais claros para acompanhar cliques, sussurros e entrada ou saída de pessoas.",
+            "Acompanhe cliques, mensagens privadas e entradas ou saídas com mais clareza.",
         },
         {
-          title: "Figuras e perfis",
+          title: "Perfis e avatares",
           description:
-            "Avatares e atalhos de perfil em várias partes da UI carregam e respondem de forma mais consistente.",
+            "Abra perfis e veja avatares com respostas mais rápidas nas janelas do hotel.",
         },
         {
-          title: "Respeitos no chat",
+          title: "Mensagens de respeito",
           description:
-            "Agrupamento e apresentação de respeitos no chat do hotel ficaram mais suaves e menos invasivos.",
-        },
-        {
-          title: "Instalação no navegador",
-          description:
-            "O guia de instalação explica como ativar Allow user scripts no Tampermonkey, passo comum quando o script não inicia.",
+            "As mensagens de respeito ocupam menos espaço e ficam mais fáceis de acompanhar.",
         },
       ],
     },
@@ -102,19 +107,34 @@ export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
       title: "Corrigido",
       items: [
         {
-          title: "Fila de sussurros",
+          title: "Escolha de duas cores",
           description:
-            "Envio e ritmo de mensagens privadas ficaram mais estáveis em conversas longas ou com várias abas.",
+            "Ao escolher um visual com duas cores, as duas paletas ficam visíveis.",
         },
         {
-          title: "Grupos nativos",
+          title: "Avisos de cliques recebidos",
           description:
-            "Limpar ou gerenciar grupo de sussurro no Habblet interfere menos no que o Luminus mostra nas suas abas.",
+            "Os avisos de cliques recebidos aparecem corretamente nos logs e nas conversas.",
         },
         {
-          title: "Estado ao trocar de quarto",
+          title: "Links das missões",
           description:
-            "Mute, logs de quarto e partes da UI reiniciam de forma mais correta quando você muda de sala.",
+            "Os links das missões ficam clicáveis assim que aparecem no perfil.",
+        },
+        {
+          title: "Envio de mensagens privadas",
+          description:
+            "Mensagens privadas chegam com mais regularidade em conversas longas.",
+        },
+        {
+          title: "Grupos de conversa",
+          description:
+            "Gerenciar um grupo de conversa não remove mensagens das suas abas por engano.",
+        },
+        {
+          title: "Troca de quarto",
+          description:
+            "Ao entrar em outra sala, as opções da sala anterior não permanecem por engano.",
         },
       ],
     },

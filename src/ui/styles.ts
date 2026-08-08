@@ -2958,6 +2958,14 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
   min-height: 0;
 }
 
+/* A visual with two colour channels renders two palettes in the lower pane.
+   Keep the horizontal layout proportions, but make each swatch compact enough
+   for two rows to remain visible instead of clipping the second channel. */
+/* 27px + 27px + 4px gap fits the fractional ~60px palette viewport. */
+body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5).active)) .content-area > .grid > .g-col-9 > .grid:has(> .g-col-5:nth-child(3) > .grid + .grid) > .g-col-5:nth-child(3) > .grid {
+  --nitro-grid-column-min-height: 27px !important;
+}
+
 /* Enables/Handitems CSS lives in enablesHanditemsStyles.ts and is injected
    separately from the shared panel stylesheet. */
 
@@ -3258,5 +3266,99 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
 @media (prefers-reduced-motion: reduce) {
   #luminus-changelog[open],
   #luminus-changelog::backdrop { animation: none; }
+}
+
+/* Guarda-Roupa: ações de cópia/importação ficam no fim da barra nativa do Nitro. */
+.nitro-avatar-editor .menu {
+  display: flex;
+  align-items: stretch;
+}
+
+.luminus-wardrobe-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: 4px;
+  margin-left: auto;
+  padding-left: 6px;
+}
+
+.luminus-wardrobe-action {
+  appearance: none;
+  min-width: 58px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  color: #e8ebff;
+  background: rgba(20, 24, 45, 0.72);
+  font: 600 11px/1 sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.luminus-wardrobe-action:hover {
+  border-color: rgba(174, 187, 255, 0.6);
+  background: rgba(74, 88, 160, 0.72);
+}
+
+.luminus-wardrobe-action:disabled { opacity: 0.55; cursor: wait; }
+
+.luminus-wardrobe-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(7, 9, 18, 0.68);
+}
+
+.luminus-wardrobe-dialog {
+  width: min(390px, 100%);
+  padding: 20px;
+  border: 1px solid rgba(184, 195, 255, 0.28);
+  border-radius: 10px;
+  color: #eef0ff;
+  background: #20243a;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+}
+
+.luminus-wardrobe-dialog h2 { margin: 0 0 8px; font-size: 16px; }
+.luminus-wardrobe-dialog p { margin: 0 0 16px; color: rgba(232, 235, 255, 0.72); line-height: 1.4; }
+
+.luminus-wardrobe-dialog-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #e8ebff;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.luminus-wardrobe-dialog-option input { margin-top: 2px; accent-color: #9caeff; }
+
+.luminus-wardrobe-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.luminus-wardrobe-dialog-actions button {
+  min-width: 78px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  color: #e8ebff;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.luminus-wardrobe-dialog-actions [data-confirm] {
+  color: #15182a;
+  background: #abb9ff;
+  border-color: transparent;
+  font-weight: 700;
 }
 `;
