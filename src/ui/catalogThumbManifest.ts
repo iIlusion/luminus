@@ -8,9 +8,17 @@ export type CatalogThumbUnavailableReason =
   | "invalid-asset";
 
 export type CatalogThumbAtlas = {
-  file: string;
   sha256: string;
   size: [number, number];
+  file?: string;
+  offset?: number;
+  length?: number;
+};
+
+export type CatalogThumbPack = {
+  file: string;
+  sha256: string;
+  bytes: number;
 };
 
 export type CatalogThumbPlane = {
@@ -46,7 +54,8 @@ export type CatalogThumbEntry =
   | CatalogThumbUnavailableEntry;
 
 export type CatalogThumbManifest = {
-  schema: 1;
+  schema: 1 | 2;
+  pack?: CatalogThumbPack;
   bundleDigest: string;
   nitroFingerprint: string;
   tickMs: 41;
@@ -100,7 +109,11 @@ function validateUnavailable(value: Record<string, unknown>): CatalogThumbUnavai
   return { status: "unavailable", reason };
 }
 
-function validateReady(value: Record<string, unknown>, id: string): CatalogThumbReadyEntry {
+function validateReady(
+  value: Record<string, unknown>,
+  id: string,
+  pack?: CatalogThumbPack,
+): CatalogThumbReadyEntry {
   if (!isPair(value.canvas, true)) throw new Error(`Canvas inválido para ${id}`);
   if (!isPair(value.anchor)) throw new Error(`Âncora inválida para ${id}`);
   if (!Array.isArray(value.atlases) || value.atlases.length === 0) {
@@ -112,13 +125,27 @@ function validateReady(value: Record<string, unknown>, id: string): CatalogThumb
 
   const atlases = value.atlases.map((raw, atlasIndex): CatalogThumbAtlas => {
     if (!isRecord(raw)) throw new Error(`Atlas ${atlasIndex} inválido para ${id}`);
-    if (typeof raw.file !== "string" || !FILE_RE.test(raw.file) || raw.file.includes("..")) {
-      throw new Error(`Arquivo de atlas inválido para ${id}`);
-    }
     if (typeof raw.sha256 !== "string" || !SHA256_RE.test(raw.sha256)) {
       throw new Error(`Hash de atlas inválido para ${id}`);
     }
     if (!isPair(raw.size, true)) throw new Error(`Dimensão de atlas inválida para ${id}`);
+    if (pack) {
+      if (!Number.isInteger(raw.offset) || (raw.offset as number) < 0 || !isPositiveInt(raw.length)) {
+        throw new Error(`Faixa de atlas inválida para ${id}`);
+      }
+      if ((raw.offset as number) + raw.length > pack.bytes) {
+        throw new Error(`Atlas fora do pack para ${id}`);
+      }
+      return {
+        sha256: raw.sha256,
+        size: raw.size,
+        offset: raw.offset as number,
+        length: raw.length,
+      };
+    }
+    if (typeof raw.file !== "string" || !FILE_RE.test(raw.file) || raw.file.includes("..")) {
+      throw new Error(`Arquivo de atlas inválido para ${id}`);
+    }
     return { file: raw.file, sha256: raw.sha256, size: raw.size };
   });
 
@@ -176,7 +203,7 @@ function validateReady(value: Record<string, unknown>, id: string): CatalogThumb
 
 export function parseCatalogThumbManifest(value: unknown): CatalogThumbManifest {
   if (!isRecord(value)) throw new Error("Manifest inválido");
-  if (value.schema !== 1) throw new Error("Versão de manifest incompatível");
+  if (value.schema !== 1 && value.schema !== 2) throw new Error("Versão de manifest incompatível");
   if (typeof value.bundleDigest !== "string" || !SHA256_RE.test(value.bundleDigest)) {
     throw new Error("Digest do catálogo inválido");
   }
@@ -191,16 +218,30 @@ export function parseCatalogThumbManifest(value: unknown): CatalogThumbManifest 
   }
   if (!isRecord(value.entries)) throw new Error("Entradas do catálogo ausentes");
 
+  let pack: CatalogThumbPack | undefined;
+  if (value.schema === 2) {
+    if (!isRecord(value.pack)) throw new Error("Pack do catálogo ausente");
+    if (typeof value.pack.file !== "string" || !FILE_RE.test(value.pack.file) || value.pack.file.includes("..")) {
+      throw new Error("Arquivo de pack inválido");
+    }
+    if (typeof value.pack.sha256 !== "string" || !SHA256_RE.test(value.pack.sha256)) {
+      throw new Error("Hash do pack inválido");
+    }
+    if (!isPositiveInt(value.pack.bytes)) throw new Error("Tamanho do pack inválido");
+    pack = { file: value.pack.file, sha256: value.pack.sha256, bytes: value.pack.bytes };
+  }
+
   const entries: Record<string, CatalogThumbEntry> = {};
   for (const [id, raw] of Object.entries(value.entries)) {
     if (!/^\d+$/.test(id) || !isRecord(raw)) throw new Error(`Entrada ${id} inválida`);
     if (raw.status === "unavailable") entries[id] = validateUnavailable(raw);
-    else if (raw.status === "ready") entries[id] = validateReady(raw, id);
+    else if (raw.status === "ready") entries[id] = validateReady(raw, id, pack);
     else throw new Error(`Status inválido para ${id}`);
   }
 
   return {
-    schema: 1,
+    schema: value.schema,
+    ...(pack ? { pack } : {}),
     bundleDigest: value.bundleDigest,
     nitroFingerprint: value.nitroFingerprint,
     tickMs: 41,

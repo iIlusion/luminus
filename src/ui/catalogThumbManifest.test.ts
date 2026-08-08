@@ -56,6 +56,42 @@ const parsed = parseCatalogThumbManifest(manifest());
 assert(JSON.stringify(parsed) === JSON.stringify(manifest()), "manifest completo deve ser preservado");
 
 {
+  const value = structuredClone(manifest()) as unknown as Record<string, unknown>;
+  value.schema = 2;
+  value.pack = { file: "enables.pack", sha256: HASH, bytes: 100 };
+  const entries = value.entries as Record<string, Record<string, unknown>>;
+  const atlases = entries["1"].atlases as Array<Record<string, unknown>>;
+  delete atlases[0].file;
+  atlases[0].offset = 10;
+  atlases[0].length = 20;
+  const packed = parseCatalogThumbManifest(value);
+  equal(packed.pack?.bytes, 100, "manifest preserva tamanho do pack");
+  equal(
+    (packed.entries["1"] as CatalogThumbReadyEntry).atlases[0].offset,
+    10,
+    "atlas preserva offset no pack",
+  );
+}
+
+{
+  const value = structuredClone(manifest()) as unknown as Record<string, unknown>;
+  value.schema = 2;
+  value.pack = { file: "enables.pack", sha256: HASH, bytes: 20 };
+  const entries = value.entries as Record<string, Record<string, unknown>>;
+  const atlases = entries["1"].atlases as Array<Record<string, unknown>>;
+  delete atlases[0].file;
+  atlases[0].offset = 10;
+  atlases[0].length = 20;
+  let rejected = false;
+  try {
+    parseCatalogThumbManifest(value);
+  } catch (error) {
+    rejected = error instanceof Error && /fora do pack/.test(error.message);
+  }
+  assert(rejected, "atlas fora do pack deve ser rejeitado");
+}
+
+{
   const value = entry();
   equal(frameIndexAtTick(value, 0), 0, "tick inicial");
   equal(frameIndexAtTick(value, 1), 0, "hold do primeiro frame");

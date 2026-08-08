@@ -1,7 +1,9 @@
 import {
   parseCatalogThumbManifest,
+  type CatalogThumbAtlas,
   type CatalogThumbKind,
   type CatalogThumbManifest,
+  type CatalogThumbPack,
   type CatalogThumbReadyEntry,
   type CatalogThumbUnavailableReason,
 } from "./catalogThumbManifest";
@@ -37,6 +39,7 @@ let devBaseUrl: string | null = __LUMINUS_DEV_TOOLS__ && !CATALOG_THUMB_ASSET_CO
   ? LOCAL_DEV_ROOT
   : null;
 const manifestPromises = new Map<string, Promise<CatalogThumbManifest>>();
+const packPromises = new Map<string, Promise<ArrayBuffer>>();
 const atlasPromises = new Map<string, Promise<AtlasResource>>();
 
 function trimSlash(value: string): string {
@@ -47,6 +50,7 @@ export function setCatalogThumbDevBaseUrl(url: string | null): void {
   if (!__LUMINUS_DEV_TOOLS__) return;
   devBaseUrl = url?.trim() ? trimSlash(url.trim()) : null;
   manifestPromises.clear();
+  packPromises.clear();
 }
 
 export function getCatalogThumbBaseUrl(): string | null {
@@ -75,6 +79,56 @@ async function loadManifest(kind: CatalogThumbKind, baseUrl: string): Promise<Ca
 async function sha256Hex(value: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", value);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function loadPack(baseUrl: string, pack: CatalogThumbPack): Promise<ArrayBuffer> {
+  const url = `${baseUrl}/${pack.file}`;
+  const key = `${url}#${pack.sha256}`;
+  let promise = packPromises.get(key);
+  if (!promise) {
+    promise = gmFetchArrayBuffer(url).then(async (bytes) => {
+      if (bytes.byteLength !== pack.bytes) throw new Error("Tamanho do pack não confere");
+      if (await sha256Hex(bytes) !== pack.sha256) throw new Error("Hash do pack não confere");
+      return bytes;
+    });
+    packPromises.set(key, promise);
+    promise.catch(() => {
+      if (packPromises.get(key) === promise) packPromises.delete(key);
+    });
+  }
+  return promise;
+}
+
+function packedAtlasKey(packKey: string, atlas: CatalogThumbAtlas): string {
+  return `${packKey}:${atlas.offset}:${atlas.length}`;
+}
+
+async function acquirePackedAtlas(
+  packKey: string,
+  bytes: ArrayBuffer,
+  atlas: CatalogThumbAtlas,
+): Promise<AtlasResource> {
+  const offset = atlas.offset ?? -1;
+  const length = atlas.length ?? 0;
+  const key = packedAtlasKey(packKey, atlas);
+  let promise = atlasPromises.get(key);
+  if (!promise) {
+    promise = Promise.resolve({
+      objectUrl: URL.createObjectURL(new Blob([
+        bytes.slice(offset, offset + length),
+      ], { type: "image/webp" })),
+      refs: 0,
+      revokeTimer: null,
+    });
+    atlasPromises.set(key, promise);
+  }
+  const resource = await promise;
+  if (resource.revokeTimer !== null) {
+    window.clearTimeout(resource.revokeTimer);
+    resource.revokeTimer = null;
+  }
+  resource.refs += 1;
+  return resource;
 }
 
 async function acquireAtlas(url: string, expectedHash: string): Promise<AtlasResource> {
@@ -139,11 +193,22 @@ export async function loadCatalogThumb(
 
   const acquired: Array<{ key: string; resource: AtlasResource }> = [];
   try {
-    for (const atlas of entry.atlases) {
-      if (signal?.aborted) throw abortError();
-      const url = `${baseUrl}/${atlas.file}`;
-      const key = `${url}#${atlas.sha256}`;
-      acquired.push({ key, resource: await acquireAtlas(url, atlas.sha256) });
+    if (manifest.pack) {
+      const packUrl = `${baseUrl}/${manifest.pack.file}`;
+      const packKey = `${packUrl}#${manifest.pack.sha256}`;
+      const bytes = await loadPack(baseUrl, manifest.pack);
+      for (const atlas of entry.atlases) {
+        if (signal?.aborted) throw abortError();
+        const key = packedAtlasKey(packKey, atlas);
+        acquired.push({ key, resource: await acquirePackedAtlas(packKey, bytes, atlas) });
+      }
+    } else {
+      for (const atlas of entry.atlases) {
+        if (signal?.aborted) throw abortError();
+        const url = `${baseUrl}/${atlas.file}`;
+        const key = `${url}#${atlas.sha256}`;
+        acquired.push({ key, resource: await acquireAtlas(url, atlas.sha256) });
+      }
     }
     if (signal?.aborted) throw abortError();
     let released = false;
@@ -165,6 +230,7 @@ export async function loadCatalogThumb(
 
 export function clearCatalogThumbAssetCache(): void {
   manifestPromises.clear();
+  packPromises.clear();
   for (const promise of atlasPromises.values()) {
     void promise.then((resource) => {
       if (resource.revokeTimer !== null) window.clearTimeout(resource.revokeTimer);
