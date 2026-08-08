@@ -66,6 +66,8 @@ export function setMcpBridgeEnabled(value: boolean): void {
   writePref(PREF_KEY, value);
   syncCapture();
   setStatus(value ? "connecting" : "disconnected");
+  // Force toggle through even if debounced READY fired recently.
+  lastToggleSent = null;
   syncTransport();
 }
 
@@ -87,7 +89,15 @@ export function getMcpBridgeStatus(): Status {
   return status;
 }
 
+let lastToggleSent: boolean | null = null;
+let lastToggleAt = 0;
+
 function syncTransport(): void {
+  // Debounce READY re-announces from the extension port (same enabled value).
+  const now = Date.now();
+  if (lastToggleSent === enabled && now - lastToggleAt < 800) return;
+  lastToggleSent = enabled;
+  lastToggleAt = now;
   dispatch(TOGGLE_EVENT, { enabled });
 }
 

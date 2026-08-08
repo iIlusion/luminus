@@ -10,6 +10,7 @@ import { LogToast } from "./logToast";
 import { ChangelogModal } from "./changelogModal";
 import { PANEL_STYLES } from "./styles";
 import { WHISPER_BETA_STYLES } from "./whisperBetaStyles";
+import { ENABLES_HANDITEMS_STYLES } from "./enablesHanditemsStyles";
 import { getWardrobeStacked, initUiAppearance } from "./toolbarGlass";
 import { initRespectMessageGrouping } from "./respectMessages";
 import { initHighScoreProfileLinks } from "./profileLinks";
@@ -158,6 +159,12 @@ export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
   betaStyle.id = "luminus-chat-beta-styles";
   betaStyle.textContent = WHISPER_BETA_STYLES;
   (document.head ?? document.documentElement).appendChild(betaStyle);
+
+  // Keep this feature stylesheet independent from the main panel stylesheet.
+  const enablesStyle = document.createElement("style");
+  enablesStyle.id = "luminus-enables-handitems-styles";
+  enablesStyle.textContent = ENABLES_HANDITEMS_STYLES;
+  (document.head ?? document.documentElement).appendChild(enablesStyle);
 
   const mount = () => {
     startChatWorkspace(api);

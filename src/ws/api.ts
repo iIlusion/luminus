@@ -17,6 +17,17 @@ import type { BadgeProgress, LevelThreshold } from "../achievements/achievementS
 import { runChatBetaDiag } from "../diag/chatBetaDiag";
 import { chatStressApi, runChatThreadStress } from "../diag/chatStress";
 import { runNitroWeightProbe } from "../diag/nitroWeightProbe";
+import {
+  abortCatalogThumbBake,
+  bakeCatalogThumbs,
+  getCatalogThumbBakeProgress,
+  type BakeCatalogThumbOptions,
+} from "../ui/catalogThumbBakeDev";
+import {
+  clearCatalogThumbAssetCache,
+  getCatalogThumbBaseUrl,
+  setCatalogThumbDevBaseUrl,
+} from "../ui/catalogThumbAssets";
 
 type SendTarget = number | string | PacketComposer;
 
@@ -87,6 +98,33 @@ export interface LuminusApi {
     setEnabled(enabled: boolean): void;
     isParsedOnly(): boolean;
     setParsedOnly(enabled: boolean): void;
+    /** Captura avatar + efeito/handitem numa room de preview isolada. */
+    bakeCatalogThumbs(options?: BakeCatalogThumbOptions): Promise<{
+      running: boolean;
+      done: number;
+      total: number;
+      currentKind: "enable" | "handitem" | null;
+      currentId: number | null;
+      ready: number;
+      unavailable: number;
+      failed: number;
+      message: string;
+    }>;
+    catalogThumbBakeProgress(): {
+      running: boolean;
+      done: number;
+      total: number;
+      currentKind: "enable" | "handitem" | null;
+      currentId: number | null;
+      ready: number;
+      unavailable: number;
+      failed: number;
+      message: string;
+    };
+    abortCatalogThumbBake(): void;
+    setCatalogThumbBaseUrl(url: string | null): void;
+    getCatalogThumbBaseUrl(): string | null;
+    clearCatalogThumbCache(): void;
   };
   // Gates the panel's Packets/Debug tabs — callable as Luminus.toggleDevMode().
   toggleDevMode(): boolean;
@@ -106,7 +144,7 @@ export interface LuminusApi {
 }
 
 export function createApi(bridge: PacketBridge): LuminusApi {
-  return {
+  const api: LuminusApi = {
     get myself() {
       return bridge.myself;
     },
@@ -147,7 +185,13 @@ export function createApi(bridge: PacketBridge): LuminusApi {
       isEnabled: bridge.getDebug.bind(bridge),
       setEnabled: bridge.setDebug.bind(bridge),
       isParsedOnly: bridge.getLogParsedOnly.bind(bridge),
-      setParsedOnly: bridge.setLogParsedOnly.bind(bridge)
+      setParsedOnly: bridge.setLogParsedOnly.bind(bridge),
+      bakeCatalogThumbs: (options) => bakeCatalogThumbs(api, options),
+      catalogThumbBakeProgress: getCatalogThumbBakeProgress,
+      abortCatalogThumbBake,
+      setCatalogThumbBaseUrl: setCatalogThumbDevBaseUrl,
+      getCatalogThumbBaseUrl,
+      clearCatalogThumbCache: clearCatalogThumbAssetCache,
     },
     toggleDevMode(): boolean {
       const enabled = !readPref("luminus.devMode", false);
@@ -160,4 +204,5 @@ export function createApi(bridge: PacketBridge): LuminusApi {
     chatStress: chatStressApi,
     runNitroWeightProbe,
   };
+  return api;
 }

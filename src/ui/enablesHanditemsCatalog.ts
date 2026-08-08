@@ -1,112 +1,95 @@
-import { gmFetch } from "../util/gmFetch";
 import { readPref, writePref } from "../util/prefs";
-
-/** jsDelivr mirrors the public GitHub tree after push to `dev`. */
-export const CATALOG_BASE =
-  "https://cdn.jsdelivr.net/gh/iIlusion/luminus@dev/assets";
+import enableNames from "../data/enableNames.json";
+import handitemNames from "../data/handitemNames.json";
+import type { CatalogThumbKind } from "./catalogThumbManifest";
 
 export type EnableEntry = {
   enable: number;
   lib?: string;
   name: string;
-  img: string;
-  isFavorite?: boolean;
 };
 
 export type HanditemEntry = {
   handitem: number;
   name: string;
-  img: string;
-  isFavorite?: boolean;
 };
 
 export type CatalogEntry = EnableEntry | HanditemEntry;
 
-const FAV_ENABLES_KEY = "luminus.enables.favorites";
-const FAV_HANDITEMS_KEY = "luminus.handitems.favorites";
+const CATALOGS: Record<CatalogThumbKind, readonly CatalogEntry[]> = {
+  enable: enableNames as EnableEntry[],
+  handitem: handitemNames as HanditemEntry[],
+};
 
-let enablesCache: EnableEntry[] | null = null;
-let handitemsCache: HanditemEntry[] | null = null;
-let enablesPromise: Promise<EnableEntry[]> | null = null;
-let handitemsPromise: Promise<HanditemEntry[]> | null = null;
+const FAVORITE_KEYS: Record<CatalogThumbKind, string> = {
+  enable: "luminus.enables.favorites",
+  handitem: "luminus.handitems.favorites",
+};
 
-function catalogUrl(file: "enables.json" | "handitems.json"): string {
-  return `${CATALOG_BASE}/${file}`;
+const REMOVE_ENTRIES: Record<CatalogThumbKind, CatalogEntry> = {
+  enable: { enable: 0, name: "Remover efeito" },
+  handitem: { handitem: 0, name: "Remover handitem" },
+};
+
+function normalizeSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
-export async function getEnables(): Promise<EnableEntry[]> {
-  if (enablesCache) return enablesCache;
-  if (!enablesPromise) {
-    enablesPromise = gmFetch<EnableEntry[]>(catalogUrl("enables.json"))
-      .then((data) => {
-        enablesCache = Array.isArray(data) ? data : [];
-        return enablesCache;
-      })
-      .catch((err) => {
-        enablesPromise = null;
-        throw err instanceof Error ? err : new Error(String(err));
-      });
-  }
-  return enablesPromise;
+export function getCatalogEntries(kind: CatalogThumbKind): readonly CatalogEntry[] {
+  return CATALOGS[kind];
 }
 
-export async function getHanditems(): Promise<HanditemEntry[]> {
-  if (handitemsCache) return handitemsCache;
-  if (!handitemsPromise) {
-    handitemsPromise = gmFetch<HanditemEntry[]>(catalogUrl("handitems.json"))
-      .then((data) => {
-        handitemsCache = Array.isArray(data) ? data : [];
-        return handitemsCache;
-      })
-      .catch((err) => {
-        handitemsPromise = null;
-        throw err instanceof Error ? err : new Error(String(err));
-      });
-  }
-  return handitemsPromise;
+export function getCatalogFavorites(kind: CatalogThumbKind): number[] {
+  const raw = readPref<number[]>(FAVORITE_KEYS[kind], []);
+  return Array.isArray(raw) ? raw.filter((id) => typeof id === "number") : [];
 }
 
-export function getFavoriteEnables(): number[] {
-  const raw = readPref<number[]>(FAV_ENABLES_KEY, []);
-  return Array.isArray(raw) ? raw.filter((n) => typeof n === "number") : [];
-}
-
-export function getFavoriteHanditems(): number[] {
-  const raw = readPref<number[]>(FAV_HANDITEMS_KEY, []);
-  return Array.isArray(raw) ? raw.filter((n) => typeof n === "number") : [];
-}
-
-export function setFavoriteEnables(ids: number[]): void {
-  writePref(FAV_ENABLES_KEY, ids);
-}
-
-export function setFavoriteHanditems(ids: number[]): void {
-  writePref(FAV_HANDITEMS_KEY, ids);
-}
-
-export function toggleFavoriteEnable(id: number): number[] {
-  const cur = getFavoriteEnables();
-  const next = cur.includes(id) ? cur.filter((n) => n !== id) : [...cur, id];
-  setFavoriteEnables(next);
+export function toggleCatalogFavorite(kind: CatalogThumbKind, id: number): number[] {
+  const current = getCatalogFavorites(kind);
+  const next = current.includes(id)
+    ? current.filter((favoriteId) => favoriteId !== id)
+    : [...current, id];
+  writePref(FAVORITE_KEYS[kind], next);
   return next;
 }
 
-export function toggleFavoriteHanditem(id: number): number[] {
-  const cur = getFavoriteHanditems();
-  const next = cur.includes(id) ? cur.filter((n) => n !== id) : [...cur, id];
-  setFavoriteHanditems(next);
-  return next;
+export function buildCatalogList(
+  kind: CatalogThumbKind,
+  search: string,
+  favorites: readonly number[],
+): CatalogEntry[] {
+  const wanted = normalizeSearch(search);
+  const filtered = CATALOGS[kind].filter((entry) => {
+    const id = entryId(entry);
+    return (
+      !wanted
+      || normalizeSearch(entry.name).includes(wanted)
+      || String(id).includes(wanted)
+    );
+  });
+  const byId = new Map(filtered.map((entry) => [entryId(entry), entry]));
+  const favoriteIds = new Set(favorites.filter((id) => byId.has(id)));
+
+  return [
+    REMOVE_ENTRIES[kind],
+    ...favorites.flatMap((id) => {
+      const entry = byId.get(id);
+      return entry ? [entry] : [];
+    }),
+    ...filtered.filter((entry) => !favoriteIds.has(entryId(entry))),
+  ];
 }
 
 export function entryId(entry: CatalogEntry): number {
-  return "enable" in entry && entry.enable !== undefined
-    ? entry.enable
-    : (entry as HanditemEntry).handitem;
+  return "enable" in entry ? entry.enable : entry.handitem;
 }
 
 export function entryCommand(entry: CatalogEntry): string {
-  if ("enable" in entry && entry.enable !== undefined) {
-    return `:enable ${entry.enable}`;
-  }
-  return `:handitem ${(entry as HanditemEntry).handitem}`;
+  return "enable" in entry
+    ? `:enable ${entry.enable}`
+    : `:handitem ${entry.handitem}`;
 }
