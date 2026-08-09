@@ -1,6 +1,6 @@
 {
   "name": "luminus",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "Userscript Luminus para o Habblet Hotel — painel, player, logs, visual e links.",
@@ -35,6 +35,7 @@
     "test:catalog-thumb-additive": "node --experimental-strip-types src/ui/catalogThumbAdditive.test.ts",
     "test:catalog-thumb-load-queue": "node --experimental-strip-types src/ui/catalogThumbLoadQueue.test.ts",
     "test:catalog-thumb-presentation": "node --experimental-strip-types src/ui/catalogThumbPresentation.test.ts",
+    "test:panel-navigation": "esbuild src/ui/panelNavigation.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:enables-handitems": "esbuild src/ui/enablesHanditemsCatalog.test.ts --bundle --platform=node --format=esm | node --input-type=module"
   },
   "devDependencies": {

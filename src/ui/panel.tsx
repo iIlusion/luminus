@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as Switch from "@radix-ui/react-switch";
 
-import { ArrowLeft, Bug, ChevronDown, EyeOff, Gamepad2, PanelsTopLeft, RadioTower, ScrollText } from "lucide-react";
+import { ArrowLeft, Bug, ChevronDown, EyeOff, Gamepad2, PanelsTopLeft, RadioTower, ScrollText, SlidersHorizontal, Wrench } from "lucide-react";
 
 import type { LuminusApi } from "../ws/api";
 import type { UnitIdle } from "../messages/incoming/UnitIdleParser";
@@ -17,6 +17,12 @@ import {
   getUiGlassCategoryLabel, UI_GLASS_CATEGORIES, type UiGlassCategory
 } from "./toolbarGlass";
 import { getMcpBridgeEnabled, setMcpBridgeEnabled, getMcpBridgeStatus } from "../bridge/mcpBridge";
+import {
+  CORE_PANEL_CATEGORIES,
+  PanelLauncher,
+  panelSearchEntries,
+  type PanelSearchEntry,
+} from "./panelNavigation";
 
 import {
   addMuteAllWhitelist,
@@ -55,22 +61,46 @@ interface Props {
 }
 
 
-type PanelView = "launcher" | "player" | "logs" | "visual" | "render" | "packets" | "debug";
+type PanelView = "launcher" | "avatar" | "interaction" | "tools" | "records" | "interface" | "render" | "packets" | "debug";
+
+function storedPanelView(): PanelView {
+  const stored = readPref<string>("luminus.panel.lastView", "launcher");
+  if (stored === "player") return "avatar";
+  if (stored === "logs") return "records";
+  if (stored === "visual") return "interface";
+  return (["launcher", "avatar", "interaction", "tools", "records", "interface", "render", "packets", "debug"] as string[]).includes(stored)
+    ? stored as PanelView
+    : "launcher";
+}
 
 function viewLabel(view: Exclude<PanelView, "launcher">): string {
-  if (view === "player") return "Player";
-  if (view === "logs") return "Logs";
-  if (view === "visual") return "Visual";
+  if (view === "avatar") return "Avatar";
+  if (view === "interaction") return "Interação";
+  if (view === "tools") return "Ferramentas";
+  if (view === "records") return "Registros";
+  if (view === "interface") return "Interface";
   if (view === "render") return "Renderização";
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return "Packets";
   return "Debug";
 }
 
+function viewSummary(view: Exclude<PanelView, "launcher">): string {
+  if (view === "avatar") return "Movimento, direção e aparência";
+  if (view === "interaction") return "Cliques, mute e proteção";
+  if (view === "tools") return "Ações rápidas para o quarto";
+  if (view === "records") return "Conversas, atividades e links";
+  if (view === "interface") return "Tema, rádio e guarda-roupa";
+  if (view === "render") return "Desempenho e visibilidade";
+  return "Ferramentas de desenvolvimento";
+}
+
 function ViewIcon({ view, size = 20 }: { view: Exclude<PanelView, "launcher">; size?: number }) {
   const props = { size, strokeWidth: 1.8, "aria-hidden": true } as const;
-  if (view === "player") return <Gamepad2 {...props} />;
-  if (view === "logs") return <ScrollText {...props} />;
-  if (view === "visual") return <PanelsTopLeft {...props} />;
+  if (view === "avatar") return <Gamepad2 {...props} />;
+  if (view === "interaction") return <SlidersHorizontal {...props} />;
+  if (view === "tools") return <Wrench {...props} />;
+  if (view === "records") return <ScrollText {...props} />;
+  if (view === "interface") return <PanelsTopLeft {...props} />;
   if (view === "render") return <EyeOff {...props} />;
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return <RadioTower {...props} />;
   return <Bug {...props} />;
@@ -150,11 +180,31 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
   const panelRef = React.useRef<HTMLDivElement>(null);
   /** True after the user resizes via the side handles — keep that size across tabs. */
   const userResizedRef = React.useRef(false);
-  const [view, setView] = React.useState<PanelView>("launcher");
+  const [view, setView] = React.useState<PanelView>(storedPanelView);
+  const [pendingFocus, setPendingFocus] = React.useState<string | undefined>();
+
+  function navigate(target: string, focus?: string) {
+    const next = (target as PanelView);
+    setPendingFocus(focus);
+    setView(next);
+    writePref("luminus.panel.lastView", next);
+  }
 
   React.useEffect(() => {
-    if (!open) setView("launcher");
-  }, [open]);
+    writePref("luminus.panel.lastView", view);
+  }, [view]);
+
+  React.useEffect(() => {
+    if (!open || !pendingFocus) return;
+    const timer = window.setTimeout(() => {
+      const target = panelRef.current?.querySelector<HTMLElement>(`[data-lm-section="${pendingFocus}"]`);
+      target?.scrollIntoView({ block: "start", behavior: "smooth" });
+      target?.classList.add("is-search-focus");
+      window.setTimeout(() => target?.classList.remove("is-search-focus"), 700);
+      setPendingFocus(undefined);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [open, view, pendingFocus]);
 
   // Keep header inside the Nitro-safe band (never above the top / over the toolbar).
   // Without a user resize, reflow height with content so small tabs don't shrink the shell.
@@ -635,6 +685,33 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
 
 
 
+  const panelEntries = React.useMemo<PanelSearchEntry[]>(() => panelSearchEntries(CORE_PANEL_CATEGORIES, [
+    ...PLAYER_TOGGLES.map(({ key, label, sub }) => ({
+      id: `player:${key}`,
+      title: label,
+      summary: sub,
+      category: key === "blockClick" ? "Interação" : "Avatar",
+      target: key === "blockClick" ? "interaction" : "avatar",
+      focus: "avatar",
+    })),
+    { id: "mute-all", title: "Mutar geral", summary: "Bloqueia o chat no cliente", category: "Interação", target: "interaction", focus: "interaction", keywords: ["mute", "silenciar", "whitelist"] },
+    { id: "copy-look", title: "Copiar Visual", summary: "Procura e usa o visual de outro jogador", category: "Ferramentas", target: "tools", focus: "tools", keywords: ["visual", "look", "avatar"] },
+    { id: "spam-click", title: "Spam Click", summary: "Repete cliques em um alvo", category: "Ferramentas", target: "tools", focus: "tools-spam", keywords: ["clique", "spam"] },
+    { id: "chat-log", title: "Chat Log", summary: "Registra conversas e cliques", category: "Registros", target: "records", focus: "records", keywords: ["chat", "discord", "webhook"] },
+    { id: "open-logs", title: "Ver Logs", summary: "Abre o painel completo de registros", category: "Registros", target: "records", action: onOpenLogs },
+    { id: "saved-links", title: "Links salvos", summary: "Abre o histórico de links", category: "Registros", target: "records", action: onOpenLinks },
+    { id: "theme", title: "Tema", summary: "Personaliza a interface", category: "Interface", target: "interface", focus: "interface", keywords: ["ui", "rádio", "guarda-roupa"] },
+    { id: "furnis", title: "Ocultar Mobis", summary: "Controla a visibilidade dos mobis", category: "Renderização", target: "render", focus: "render", keywords: ["furni", "mobi"] },
+    ...(devMode ? [
+      { id: "packets", title: "Packets", summary: "Inspeciona tráfego do cliente", category: "Desenvolvimento", target: "packets", keywords: ["debug", "desenvolvimento"] },
+      { id: "bridge-debug", title: "Debug", summary: "Diagnóstico do painel", category: "Desenvolvimento", target: "debug", keywords: ["mcp", "diagnóstico"] },
+    ] : []),
+  ]), [devMode, onOpenLogs, onOpenLinks]);
+
+  React.useEffect(() => {
+    if (!devMode && (view === "packets" || view === "debug")) navigate("launcher");
+  }, [devMode, view]);
+
   const gridShell = view === "launcher";
 
   return (
@@ -657,7 +734,10 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
             <ArrowLeft size={17} strokeWidth={2} aria-hidden="true" />
           </button>
           <span className="lm-view-icon"><ViewIcon view={view} size={18} /></span>
-          <span className="lm-view-title">{viewLabel(view)}</span>
+          <span className="lm-view-copy">
+            <span className="lm-view-title">{viewLabel(view)}</span>
+            <span className="lm-view-summary">{viewSummary(view)}</span>
+          </span>
         </div>}
         <div className="lm-header-actions">
           <a
@@ -680,41 +760,17 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
         </div>
       </div>
 
-      {view === "launcher" && <div className="lm-launcher">
-        
-        <button className="lm-launcher-item is-player" onClick={() => setView("player")}>
-          <span className="lm-launcher-icon"><Gamepad2 aria-hidden="true" /></span>
-          <span>Player</span>
-        </button>
-        <button className="lm-launcher-item is-logs" onClick={() => setView("logs")}>
-          <span className="lm-launcher-icon"><ScrollText aria-hidden="true" /></span>
-          <span>Logs</span>
-        </button>
-        <button className="lm-launcher-item is-visual" onClick={() => setView("visual")}>
-          <span className="lm-launcher-icon"><PanelsTopLeft aria-hidden="true" /></span>
-          <span>Visual</span>
-        </button>
-        <button className="lm-launcher-item is-render" onClick={() => setView("render")}>
-          <span className="lm-launcher-icon"><EyeOff aria-hidden="true" /></span>
-          <span>Renderização</span>
-        </button>
-        
-        {devMode && <button className="lm-launcher-item is-dev" onClick={() => setView("packets")}>
-          <span className="lm-launcher-icon"><RadioTower aria-hidden="true" /></span>
-          <span>Packets</span>
-        </button>}
-        {devMode && <button className="lm-launcher-item is-dev" onClick={() => setView("debug")}>
-          <span className="lm-launcher-icon"><Bug aria-hidden="true" /></span>
-          <span>Debug</span>
-        </button>}
-      </div>}
-
-      
-
-        {view === "player" && <div className="lm-tab-content">
-          <div className="lm-section">
-            <div className="lm-section-title">Avatar</div>
-            {PLAYER_TOGGLES.map(({ key, label, sub }) => {
+      {view === "launcher" && (
+        <PanelLauncher
+          categories={CORE_PANEL_CATEGORIES.concat(devMode ? [{ id: "development", label: "Desenvolvimento", summary: "Packets e diagnóstico", target: "packets", tone: "dev", icon: <RadioTower aria-hidden="true" /> }] : [])}
+          entries={panelEntries}
+          onNavigate={navigate}
+        />
+      )}
+        {(view === "avatar" || view === "interaction" || view === "tools") && <div className="lm-tab-content">
+          {(view === "avatar" || view === "interaction") && <div className="lm-section" data-lm-section="avatar">
+            <div className="lm-section-title">{view === "avatar" ? "Avatar" : "Cliques"}</div>
+            {PLAYER_TOGGLES.filter(({ key }) => view === "interaction" ? key === "blockClick" : key !== "blockClick").map(({ key, label, sub }) => {
               const control = (
                 <Switch.Root
                   className="lm-switch-root"
@@ -798,9 +854,9 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 </div>
               );
             })}
-          </div>
+          </div>}
 
-          <div className="lm-section">
+          {view === "interaction" && <div className="lm-section" data-lm-section="interaction">
             <div className="lm-section-title">Mutar geral</div>
             <ExpandableOption
               label="Mutar geral"
@@ -882,9 +938,9 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 )}
               </div>
             </ExpandableOption>
-          </div>
+          </div>}
 
-          <div className="lm-section">
+          {view === "tools" && <div className="lm-section" data-lm-section="tools">
             <div className="lm-section-title">Copiar Visual</div>
             <div className="lm-avatar-row">
               <div className="lm-avatar-box">
@@ -916,9 +972,9 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
             <button className="lm-btn lm-btn-full" disabled={!copiedFigure} onClick={() => api.setFigure(copiedGender, copiedFigure)}>
               Usar Visual
             </button>
-          </div>
+          </div>}
 
-          <div className="lm-section">
+          {view === "tools" && <div className="lm-section" data-lm-section="tools-spam">
             <div className="lm-section-title">Spam Click</div>
             <div className="lm-inline-option">
               <input
@@ -957,16 +1013,16 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 <Switch.Thumb className="lm-switch-thumb" />
               </Switch.Root>
             </div>
-          </div>
+          </div>}
         </div>}
 
-        {view === "logs" && <div className="lm-tab-content">
+          {view === "records" && <div className="lm-tab-content">
           <div className="lm-log-shortcuts">
             <button className="lm-btn lm-btn-logs" onClick={onOpenLogs}>Ver Logs</button>
             <button className="lm-btn lm-btn-logs" onClick={onOpenLinks}>Abrir Links Salvos</button>
           </div>
 
-          <div className="lm-section">
+          <div className="lm-section" data-lm-section="records">
             <div className="lm-section-title">Chat Log</div>
             <div className="lm-row">
               <span className="lm-label">Ativar Chat Log<span className="lm-sub">Manda cliques e sussurros para o Discord.</span></span>
@@ -1036,8 +1092,8 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
 
         </div>}
 
-        {view === "visual" && <div className="lm-tab-content">
-          <div className="lm-section">
+          {view === "interface" && <div className="lm-tab-content">
+          <div className="lm-section" data-lm-section="interface">
             <div className="lm-section-title">Tema</div>
             <ExpandableOption
               label="Usar UI do Luminus"
@@ -1083,7 +1139,7 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
               </Switch.Root>
             </div>
           </div>
-          <div className="lm-section">
+          <div className="lm-section" data-lm-section="performance">
             <div className="lm-section-title">Desempenho</div>
             <div className="lm-row">
               <span className="lm-label">
@@ -1099,7 +1155,7 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
               </Switch.Root>
             </div>
           </div>
-          <div className="lm-section">
+          <div className="lm-section" data-lm-section="wardrobe">
             <div className="lm-section-title">Guarda-Roupa</div>
             <div className="lm-row">
               <span className="lm-label">
@@ -1118,7 +1174,7 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
         </div>}
 
         {view === "render" && <div className="lm-tab-content">
-          <div className="lm-section">
+          <div className="lm-section" data-lm-section="render">
             <div className="lm-section-title">Mobis</div>
             <div className="lm-row">
               <span className="lm-label">

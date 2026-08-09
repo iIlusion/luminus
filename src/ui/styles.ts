@@ -155,9 +155,11 @@ export const PANEL_STYLES = `
 
 #luminus-panel .lm-view-heading {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
 }
 
 #luminus-panel .lm-back {
@@ -192,9 +194,32 @@ export const PANEL_STYLES = `
 }
 
 #luminus-panel .lm-view-title {
+  overflow: hidden;
   font-size: 13px;
   font-weight: 700;
   color: var(--lm-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#luminus-panel .lm-view-copy {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+#luminus-panel .lm-view-summary {
+  max-width: 190px;
+  overflow: hidden;
+  color: var(--lm-muted);
+  font-size: 9px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #luminus-panel .lm-title {
@@ -388,12 +413,105 @@ export const PANEL_STYLES = `
 #luminus-panel .lm-launcher-item.is-player .lm-launcher-icon { color: #aebaff; }
 #luminus-panel .lm-launcher-item.is-logs .lm-launcher-icon { color: #62dfc6; }
 #luminus-panel .lm-launcher-item.is-visual .lm-launcher-icon { color: #ff9fc8; }
+#luminus-panel .lm-launcher-item.is-render .lm-launcher-icon { color: #8fd8ff; }
 
 #luminus-panel .lm-launcher-item.is-dev .lm-launcher-icon { color: #f4c76d; }
 
 #luminus-panel .lm-launcher-item.is-logs:hover { border-color: rgba(98, 223, 198, 0.38); }
 #luminus-panel .lm-launcher-item.is-visual:hover { border-color: rgba(255, 159, 200, 0.38); }
+#luminus-panel .lm-launcher-item.is-render:hover { border-color: rgba(143, 216, 255, 0.38); }
 #luminus-panel .lm-launcher-item.is-dev:hover { border-color: rgba(244, 199, 109, 0.38); }
+
+/* Intent-first launcher: the shell stays compact, while search and detail remain discoverable. */
+#luminus-panel .lm-launcher {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+#luminus-panel .lm-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+  gap: 6px;
+}
+#luminus-panel .lm-launcher-item {
+  min-height: 66px;
+  padding: 7px 4px;
+  gap: 5px;
+  font-size: 9.5px;
+  line-height: 1.1;
+}
+#luminus-panel .lm-launcher-item small {
+  display: none;
+}
+#luminus-panel .lm-launcher-item .lm-launcher-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+}
+#luminus-panel .lm-launcher-item .lm-launcher-icon svg {
+  width: 18px;
+  height: 18px;
+}
+#luminus-panel .lm-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--lm-hairline-soft);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--lm-muted);
+}
+#luminus-panel .lm-panel-search .lm-input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding-left: 0;
+}
+#luminus-panel .lm-panel-search:focus-within {
+  border-color: rgba(196, 205, 255, 0.18);
+  box-shadow: 0 0 0 2px rgba(142, 162, 255, 0.08);
+}
+#luminus-panel .lm-panel-search .lm-input:focus {
+  outline: none;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+#luminus-panel .lm-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(320px, calc(var(--lm-safe-height, 70dvh) - var(--lm-chrome-h) - 62px));
+  overflow-y: auto;
+}
+#luminus-panel .lm-search-result {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+#luminus-panel .lm-search-result:hover,
+#luminus-panel .lm-search-result.is-active { background: var(--lm-plate-hover); }
+#luminus-panel .lm-search-result-title { color: var(--lm-text); font-size: 11px; font-weight: 700; }
+#luminus-panel .lm-search-result-meta { color: var(--lm-muted); font-size: 9px; line-height: 1.3; }
+#luminus-panel .lm-search-empty { padding: 10px; color: var(--lm-muted); font-size: 10px; text-align: center; }
+#luminus-panel .lm-section.is-search-focus {
+  animation: lm-section-focus 0.7s ease-out;
+}
+@keyframes lm-section-focus {
+  0% { filter: brightness(1.35); }
+  100% { filter: brightness(1); }
+}
+
+@media (max-width: 420px) {
+  #luminus-panel .lm-launcher-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #luminus-panel .lm-view-summary { max-width: 145px; }
+}
 
 /* Generic 2-col status plate */
 #luminus-panel .lm-status-grid {
