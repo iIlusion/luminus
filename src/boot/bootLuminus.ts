@@ -23,6 +23,7 @@ import { initNativeGroupWhisperReset } from "../chat/nativeGroupWhisperReset";
 import { initOutgoingClickAlerts } from "../ui/userClickActions";
 import { runChatBetaDiag } from "../diag/chatBetaDiag";
 import { runNitroWeightProbe } from "../diag/nitroWeightProbe";
+import { PacketReader } from "../protocol/wrapper";
 
 declare const GM_registerMenuCommand: undefined | ((name: string, callback: () => void) => void);
 
@@ -128,6 +129,23 @@ function observeAds(): void {
   else document.addEventListener("DOMContentLoaded", start, { once: true });
 }
 
+function trackMyselfFigure(api: LuminusApi): void {
+  api.onOutgoing(2730, ({ packet, origin }) => {
+    if (origin !== "client" && origin !== "script") return;
+    try {
+      const reader = new PacketReader(packet.header, packet.body);
+      const gender = reader.readString();
+      const figure = reader.readString();
+      if (api.myself && figure) {
+        api.myself.gender = gender;
+        api.myself.figure = figure;
+      }
+    } catch {
+      // Ignore malformed or incomplete outgoing packets.
+    }
+  });
+}
+
 /** Start Luminus on the Habblet page. */
 export function bootLuminus(options: BootLuminusOptions = {}): BootLuminusResult {
   const registerDev = options.registerDevMenu ?? __LUMINUS_DEV_TOOLS__;
@@ -143,6 +161,7 @@ export function bootLuminus(options: BootLuminusOptions = {}): BootLuminusResult
   bridge.setLogParsedOnly(readSetting("parsedOnly", false));
   registerParsers();
   targetWindow.Luminus = api;
+  trackMyselfFigure(api);
   if (registerDev) registerDevMenu(bridge, api);
   if (registerSupport) registerSupportMenu();
   interceptWebSocket(targetWindow, bridge);

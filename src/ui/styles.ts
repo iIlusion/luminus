@@ -3303,6 +3303,53 @@ body.luminus-wardrobe-stacked .nitro-avatar-editor:not(:has(.menu > :nth-child(5
 
 .luminus-wardrobe-action:disabled { opacity: 0.55; cursor: wait; }
 
+.luminus-wardrobe-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgba(255, 190, 198, 0.5);
+  border-radius: 50%;
+  color: #ffd7dc;
+  background: rgba(31, 18, 28, 0.82);
+  cursor: pointer;
+  user-select: none;
+}
+
+.luminus-wardrobe-delete svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.luminus-wardrobe-delete path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.luminus-wardrobe-delete:hover {
+  color: #fff;
+  background: rgba(151, 55, 74, 0.72);
+}
+
+.luminus-wardrobe-delete[data-busy="true"] {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.nitro-avatar-editor-wardrobe-figure-preview.luminus-wardrobe-empty .avatar-image {
+  visibility: hidden;
+}
+
 .luminus-wardrobe-dialog-backdrop {
   position: fixed;
   inset: 0;
