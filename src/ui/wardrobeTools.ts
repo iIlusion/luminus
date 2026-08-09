@@ -1,6 +1,6 @@
 const WARDROBE_PREFIX = "LUMINUS_WARDROBE_V1:";
 const ACTIONS_ATTR = "data-luminus-wardrobe-actions";
-const SERVER_WARDROBE_LIMIT = 20;
+const SERVER_WARDROBE_LIMIT = 50;
 
 type WardrobeTransport = {
   send: (header: number, values: unknown[]) => boolean;
