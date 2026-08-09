@@ -1,16 +1,23 @@
 const WARDROBE_PREFIX = "LUMINUS_WARDROBE_V1:";
 const ACTIONS_ATTR = "data-luminus-wardrobe-actions";
+const DELETE_ATTR = "data-luminus-wardrobe-delete";
+const DELETE_ICON = `<svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2.25 2.25 9.75 9.75M9.75 2.25 2.25 9.75" /></svg>`;
 const SERVER_WARDROBE_LIMIT = 50;
+const AVATAR_DELETED_PLACEHOLDER = {
+  figure: "hd-180-97554.lg-12275-4008-1408",
+  gender: "M",
+} as const;
+// The wardrobe endpoint applies flood control. Staying below 10 saves/second
+// avoids silent drops when importing a full 50-slot code.
+const WARDROBE_SAVE_INTERVAL_MS = 100;
 
 type WardrobeTransport = {
   send: (header: number, values: unknown[]) => boolean;
 };
 
 type FigureDataLike = {
-  constructor: new () => FigureDataLike;
   getFigureString?: () => string;
-  loadAvatarData?: (figure: string, gender: string) => void;
-  parseFigure?: (figure: string) => void;
+  gender?: string;
 };
 
 type SavedSlot = [FigureDataLike | null, string?];
@@ -32,6 +39,11 @@ type FiberLike = {
 
 let started = false;
 let syncQueued = false;
+const removedUseButtons = new WeakMap<HTMLElement, HTMLElement>();
+const pendingEmptySlots = new Set<number>();
+const deletingSlots = new Set<number>();
+let deleteResyncTimer: number | undefined;
+let deleteSyncInterval: number | undefined;
 
 function findReactFiber(element: Element): FiberLike | null {
   const key = Object.keys(element).find((name) => name.startsWith("__reactFiber"));
@@ -130,7 +142,7 @@ async function readText(): Promise<string> {
   }
 }
 
-function setButtonStatus(button: HTMLButtonElement, text: string): void {
+function setButtonStatus(button: HTMLElement, text: string): void {
   const original = button.dataset.luminusOriginalLabel ?? button.textContent ?? "";
   button.dataset.luminusOriginalLabel = original;
   button.textContent = text;
@@ -169,60 +181,95 @@ function showImportConfirmation(onConfirm: (freeOnly: boolean) => void): void {
   overlay.querySelector<HTMLInputElement>("[data-free-only]")?.focus();
 }
 
-function makeSlot(template: FigureDataLike, figure: string, gender: string): SavedSlot {
-  const next = new template.constructor();
-  if (figure && typeof next.loadAvatarData === "function") next.loadAvatarData(figure, gender);
-  else if (figure && typeof next.parseFigure === "function") next.parseFigure(figure);
-  return [next, gender];
+function showDeleteConfirmation(index: number, onConfirm: () => void, onCancel: () => void): void {
+  const overlay = document.createElement("div");
+  overlay.className = "luminus-wardrobe-dialog-backdrop";
+  overlay.innerHTML = `
+    <div class="luminus-wardrobe-dialog" role="dialog" aria-modal="true" aria-labelledby="luminus-wardrobe-delete-title">
+      <h2 id="luminus-wardrobe-delete-title">Excluir visual do slot ${index + 1}?</h2>
+      <p>O visual original será substituído no servidor pelo placeholder padrão do Luminus. Isso exclui o visual original deste slot.</p>
+      <p>O servidor não apaga o registro; ele guarda o placeholder. Sem o Luminus, o placeholder poderá aparecer como um avatar normal.</p>
+      <div class="luminus-wardrobe-dialog-actions">
+        <button type="button" data-cancel>Cancelar</button>
+        <button type="button" data-confirm>Excluir visual</button>
+      </div>
+    </div>`;
+  const close = () => overlay.remove();
+  const cancel = () => { close(); onCancel(); };
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) cancel();
+  });
+  overlay.querySelector<HTMLButtonElement>("[data-cancel]")?.addEventListener("click", cancel);
+  overlay.querySelector<HTMLButtonElement>("[data-confirm]")?.addEventListener("click", () => {
+    close();
+    onConfirm();
+  });
+  document.body.appendChild(overlay);
+  overlay.querySelector<HTMLButtonElement>("[data-cancel]")?.focus();
 }
 
-function persistSlots(api: WardrobeTransport, slots: EncodedSlot[]): void {
+function normalizeSlots(slots: SavedSlot[]): SavedSlot[] {
+  const next = slots.slice(0, SERVER_WARDROBE_LIMIT);
+  for (let index = next.length; index < SERVER_WARDROBE_LIMIT; index += 1) next[index] = [null, "M"];
+  return next;
+}
+
+async function persistSlots(api: WardrobeTransport, slots: EncodedSlot[]): Promise<void> {
   if (slots.some(([index]) => index >= SERVER_WARDROBE_LIMIT)) {
     throw new Error(`O servidor suporta apenas ${SERVER_WARDROBE_LIMIT} slots de guarda-roupa.`);
   }
-  const failed = slots.filter(([index, gender, figure]) => !api.send(800, [index + 1, figure, gender]));
-  if (failed.length) throw new Error("Não foi possível enviar todos os visuais ao servidor.");
+  for (const [position, [index, gender, figure]] of slots.entries()) {
+    if (!api.send(800, [index + 1, figure, gender])) {
+      throw new Error("Não foi possível enviar todos os visuais ao servidor.");
+    }
+    if (position < slots.length - 1) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, WARDROBE_SAVE_INTERVAL_MS));
+    }
+  }
 }
 
-function applyImport(api: WardrobeTransport, encoded: EncodedSlot[], freeOnly: boolean): string {
+async function refreshWardrobe(api: WardrobeTransport): Promise<void> {
+  // Nitro loads the 50-slot wardrobe in three server pages. Let Nitro rebuild
+  // each FigureData instance instead of injecting synthetic objects into React.
+  for (const page of [0, 1, 2]) {
+    if (!api.send(2742, [page])) throw new Error("Não foi possível atualizar o guarda-roupa.");
+    if (page < 2) await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+  }
+}
+
+async function applyImport(api: WardrobeTransport, encoded: EncodedSlot[], freeOnly: boolean): Promise<string> {
   const props = getWardrobeProps();
-  if (!props || !props.savedFigures.length) throw new Error("Abra o Guarda-Roupa e tente novamente.");
-  const template = props.savedFigures.find((slot) => slot?.[0])?.[0] ?? props.figureData;
-  if (!template) throw new Error("Não foi possível acessar os dados dos slots.");
+  if (!props) throw new Error("Abra o Guarda-Roupa e tente novamente.");
+  const current = normalizeSlots(props.savedFigures);
 
   if (freeOnly) {
-    const freeIndexes = props.savedFigures.slice(0, SERVER_WARDROBE_LIMIT)
+    const freeIndexes = current
       .map((slot, index) => slotFigure(slot) ? -1 : index)
       .filter((index) => index >= 0);
     const occupied = encoded.filter(([, , figure]) => figure);
     if (occupied.length > freeIndexes.length) throw new Error("Não há slots livres suficientes.");
     // Fill free slots from the first available position, preserving import order.
     const targetIndexes = freeIndexes.slice(0, occupied.length);
-    const next = props.savedFigures.slice();
     const assigned = occupied.map(([, gender, figure], index) => {
       const target = targetIndexes[index];
-      next[target] = makeSlot(template, figure, gender);
       return [target, gender, figure] satisfies EncodedSlot;
     });
-    persistSlots(api, assigned);
-    props.setSavedFigures(next);
+    await persistSlots(api, assigned);
+    await refreshWardrobe(api);
+    scheduleDeleteResync(api, 800);
     return "Adicionado!";
   }
 
-  if (encoded.length > props.savedFigures.length) {
-    throw new Error("O código tem mais slots do que este Guarda-Roupa suporta.");
-  }
-  const next = props.savedFigures.slice();
   encoded.forEach(([index, gender, figure]) => {
-    if (index >= next.length) throw new Error("O codigo tem mais slots do que este Guarda-Roupa suporta.");
-    next[index] = makeSlot(template, figure, gender || slotGender(next[index]));
+    if (index >= current.length) throw new Error("O codigo tem mais slots do que este Guarda-Roupa suporta.");
   });
-  persistSlots(api, encoded);
-  props.setSavedFigures(next);
+  await persistSlots(api, encoded);
+  await refreshWardrobe(api);
+  scheduleDeleteResync(api, 800);
   return "Importado!";
 }
 
-function showError(button: HTMLButtonElement, error: unknown): void {
+function showError(button: HTMLElement, error: unknown): void {
   const message = error instanceof Error ? error.message : "Não foi possível concluir a operação.";
   setButtonStatus(button, "Erro");
   window.setTimeout(() => window.alert(message), 0);
@@ -266,11 +313,13 @@ function createActions(menu: Element, api: WardrobeTransport): void {
       if (!raw.trim()) return;
       const encoded = decodeSlots(raw);
       showImportConfirmation((freeOnly) => {
-        try {
-          setButtonStatus(importButton, applyImport(api, encoded, freeOnly));
-        } catch (error) {
-          showError(importButton, error);
-        }
+        importButton.dataset.luminusOriginalLabel ??= importButton.textContent ?? "Importar";
+        importButton.disabled = true;
+        importButton.textContent = "Enviando...";
+        void applyImport(api, encoded, freeOnly)
+          .then((status) => setButtonStatus(importButton, status))
+          .catch((error) => showError(importButton, error))
+          .finally(() => { importButton.disabled = false; });
       });
     } catch (error) {
       showError(importButton, error);
@@ -284,6 +333,155 @@ function createActions(menu: Element, api: WardrobeTransport): void {
   menu.appendChild(actions);
 }
 
+async function deleteWardrobeSlot(api: WardrobeTransport, button: HTMLElement, index: number): Promise<void> {
+  if (button.dataset.busy === "true") return;
+  const { figure, gender } = AVATAR_DELETED_PLACEHOLDER;
+  button.dataset.busy = "true";
+  button.textContent = "Enviando...";
+  deletingSlots.add(index);
+  setSlotEmptyVisual(index, true);
+  try {
+    if (!api.send(800, [index + 1, figure, gender])) {
+      throw new Error("Não foi possível substituir o slot no servidor.");
+    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, WARDROBE_SAVE_INTERVAL_MS));
+    await refreshWardrobe(api);
+    scheduleDeleteResync(api, 800);
+    button.textContent = "✓";
+    window.setTimeout(() => {
+      if (button.isConnected && button.dataset.busy !== "true") button.innerHTML = DELETE_ICON;
+    }, 1800);
+  } catch (error) {
+    deletingSlots.delete(index);
+    setSlotEmptyVisual(index, false);
+    button.textContent = "!";
+    window.setTimeout(() => {
+      if (button.isConnected && button.dataset.busy !== "true") button.innerHTML = DELETE_ICON;
+    }, 1800);
+    window.setTimeout(() => window.alert(error instanceof Error ? error.message : "Não foi possível excluir o visual."), 0);
+  } finally {
+    delete button.dataset.busy;
+  }
+}
+
+function setSlotEmptyVisual(index: number, empty: boolean): void {
+  const card = document.querySelectorAll<HTMLElement>(".nitro-avatar-editor-wardrobe-figure-preview")[index];
+  if (empty) pendingEmptySlots.add(index);
+  else pendingEmptySlots.delete(index);
+  if (!card) return;
+  if (empty) card.dataset.luminusPendingEmpty = "true";
+  else delete card.dataset.luminusPendingEmpty;
+  card.classList.toggle("luminus-wardrobe-empty", empty);
+  syncUseButton(card, card.querySelector<HTMLElement>(".button-container"), empty);
+}
+
+function syncUseButton(card: HTMLElement, container: HTMLElement | null, empty: boolean): void {
+  if (!container) return;
+  const useButton = Array.from(container.querySelectorAll<HTMLElement>(".btn"))
+    .find((candidate) => candidate.textContent?.trim() === "Usar");
+  if (empty) {
+    if (useButton) {
+      removedUseButtons.set(card, useButton);
+      useButton.remove();
+    }
+    return;
+  }
+  if (useButton) {
+    useButton.style.display = "";
+    removedUseButtons.delete(card);
+    return;
+  }
+  const savedButton = removedUseButtons.get(card);
+  const group = container.querySelector<HTMLElement>(".d-flex.flex-column");
+  if (savedButton && group) {
+    savedButton.style.display = "";
+    group.appendChild(savedButton);
+    removedUseButtons.delete(card);
+  }
+}
+
+function syncDeleteButtons(api: WardrobeTransport): void {
+  const props = getWardrobeProps();
+  if (!props) return;
+  const figure = AVATAR_DELETED_PLACEHOLDER.figure;
+  const cards = Array.from(document.querySelectorAll<HTMLElement>(".nitro-avatar-editor-wardrobe-figure-preview"));
+  cards.forEach((card, index) => {
+    const container = card.querySelector<HTMLElement>(".button-container");
+    if (!container) return;
+    const saved = slotFigure(props.savedFigures[index]);
+    const existingButton = card.querySelector<HTMLElement>(`[${DELETE_ATTR}]`);
+    if (saved === figure) deletingSlots.delete(index);
+    const deleting = deletingSlots.has(index);
+    if (saved && saved !== figure && !deleting && existingButton?.dataset.busy !== "true") {
+      pendingEmptySlots.delete(index);
+      delete card.dataset.luminusPendingEmpty;
+    }
+    const empty = deleting || pendingEmptySlots.has(index) || card.dataset.luminusPendingEmpty === "true" || Boolean(figure && saved === figure);
+    if (saved === figure) delete card.dataset.luminusPendingEmpty;
+    card.classList.toggle("luminus-wardrobe-empty", empty);
+    const hasVisual = !deleting && Boolean(saved && saved !== figure);
+    let button = existingButton;
+    if (!hasVisual) {
+      button?.remove();
+      syncUseButton(card, container, empty);
+      return;
+    }
+    if (!button) {
+      button = document.createElement("div");
+      button.className = "luminus-wardrobe-delete";
+      button.setAttribute(DELETE_ATTR, "true");
+      button.setAttribute("role", "button");
+      button.tabIndex = 0;
+      button.innerHTML = DELETE_ICON;
+      button.setAttribute("aria-label", "Excluir slot");
+      button.title = "Excluir visual";
+      const run = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (button?.dataset.busy === "true" || button?.dataset.confirming === "true") return;
+        button!.dataset.confirming = "true";
+        showDeleteConfirmation(index, () => {
+          delete button!.dataset.confirming;
+          void deleteWardrobeSlot(api, button!, index);
+        }, () => {
+          delete button!.dataset.confirming;
+        });
+      };
+      button.addEventListener("click", run);
+      button.addEventListener("keydown", (event) => {
+        if (event instanceof KeyboardEvent && (event.key === "Enter" || event.key === " ")) run(event);
+      });
+      card.appendChild(button);
+    } else if (button.parentElement !== card) {
+      card.appendChild(button);
+    }
+    button.title = "Excluir visual";
+    if (button.dataset.busy !== "true" && !button.querySelector("svg")) button.innerHTML = DELETE_ICON;
+    syncUseButton(card, container, empty);
+  });
+}
+
+function scheduleDeleteResync(api: WardrobeTransport, delay = 250): void {
+  if (deleteResyncTimer !== undefined) return;
+  deleteResyncTimer = window.setTimeout(() => {
+    deleteResyncTimer = undefined;
+    syncDeleteButtons(api);
+  }, delay);
+}
+
+function setDeleteSyncInterval(api: WardrobeTransport, enabled: boolean): void {
+  if (!enabled) {
+    if (deleteSyncInterval !== undefined) window.clearInterval(deleteSyncInterval);
+    deleteSyncInterval = undefined;
+    return;
+  }
+  if (deleteSyncInterval !== undefined) return;
+  deleteSyncInterval = window.setInterval(() => {
+    if (document.querySelector('.nitro-avatar-editor .menu')) syncDeleteButtons(api);
+    else setDeleteSyncInterval(api, false);
+  }, 300);
+}
+
 function sync(api: WardrobeTransport): void {
   syncQueued = false;
   const menu = document.querySelector(".nitro-avatar-editor .menu");
@@ -291,8 +489,15 @@ function sync(api: WardrobeTransport): void {
   const tab = Array.from(menu.children).find((child) => child.textContent?.trim() === "Meu Guarda-Roupa");
   const active = Boolean(tab && (tab.classList.contains("active") || tab.querySelector(".active")));
   const actions = menu.querySelector(`[${ACTIONS_ATTR}]`);
-  if (active) createActions(menu, api);
-  else actions?.remove();
+  if (active) {
+    createActions(menu, api);
+    syncDeleteButtons(api);
+    scheduleDeleteResync(api);
+    setDeleteSyncInterval(api, true);
+  } else {
+    actions?.remove();
+    setDeleteSyncInterval(api, false);
+  }
 }
 
 function scheduleSync(api: WardrobeTransport): void {
@@ -304,7 +509,10 @@ function scheduleSync(api: WardrobeTransport): void {
 export function initWardrobeTools(api: WardrobeTransport): void {
   if (started) return;
   started = true;
-  const observer = new MutationObserver(() => scheduleSync(api));
+  const observer = new MutationObserver(() => {
+    if (pendingEmptySlots.size) syncDeleteButtons(api);
+    scheduleSync(api);
+  });
   const start = () => {
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
     scheduleSync(api);
