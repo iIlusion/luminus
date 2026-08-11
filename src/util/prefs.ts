@@ -30,6 +30,11 @@ const SEPARATE_KEYS = new Set([
   "luminus.player.muteAll.whitelist",
 ]);
 
+/** Keep a large or independently-lived value outside the settings envelope. */
+export function registerSeparatePrefKey(key: string): void {
+  if (key.startsWith("luminus.")) SEPARATE_KEYS.add(key);
+}
+
 let settings: SettingsEnvelope | null = null;
 let flushTimer = 0;
 
