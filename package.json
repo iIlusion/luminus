@@ -15,8 +15,23 @@
   "exports": {
     ".": "./src/boot/bootLuminus.ts",
     "./boot": "./src/boot/bootLuminus.ts",
+    "./changelog": "./src/changelog.ts",
+    "./messages/incoming/FurnitureFloorParser": "./src/messages/incoming/FurnitureFloorParser.ts",
+    "./messages/incoming/ObjectsDataUpdateParser": "./src/messages/incoming/ObjectsDataUpdateParser.ts",
+    "./messages/incoming/RoomChatParser": "./src/messages/incoming/RoomChatParser.ts",
+    "./messages/incoming/UserObjectParser": "./src/messages/incoming/UserObjectParser.ts",
+    "./messages/incoming/UserUpdateParser": "./src/messages/incoming/UserUpdateParser.ts",
+    "./messages/incoming/WiredMovementsParser": "./src/messages/incoming/WiredMovementsParser.ts",
+    "./messages/outgoing/RoomUnitChatComposer": "./src/messages/outgoing/RoomUnitChatComposer.ts",
+    "./room/nitroWorldOverlay": "./src/room/nitroWorldOverlay.ts",
+    "./ui/panelExtensions": "./src/ui/panelExtensions.ts",
+    "./util/gmFetch": "./src/util/gmFetch.ts",
+    "./util/prefs": "./src/util/prefs.ts",
+    "./util/reliableTimers": "./src/util/reliableTimers.ts",
+    "./version": "./src/version.ts",
+    "./ws/api": "./src/ws/api.ts",
     "./package.json": "./package.json",
-    "./*": "./src/*"
+    "./boot/luminus": "./src/boot/bootLuminus.ts"
   },
   "types": "./src/boot/bootLuminus.ts",
   "scripts": {
@@ -31,6 +46,7 @@
     "release:full": "npm run typecheck && npm run clean:dist && npm run build:main && npm run build:main-dev",
     "test:furniture-floor": "node --experimental-strip-types src/messages/incoming/FurnitureFloorParser.test.ts",
     "test:reliable-timers": "node --experimental-strip-types src/util/reliableTimers.test.ts",
+    "test:prefs": "node --experimental-strip-types src/util/prefs.test.ts",
     "test:catalog-thumbs": "node --experimental-strip-types src/ui/catalogThumbManifest.test.ts",
     "test:catalog-thumb-additive": "node --experimental-strip-types src/ui/catalogThumbAdditive.test.ts",
     "test:catalog-thumb-load-queue": "node --experimental-strip-types src/ui/catalogThumbLoadQueue.test.ts",
