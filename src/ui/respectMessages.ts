@@ -4,9 +4,10 @@ import type { UnitExpression } from "../messages/incoming/UnitExpressionParser";
 import type { UserRespect } from "../messages/incoming/UserRespectParser";
 import type { RoomUnit } from "../messages/incoming/UsersParser";
 import type { DecodedPacket } from "../protocol/types";
+import { readPref, writePref } from "../util/prefs";
 
 /**
- * Respect stacking — Hibisco-style, but with a single source of truth for counts.
+ * Respect stacking with a single source of truth for counts.
  *
  * Bug history: parsing the DOM and doing `amount + 1` on every path (USER_RESPECT,
  * setTimeout enrich, MutationObserver pending, and UnitChat backup) double-counted
@@ -25,6 +26,16 @@ import type { DecodedPacket } from "../protocol/types";
 const MAX_RESPECTS_PER_USER = 10;
 /** How long a stack for the same target stays open (ms). */
 const STACK_TTL_MS = 120_000;
+const RESPECT_GROUPING_KEY = "luminus.utilities.betterRespectMessages";
+
+export function getRespectMessageGroupingEnabled(): boolean {
+  return readPref(RESPECT_GROUPING_KEY, true);
+}
+
+export function setRespectMessageGroupingEnabled(enabled: boolean): void {
+  writePref(RESPECT_GROUPING_KEY, enabled);
+  if (!enabled) resetRoomState();
+}
 
 /** Actors from expression 7, consumed LIFO on USER_RESPECT. */
 const actorStack: string[] = [];
@@ -94,7 +105,7 @@ function popActor(): string | null {
 
 function respectBubbles(): HTMLElement[] {
   return [...document.querySelectorAll(
-    ".nitro-chat-widget .bubble-container:not(.luminus-reply):not(.hibisco-reply) > .chat-bubble.bubble-1",
+    ".nitro-chat-widget .bubble-container:not(.luminus-reply) > .chat-bubble.bubble-1",
   )] as HTMLElement[];
 }
 
@@ -127,7 +138,7 @@ function formatRespectText(target: string, actor: string | null, count: number):
   const base = actor
     ? `${target} foi respeitad${sex} por ${actor}!`
     : `${target} foi respeitad${sex}!`;
-  // First hit has no counter (Hibisco); stack shows 2x…10x.
+  // First hit has no counter; the stack shows 2x through 10x.
   if (count <= 1) return base;
   return `${base} (${Math.min(MAX_RESPECTS_PER_USER, count)}x)`;
 }
@@ -279,16 +290,23 @@ export function initRespectMessageGrouping(api: LuminusApi): void {
   apiRef = api;
 
   api.onIncoming(1631, ({ packet }) => {
+    if (!getRespectMessageGroupingEnabled()) return;
     const expression = packet.parsed as UnitExpression | undefined;
     if (!expression || expression.expression !== 7) return;
     const unit = api.room.units.get(expression.unitId);
     if (unit?.name) pushActor(unit.name);
   });
 
-  api.onIncoming(2815, ({ packet }) => onUserRespect(packet));
+  api.onIncoming(2815, ({ packet }) => {
+    if (!getRespectMessageGroupingEnabled()) return;
+    return onUserRespect(packet);
+  });
 
   for (const header of [1446, 1036] as const) {
-    api.onIncoming(header, ({ packet }) => onRespectChat(packet));
+    api.onIncoming(header, ({ packet }) => {
+      if (!getRespectMessageGroupingEnabled()) return;
+      return onRespectChat(packet);
+    });
   }
 
   // Room enter / ready — drop stacks so counts never carry across rooms.
@@ -296,6 +314,7 @@ export function initRespectMessageGrouping(api: LuminusApi): void {
   api.onIncoming(749, () => resetRoomState());
 
   const mo = new MutationObserver(() => {
+    if (!getRespectMessageGroupingEnabled()) return;
     let anyPending = false;
     for (const s of stacks.values()) {
       if (s.pendingEnrich) {
