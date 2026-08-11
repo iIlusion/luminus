@@ -4,18 +4,19 @@ export const PANEL_STYLES = `
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
-/* Peer markers: JS sets left/top to the crown of the head (posture-aware).
-   Icon sits just above that point. */
 #luminus-world-overlay .luminus-peer-marker {
   position: absolute;
   display: none;
-  width: 40px;
-  height: 40px;
-  /* bottom of icon on crown; 2px air above hair */
-  transform: translate(-50%, calc(-100% - 2px));
+  width: 40px !important;
+  height: 40px !important;
+  overflow: visible !important;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transform: translate(-50%, calc(-100% + 21px)) !important;
   pointer-events: none;
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 10px rgba(142, 162, 255, 0.75));
   z-index: 5;
@@ -23,21 +24,32 @@ export const PANEL_STYLES = `
 }
 
 #luminus-world-overlay .luminus-peer-marker-icon {
-  display: block;
-  width: 100%;
-  height: 100%;
+  display: grid;
+  place-items: center;
+  width: 20px !important;
+  height: 20px !important;
+  flex-basis: 20px !important;
 }
 
-#luminus-world-overlay .luminus-peer-marker-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: linear-gradient(145deg, #8ea2ff, #5b6fd6);
-  color: #fff;
-  font: 700 16px/1 system-ui, sans-serif;
+#luminus-world-overlay .luminus-peer-marker-icon[data-extension="luminus"] {
+  width: 23px !important;
+  height: 23px !important;
+  flex-basis: 23px !important;
+}
+
+#luminus-world-overlay .luminus-peer-marker-icon svg,
+#luminus-world-overlay .luminus-peer-marker-icon img {
+  display: block;
+  width: 20px !important;
+  height: 20px !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+}
+
+#luminus-world-overlay .luminus-peer-marker-icon[data-extension="luminus"] svg {
+  width: 23px !important;
+  height: 23px !important;
 }
 
 #luminus-arena-overlay {
@@ -71,15 +83,16 @@ export const PANEL_STYLES = `
   --lm-sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
   --lm-radius: 18px;
   /* Header + footer reserved heights — content scrolls; resize never clips the footer. */
-  --lm-header-h: 52px;
-  --lm-footer-h: 30px;
+  --lm-header-h: 46px;
+  --lm-footer-h: 26px;
   --lm-chrome-h: calc(var(--lm-header-h) + var(--lm-footer-h));
   /* Min shell: chrome + a short content band (relative to viewport). */
   --lm-panel-min-h: max(168px, min(220px, calc(var(--lm-safe-height, 70dvh) * 0.32)));
 
   position: fixed;
   z-index: 2147483647;
-  width: min(344px, calc(100vw - 24px));
+  width: min(400px, calc(100vw - 24px));
+  height: min(550px, var(--lm-safe-height, calc(100dvh - 96px)));
   /* Cap to Nitro-safe band (toolbar top → viewport top); JS keeps --lm-safe-height fresh. */
   max-height: min(620px, var(--lm-safe-height, calc(100dvh - 96px)));
   min-height: var(--lm-panel-min-h);
@@ -337,7 +350,7 @@ export const PANEL_STYLES = `
 
 #luminus-panel.is-launcher,
 #luminus-panel.is-grid-shell {
-  width: min(320px, calc(100vw - 24px));
+  width: min(400px, calc(100vw - 24px));
 }
 
 #luminus-panel .lm-launcher {
@@ -536,10 +549,10 @@ export const PANEL_STYLES = `
 
 /* category content — only body scrolls when panel height is reduced */
 #luminus-panel .lm-tab-content {
-  padding: 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -560,17 +573,35 @@ export const PANEL_STYLES = `
 #luminus-panel .lm-section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 #luminus-panel .lm-section-title {
   font-family: var(--lm-sans);
-  font-size: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(24px, 1fr);
+  align-items: center;
+  gap: 11px;
+  font-size: 12.5px;
   font-weight: 750;
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
-  color: var(--lm-text-dim);
-  padding: 0 3px 2px;
+  letter-spacing: -0.01em;
+  color: rgba(226, 230, 250, 0.88);
+  padding: 8px 3px 5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+#luminus-panel .lm-section-title::after {
+  content: "";
+  height: 1px;
+  background: linear-gradient(90deg, rgba(142, 162, 255, 0.34), rgba(255, 255, 255, 0.08) 48%, transparent);
+}
+
+#luminus-panel .lm-subsection-title {
+  padding: 4px 7px 1px;
+  color: var(--lm-muted);
+  font-size: 9.5px;
+  font-weight: 700;
 }
 
 /* row: label + control (glass plate) */
@@ -579,49 +610,56 @@ export const PANEL_STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 44px;
-  padding: 7px 9px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.045);
-  border-radius: 7px;
+  min-height: 38px;
+  padding: 6px 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
   transition: background 0.16s, border-color 0.16s;
 }
 
 /* nested sub-option under a toggle row Ã¢â‚¬â€ indented, quieter plate, no card chrome */
 #luminus-panel .lm-row-sub {
   margin-left: 0;
-  min-height: 36px;
-  padding: 5px 10px;
-  background: rgba(142, 162, 255, 0.045);
-  border: 1px solid rgba(142, 162, 255, 0.1);
+  min-height: 35px;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid transparent;
 }
 
-#luminus-panel .lm-row-sub .lm-label { font-size: 11px; }
+#luminus-panel .lm-row-sub .lm-label { font-size: 11.5px; }
 
 /* Nested under another sub-option (e.g. Ctrl+clique → libera anti-girar) */
 #luminus-panel .lm-row-sub2 {
-  margin-left: 10px;
-  background: rgba(142, 162, 255, 0.03);
-  border-color: rgba(142, 162, 255, 0.08);
+  margin-left: 8px;
+  background: rgba(142, 162, 255, 0.035);
 }
 
-#luminus-panel .lm-row-sub2 .lm-label { font-size: 10.5px; }
+#luminus-panel .lm-row-sub2 .lm-label { font-size: 11px; }
 
 #luminus-panel .lm-option-group {
   overflow: hidden;
   background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.045);
-  border-radius: 7px;
-  transition: background 0.16s, border-color 0.16s;
+  border: 1px solid rgba(196, 205, 255, 0.11);
+  border-radius: 12px;
+  transition: background 0.18s, border-color 0.18s;
 }
 
 #luminus-panel .lm-option-group:hover {
-  border-color: var(--lm-hairline);
+  background: rgba(255, 255, 255, 0.052);
+  border-color: rgba(196, 205, 255, 0.2);
+}
+
+#luminus-panel .lm-option-group.is-open {
+  background: rgba(142, 162, 255, 0.055);
+  border-color: rgba(142, 162, 255, 0.24);
 }
 
 #luminus-panel .lm-option-group > .lm-row {
   background: transparent;
   border: 0;
+  min-height: 44px;
+  padding: 7px 10px;
   border-radius: 0;
 }
 
@@ -649,9 +687,12 @@ export const PANEL_STYLES = `
 #luminus-panel .lm-option-more {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  color: var(--lm-muted);
-  font-size: 9.5px;
+  gap: 3px;
+  padding: 2px 5px 2px 7px;
+  border-radius: 999px;
+  color: rgba(196, 205, 255, 0.68);
+  background: rgba(142, 162, 255, 0.08);
+  font-size: 9.75px;
   font-weight: 650;
   transition: color 0.14s;
 }
@@ -670,19 +711,19 @@ export const PANEL_STYLES = `
 #luminus-panel .lm-option-children {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0 7px 7px;
-  padding: 7px 0 0 9px;
-  border-top: 1px solid rgba(255, 255, 255, 0.055);
-  border-left: 1px solid rgba(142, 162, 255, 0.16);
+  gap: 2px;
+  margin: 0;
+  padding: 6px 7px 8px;
+  border-top: 1px solid rgba(196, 205, 255, 0.1);
+  background: rgba(3, 5, 13, 0.12);
 }
 
 #luminus-panel .lm-inline-option {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 42px;
-  padding: 5px 7px;
+  min-height: 34px;
+  padding: 4px 7px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.045);
   border-radius: 7px;
@@ -703,28 +744,28 @@ export const PANEL_STYLES = `
   color: var(--lm-text);
   flex: 1;
   min-width: 0;
-  line-height: 1.3;
+  line-height: 1.32;
 }
 
 /* packet identifiers, headers, coords Ã¢â€ â€™ mono (the tool's native type) */
 #luminus-panel .lm-sub {
   font-family: var(--lm-sans);
-  font-size: 10px;
-  color: var(--lm-muted);
+  font-size: 10.25px;
+  color: rgba(177, 184, 216, 0.68);
   display: block;
-  margin-top: 2px;
-  line-height: 1.3;
+  margin-top: 3px;
+  line-height: 1.34;
   letter-spacing: 0;
 }
 
 /* Radix Switch */
 #luminus-panel .lm-switch-root {
   all: unset;
-  width: 34px;
-  height: 20px;
+  width: 24px;
+  height: 16px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--lm-hairline-soft);
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
@@ -739,8 +780,8 @@ export const PANEL_STYLES = `
 
 #luminus-panel .lm-switch-thumb {
   display: block;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   background: #ffffff;
   border-radius: 50%;
   position: absolute;
@@ -752,7 +793,7 @@ export const PANEL_STYLES = `
 }
 
 #luminus-panel .lm-switch-root[data-state="checked"] .lm-switch-thumb {
-  transform: translateX(14px);
+  transform: translateX(8px);
 }
 
 /* Radix Slider */
@@ -847,15 +888,24 @@ export const PANEL_STYLES = `
   align-items: center;
 }
 
+#luminus-panel .lm-row-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
 #luminus-panel .lm-input {
   flex: 1;
   background: rgba(0, 0, 0, 0.22);
   border: 1px solid var(--lm-hairline-soft);
   border-radius: 8px;
   color: var(--lm-text);
-  font-size: 12px;
+  height: 24px;
+  font-size: 11px;
   font-family: var(--lm-mono);
-  padding: 7px 9px;
+  padding: 3px 7px;
   outline: none;
   transition: border-color 0.15s, background 0.15s;
   min-width: 0;
@@ -872,6 +922,17 @@ export const PANEL_STYLES = `
   flex: none;
 }
 
+#luminus-panel .lm-input.lm-input-number {
+  width: 60px;
+  flex: 0 0 60px;
+  font-variant-numeric: tabular-nums;
+}
+
+#luminus-panel .lm-input.lm-input-small {
+  width: 72px;
+  flex: 0 0 72px;
+}
+
 /* primary action button (luminous fill, dark label Ã¢â‚¬â€ Apple-style vibrancy) */
 #luminus-panel .lm-btn {
   all: unset;
@@ -882,9 +943,10 @@ export const PANEL_STYLES = `
   background: linear-gradient(180deg, #a3b2ff, #7f8ef4);
   color: var(--lm-ink);
   border-radius: 8px;
-  font-size: 12px;
+  min-height: 24px;
+  font-size: 10.5px;
   font-weight: 600;
-  padding: 7px 15px;
+  padding: 4px 11px;
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 2px 10px var(--lm-glow), inset 0 1px 0 rgba(255, 255, 255, 0.4);
@@ -1143,7 +1205,9 @@ body.luminus-ui-menus .nitro-context-menu {
     inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }
 
-body.luminus-ui-menus .nitro-context-menu.name-only {
+body.luminus-ui-menus .nitro-context-menu.name-only,
+body.luminus-ui-menus .nitro-context-menu.is-name-only {
+  display: flex !important;
   align-items: center !important;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08)),
@@ -1154,11 +1218,17 @@ body.luminus-ui-menus .nitro-context-menu.name-only {
   font-weight: 600 !important;
   gap: 4px !important;
   line-height: 1.1 !important;
-  padding: 2px 6px 3px !important;
+  padding: 2px 2px 3px !important;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55) !important;
   box-shadow:
     0 5px 12px -8px rgba(0, 0, 0, 0.75),
     inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Keep a small optical end inset when the compact name plate has no action icon. */
+body.luminus-ui-menus .nitro-context-menu.name-only:not(:has(.luminus-name-only-link-icon)),
+body.luminus-ui-menus .nitro-context-menu.is-name-only:not(:has(.luminus-name-only-link-icon)) {
+  padding-right: 10px !important;
 }
 
 body.luminus-ui-menus .nitro-context-menu.name-only .luminus-name-only-link-icon,
@@ -1178,6 +1248,72 @@ body.luminus-ui-menus .nitro-context-menu.is-name-only .luminus-name-only-link-i
 body.luminus-ui-menus .nitro-context-menu .menu-header .luminus-name-only-link-icon svg {
   width: 11px !important;
   height: 11px !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget,
+body.luminus-ui-user-chooser .nitro-user-chooser,
+body.luminus-ui-user-chooser [class*="user-chooser-widget"] {
+  background:
+    radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
+    rgba(16, 18, 28, 0.62) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
+  backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow:
+    0 12px 32px -10px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+body.luminus-ui-menus .nitro-context-menu.name-only .luminus-name-only-link-icon,
+body.luminus-ui-menus .nitro-context-menu.is-name-only .luminus-name-only-link-icon {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+
+body.luminus-ui-menus .nitro-context-menu.name-only .luminus-gender-icon,
+body.luminus-ui-menus .nitro-context-menu.is-name-only .luminus-gender-icon,
+body.luminus-ui-menus .nitro-context-menu .menu-header .luminus-gender-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 11px !important;
+  height: 11px !important;
+  margin-left: 0 !important;
+  margin-right: 1px !important;
+  flex: 0 0 auto !important;
+  line-height: 1 !important;
+}
+
+body.luminus-ui-menus .nitro-context-menu.name-only .luminus-gender-icon,
+body.luminus-ui-menus .nitro-context-menu.is-name-only .luminus-gender-icon {
+  margin-left: 0 !important;
+  margin-right: 1px !important;
+}
+
+body.luminus-ui-menus .nitro-context-menu .menu-header .luminus-gender-icon {
+  margin-right: 4px !important;
+}
+
+body.luminus-ui-menus .nitro-context-menu .menu-header .luminus-name-only-link-icon {
+  margin-left: 4px !important;
+}
+
+body.luminus-ui-menus .nitro-context-menu .luminus-gender-icon.gender-f {
+  color: #ff8fc7 !important;
+  filter: drop-shadow(0 0 3px rgba(255, 143, 199, 0.28));
+}
+
+body.luminus-ui-menus .nitro-context-menu .luminus-gender-icon.gender-m {
+  color: #8ea2ff !important;
+  filter: drop-shadow(0 0 3px rgba(142, 162, 255, 0.28));
+}
+
+body.luminus-ui-menus .nitro-context-menu .luminus-gender-icon svg {
+  display: block;
+  width: 12px !important;
+  height: 12px !important;
 }
 
 body.luminus-ui-menus .nitro-context-menu.name-only .luminus-link-pending svg,
@@ -1321,109 +1457,252 @@ body.luminus-ui-menus .nitro-context-menu .menu-footer {
 
 /* Room tools rail (camera/settings/chat-history/etc, left edge of the room) Ã¢â‚¬â€ flush against
    the left edge, so only the right corners round, mirroring .nitro-purse's flush-top logic */
-body.luminus-ui-room-tools .nitro-room-tools {
-  background:
+/* Shared glass material: every room-side surface uses these exact values. */
+:root {
+  --luminus-ui-glass-background:
     radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
-    rgba(16, 18, 28, 0.62) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 0 12px 12px 0 !important;
-  box-shadow:
+    rgba(16, 18, 28, 0.62);
+  --luminus-ui-glass-backdrop: blur(24px) saturate(180%) brightness(1.05);
+  --luminus-ui-glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --luminus-ui-glass-shadow:
     0 12px 32px -10px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+body.luminus-ui-room-tools .nitro-room-tools {
+  background: var(--luminus-ui-glass-background) !important;
+  -webkit-backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  border: var(--luminus-ui-glass-border) !important;
+  border-radius: 0 12px 12px 0 !important;
+  box-shadow: var(--luminus-ui-glass-shadow) !important;
 }
 
 /* Right-side sidebar (currency/purse bar, flush against the top edge Ã¢â‚¬â€ only the bottom
    corners round Ã¢â‚¬â€ and the floating room-ranking notification bubble) */
 body.luminus-ui-purse .nitro-purse {
-  background:
-    radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
-    rgba(16, 18, 28, 0.62) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: var(--luminus-ui-glass-background) !important;
+  -webkit-backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  border: var(--luminus-ui-glass-border) !important;
+  border-top: 0 !important;
   border-radius: 0 0 12px 12px !important;
-  box-shadow:
-    0 12px 32px -10px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+  box-shadow: var(--luminus-ui-glass-shadow) !important;
 }
 
 /* Seasonal-currency rows (Rubis/Asinhas) Ã¢â‚¬â€ standalone boxes below the purse bar, not flush
    against anything, so unlike .nitro-purse they round on all corners */
 body.luminus-ui-purse .nitro-purse-seasonal-currency {
-  background:
-    radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
-    rgba(16, 18, 28, 0.62) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 10px !important;
-  box-shadow:
-    0 8px 22px -10px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+  background: var(--luminus-ui-glass-background) !important;
+  -webkit-backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  border: var(--luminus-ui-glass-border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--luminus-ui-glass-shadow) !important;
 }
 
 body.luminus-ui-notifications .nitro-notification-bubble {
-  background:
-    radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
-    rgba(16, 18, 28, 0.62) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 14px !important;
-  box-shadow:
-    0 12px 32px -10px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+  background: var(--luminus-ui-glass-background) !important;
+  -webkit-backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  backdrop-filter: var(--luminus-ui-glass-backdrop) !important;
+  border: var(--luminus-ui-glass-border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--luminus-ui-glass-shadow) !important;
 }
 
 /* toolbar icons (main Luminus icon + Logs/Links) Ã¢â‚¬â€ one shared pattern, same box, same margin */
 /* Small native-feeling controls added around Nitro's right rail. */
-.nitro-purse {
-  position: relative !important;
-  overflow: hidden !important;
+.nitro-room-tools {
+  transform-origin: left center;
+  transition: opacity 0.16s ease-out, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
 }
 
-.nitro-purse.luminus-purse-collapsed {
-  height: 24px !important;
-  min-height: 24px !important;
-  max-height: 24px !important;
-  padding: 0 !important;
+.luminus-room-tools-shell,
+.luminus-purse-shell {
+  position: relative;
+  isolation: isolate;
+  gap: 0;
 }
 
-.nitro-purse.luminus-purse-collapsed > .w-100 {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
+.luminus-room-tools-shell > .luminus-room-tools-toggle,
+.luminus-room-tools-shell > .nitro-room-tools,
+.luminus-purse-shell > .luminus-purse-toggle,
+.luminus-purse-shell > .nitro-purse {
+  position: relative;
+  z-index: 1;
+  margin: 0 !important;
 }
 
-.nitro-purse.luminus-purse-collapsed ~ .nitro-purse-seasonal-currency {
+.luminus-room-tools-shell {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  max-width: 100%;
+}
+
+.luminus-purse-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: var(--luminus-purse-width, 100%);
+}
+
+.luminus-room-tools-shell::before,
+.luminus-purse-shell::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: var(--luminus-ui-glass-background);
+  -webkit-backdrop-filter: var(--luminus-ui-glass-backdrop);
+  backdrop-filter: var(--luminus-ui-glass-backdrop);
+  border: var(--luminus-ui-glass-border);
+  box-shadow: var(--luminus-ui-glass-shadow);
+  opacity: 1;
+  transition: opacity 0.16s ease-out, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.luminus-room-tools-shell::before {
+  transform-origin: left center;
+  border-radius: 0 12px 12px 0;
+}
+
+.luminus-purse-shell::before {
+  transform-origin: top center;
+  border-radius: 0 0 12px 12px;
+}
+
+.luminus-room-tools-shell-collapsed::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.luminus-purse-shell-collapsed::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.luminus-room-tools-shell:not(.luminus-room-tools-shell-collapsed)::before,
+.luminus-purse-shell:not(.luminus-purse-shell-collapsed)::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+body:not(.luminus-ui-room-tools) .luminus-room-tools-shell::before {
+  display: none;
+}
+
+body:not(.luminus-ui-purse) .luminus-purse-shell::before {
+  display: none;
+}
+
+body.luminus-ui-room-tools .luminus-room-tools-shell .nitro-room-tools,
+body.luminus-ui-purse .luminus-purse-shell .nitro-purse {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.luminus-room-tools-shell:not(.luminus-room-tools-shell-collapsed) .luminus-room-tools-toggle,
+.luminus-purse-shell:not(.luminus-purse-shell-collapsed) .luminus-purse-toggle {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+body.luminus-ui-purse .luminus-purse-shell-collapsed .luminus-purse-toggle {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.luminus-room-tools-shell-collapsed > .luminus-room-tools-toggle {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.luminus-purse-seasonal-collapsed {
   display: none !important;
 }
 
-.luminus-purse-toggle {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  left: 50%;
+body.luminus-ui-room-tools .nitro-room-tools.luminus-room-tools-collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  transform: scaleX(0.02);
+}
+
+body.luminus-ui-room-tools .nitro-room-tools:not(.luminus-room-tools-collapsed) {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.nitro-room-tools-host-collapsed,
+.nitro-purse-host-collapsed {
+  gap: 0 !important;
+}
+
+.luminus-room-tools-host {
+  align-items: stretch !important;
+  gap: 0 !important;
+}
+
+.luminus-purse-host {
+  align-items: stretch !important;
+}
+
+.luminus-room-tools-toggle {
+  position: relative;
+  z-index: 70 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 24px;
+  width: 18px;
+  min-width: 18px;
+  height: auto;
+  min-height: 100%;
+  align-self: stretch;
+  flex: 0 0 18px;
   padding: 0;
-  opacity: 0;
-  transform: translate(-50%, -100%);
+  box-sizing: border-box;
   border: 0;
+  border-radius: 0;
   background: transparent;
   color: rgba(220, 226, 255, 0.82);
   cursor: pointer;
-  transition: color 0.14s, filter 0.14s, opacity 0.14s, transform 0.14s;
+  pointer-events: auto !important;
+  transition: color 0.14s, filter 0.14s, background 0.14s;
 }
 
-.luminus-purse-toggle svg {
-  width: 24px;
-  height: 24px;
+.luminus-room-tools-toggle svg {
+  width: 12px;
+  height: 12px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.5;
@@ -1431,22 +1710,160 @@ body.luminus-ui-notifications .nitro-notification-bubble {
   stroke-linejoin: round;
 }
 
-.nitro-purse:hover > .luminus-purse-toggle,
-.nitro-purse.luminus-purse-collapsed > .luminus-purse-toggle,
-.luminus-purse-toggle:focus-visible {
-  opacity: 1;
-  transform: translateX(-50%);
+body.luminus-ui-room-tools .luminus-room-tools-toggle:hover,
+body.luminus-ui-room-tools .luminus-room-tools-toggle:focus-visible,
+body.luminus-ui-room-tools .luminus-room-tools-toggle[aria-expanded="true"] {
+  background:
+    radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
+    rgba(16, 18, 28, 0.62);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+  backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 12px 32px -10px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  filter: none;
+  outline: none;
 }
 
-.luminus-purse-toggle:hover,
-.luminus-purse-toggle:focus-visible {
+body.luminus-ui-room-tools .luminus-room-tools-toggle[aria-expanded="true"] {
+  border: 0 !important;
+  border-radius: 0;
+  margin-right: -1px;
+}
+
+body.luminus-ui-room-tools .luminus-room-tools-toggle[aria-expanded="true"] + .nitro-room-tools {
+  border-left: 0 !important;
+}
+
+.luminus-purse-toggle {
+  position: relative;
+  z-index: 70 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--luminus-purse-width, 100%);
+  min-width: 0;
+  flex: 0 0 var(--luminus-purse-width, 100%);
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  align-self: stretch;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(220, 226, 255, 0.82);
+  cursor: pointer;
+  pointer-events: auto !important;
+  transition: color 0.14s, filter 0.14s, background 0.14s;
+}
+
+.luminus-purse-toggle svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The collapsed control is the purse's horizontal starting fill. When open,
+   the surface below it has no top border, so both pieces read as one purse. */
+body.luminus-ui-purse .luminus-purse-host-collapsed > .luminus-purse-toggle,
+body.luminus-ui-purse .luminus-purse-shell-collapsed > .luminus-purse-toggle {
+  background: rgba(142, 162, 255, 0.20);
+}
+
+body.luminus-ui-purse .luminus-purse-toggle[aria-expanded="true"] {
+  border: 0;
+  border-radius: 12px 12px 0 0;
+  background:
+    radial-gradient(135% 140% at 50% -40%, rgba(142, 162, 255, 0.14), transparent 60%),
+    rgba(16, 18, 28, 0.62);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+  backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+  box-shadow:
+    0 12px 32px -10px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  margin-bottom: -1px;
+}
+
+.nitro-purse-container.luminus-purse-collapsed {
+  width: var(--luminus-purse-width, 100%) !important;
+  min-width: var(--luminus-purse-width, 100%) !important;
+  max-width: var(--luminus-purse-width, 100%) !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: scaleY(0.02);
+}
+
+.nitro-purse.luminus-purse-collapsed {
+  width: var(--luminus-purse-width, 100%) !important;
+  min-width: var(--luminus-purse-width, 100%) !important;
+  max-width: var(--luminus-purse-width, 100%) !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: scaleY(0.02);
+}
+
+.nitro-purse-container,
+.nitro-purse {
+  transform-origin: top center;
+  overflow: hidden;
+  transition:
+    opacity 0.16s ease-out,
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    padding 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform, max-height, padding;
+}
+
+.nitro-purse-container:not(.luminus-purse-collapsed),
+.nitro-purse:not(.luminus-purse-collapsed) {
+  max-height: 240px;
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+body.luminus-ui-purse .luminus-purse-toggle:hover,
+body.luminus-ui-purse .luminus-purse-toggle:focus-visible {
+  background: rgba(142, 162, 255, 0.20);
   color: #ffffff;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
   outline: none;
 }
 
+/* The two disclosures must use the same motion contract, including when the
+   browser reports prefers-reduced-motion for the native Nitro surface. */
+.luminus-room-tools-shell > .nitro-room-tools,
+.luminus-purse-shell > .nitro-purse {
+  transition:
+    opacity 0.16s ease-out,
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    padding 0.24s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+body:not(.luminus-ui-purse) .luminus-purse-shell > .nitro-purse,
+body:not(.luminus-ui-purse) .nitro-purse-container,
+body:not(.luminus-ui-purse) .nitro-purse {
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .luminus-purse-toggle {
+  .luminus-purse-toggle,
+  .luminus-room-tools-toggle {
     transition: none;
   }
 }
@@ -1489,13 +1906,13 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
 /* laptop / 720p–1080p band */
 @media (max-width: 1366px) {
   #luminus-panel {
-    width: min(320px, calc(100vw - 20px));
+    width: min(400px, calc(100vw - 20px));
   }
 }
 
 @media (max-width: 1280px) {
   #luminus-panel {
-    width: min(300px, calc(100vw - 16px));
+    width: min(400px, calc(100vw - 16px));
   }
 }
 
@@ -1508,7 +1925,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
     left: auto !important;
     --lm-radius: 16px;
   }
-  #luminus-panel .lm-tab-content { padding: 12px; gap: 13px; }
+  #luminus-panel .lm-tab-content { padding: 8px; gap: 8px; }
   #luminus-panel .lm-header { padding: 0 11px 0 14px; }
 }
 
@@ -2645,15 +3062,31 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
 .luminus-motto-link:hover { color: #c4cdff; }
 
 .luminus-eye,
-.luminus-person-link-icon {
+.luminus-person-link-icon,
+.luminus-gender-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   margin-left: 4px;
   flex-shrink: 0;
   pointer-events: auto !important;
 }
+
+.luminus-gender-icon {
+  width: 11px;
+  height: 11px;
+  margin-left: 0;
+  margin-right: 1px;
+  line-height: 1;
+}
+
+.luminus-eye,
+.luminus-person-link-icon { cursor: pointer; }
+
+.luminus-gender-icon.gender-f { color: #ff8fc7; }
+.luminus-gender-icon.gender-m { color: #8ea2ff; }
+.luminus-gender-icon.is-bot { color: #9dadff; filter: drop-shadow(0 0 3px rgba(157, 173, 255, 0.28)); }
+.luminus-gender-icon svg { display: block; width: 11px; height: 11px; }
 
 .luminus-eye svg { display: block; filter: drop-shadow(0 0 3px rgba(38, 222, 129, 0.5)); }
 .luminus-person-link-icon svg { display: block; }

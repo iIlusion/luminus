@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as Switch from "@radix-ui/react-switch";
 
-import { ArrowLeft, Bug, ChevronDown, EyeOff, Gamepad2, PanelsTopLeft, RadioTower, ScrollText, SlidersHorizontal, Wrench } from "lucide-react";
+import { ArrowLeft, Bug, ChevronDown, Hammer, PanelsTopLeft, RadioTower, ScrollText, Wrench } from "lucide-react";
 
 import type { LuminusApi } from "../ws/api";
 import type { UnitIdle } from "../messages/incoming/UnitIdleParser";
@@ -16,13 +16,34 @@ import {
   getRadioVisible, setRadioVisible, getUiGlassSettings, setUiGlassCategory,
   getUiGlassCategoryLabel, UI_GLASS_CATEGORIES, type UiGlassCategory
 } from "./toolbarGlass";
+import {
+  getContextGenderIconEnabled,
+  setContextGenderIconEnabled,
+} from "./contextGender";
 import { getMcpBridgeEnabled, setMcpBridgeEnabled, getMcpBridgeStatus } from "../bridge/mcpBridge";
+import {
+  getCloseWindowsOnEscape,
+  setCloseWindowsOnEscape,
+} from "./escapeClose";
+import {
+  getMuteSignSettings,
+  getRoomEntryActionSettings,
+  setMuteSignSettings,
+  setRoomEntryActionSettings,
+  type MuteSignSettings,
+  type RoomEntryActionSettings,
+} from "./utilityAutomations";
+import {
+  getRespectMessageGroupingEnabled,
+  setRespectMessageGroupingEnabled,
+} from "./respectMessages";
 import {
   CORE_PANEL_CATEGORIES,
   PanelLauncher,
   panelSearchEntries,
   type PanelSearchEntry,
 } from "./panelNavigation";
+import type { PanelExtension, PanelExtensionView } from "./panelExtensions";
 
 import {
   addMuteAllWhitelist,
@@ -40,6 +61,7 @@ import {
   getIncrementalRoomCanvasEnabled,
   setIncrementalRoomCanvasEnabled,
 } from "../room/incrementalRoomCanvas";
+import { PeerIconsOption } from "./PeerIconsOption";
 import {
   getState as getFurniClassHideState,
   setFurniClassHideEnabled,
@@ -55,53 +77,50 @@ import {
 interface Props {
   api: LuminusApi;
   open: boolean;
+  extensions?: readonly PanelExtension[];
   onClose: () => void;
   onOpenLogs: () => void;
   onOpenLinks: () => void;
 }
 
 
-type PanelView = "launcher" | "avatar" | "interaction" | "tools" | "records" | "interface" | "render" | "packets" | "debug";
+type PanelView = string;
 
 function storedPanelView(): PanelView {
   const stored = readPref<string>("luminus.panel.lastView", "launcher");
-  if (stored === "player") return "avatar";
+  if (["avatar", "interaction", "tools", "player"].includes(stored)) return "utilities";
   if (stored === "logs") return "records";
   if (stored === "visual") return "interface";
-  return (["launcher", "avatar", "interaction", "tools", "records", "interface", "render", "packets", "debug"] as string[]).includes(stored)
-    ? stored as PanelView
-    : "launcher";
+  if (stored === "render") return "construction";
+  return stored || "launcher";
 }
 
-function viewLabel(view: Exclude<PanelView, "launcher">): string {
-  if (view === "avatar") return "Avatar";
-  if (view === "interaction") return "Interação";
-  if (view === "tools") return "Ferramentas";
-  if (view === "records") return "Registros";
+function viewLabel(view: PanelView, extension?: PanelExtensionView): string {
+  if (extension) return extension.label;
+  if (view === "utilities") return "Utilidades";
   if (view === "interface") return "Interface";
-  if (view === "render") return "Renderização";
+  if (view === "records") return "Registro";
+  if (view === "construction") return "Construção";
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return "Packets";
   return "Debug";
 }
 
-function viewSummary(view: Exclude<PanelView, "launcher">): string {
-  if (view === "avatar") return "Movimento, direção e aparência";
-  if (view === "interaction") return "Cliques, mute e proteção";
-  if (view === "tools") return "Ações rápidas para o quarto";
-  if (view === "records") return "Conversas, atividades e links";
+function viewSummary(view: PanelView, extension?: PanelExtensionView): string {
+  if (extension) return extension.summary;
+  if (view === "utilities") return "Avatar, interação e ferramentas";
   if (view === "interface") return "Tema, rádio e guarda-roupa";
-  if (view === "render") return "Desempenho e visibilidade";
+  if (view === "records") return "Logs, conversas e links";
+  if (view === "construction") return "Opções de renderização";
   return "Ferramentas de desenvolvimento";
 }
 
-function ViewIcon({ view, size = 20 }: { view: Exclude<PanelView, "launcher">; size?: number }) {
+function ViewIcon({ view, extension, size = 18 }: { view: PanelView; extension?: PanelExtensionView; size?: number }) {
+  if (extension) return <>{extension.icon}</>;
   const props = { size, strokeWidth: 1.8, "aria-hidden": true } as const;
-  if (view === "avatar") return <Gamepad2 {...props} />;
-  if (view === "interaction") return <SlidersHorizontal {...props} />;
-  if (view === "tools") return <Wrench {...props} />;
-  if (view === "records") return <ScrollText {...props} />;
+  if (view === "utilities") return <Wrench {...props} />;
   if (view === "interface") return <PanelsTopLeft {...props} />;
-  if (view === "render") return <EyeOff {...props} />;
+  if (view === "records") return <ScrollText {...props} />;
+  if (view === "construction") return <Hammer {...props} />;
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return <RadioTower {...props} />;
   return <Bug {...props} />;
 }
@@ -160,12 +179,12 @@ const BLOCK_HEADERS = [
 type PlayerKey = "antiIdle" | "antiWalk" | "antiLook" | "antiTyping" | "blockClick" | "ctrlLook";
 
 const PLAYER_TOGGLES: { key: PlayerKey; label: string; sub: string }[] = [
-  { key: "antiIdle",   label: "Anti-Idle",             sub: "Não deixa seu avatar ficar ausente." },
+  { key: "antiIdle",   label: "Anti-Aus",              sub: "Não deixa seu avatar ficar ausente." },
   { key: "antiWalk",   label: "Anti-Caminhar",         sub: "Trava seus passos mesmo clicando pelo quarto." },
   { key: "antiLook",   label: "Anti-Girar",            sub: "Mantém seu avatar olhando na mesma direção." },
   { key: "antiTyping", label: "Anti-Digitando",        sub: "Esconde o aviso de que você está digitando." },
-  { key: "blockClick", label: "Bloquear Clique",       sub: "Evita clicar em outros jogadores sem querer." },
-  { key: "ctrlLook",   label: "Ctrl + Setas para Girar", sub: "Escolha a direção com Ctrl e as setas." },
+  { key: "blockClick", label: "Bloquear Cliques",      sub: "Evita clicar em outros jogadores sem querer." },
+  { key: "ctrlLook",   label: "CTRL+SETAS Girar",      sub: "Escolha a direção com Ctrl e as setas." },
 ];
 
 const PLAYER_OUTGOING: Record<Exclude<PlayerKey, "antiIdle" | "ctrlLook">, number> = {
@@ -176,15 +195,19 @@ const PLAYER_OUTGOING: Record<Exclude<PlayerKey, "antiIdle" | "ctrlLook">, numbe
 };
 
 
-export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Props) {
+export function LuminusPanel({ api, open, extensions = [], onClose, onOpenLogs, onOpenLinks }: Props) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   /** True after the user resizes via the side handles — keep that size across tabs. */
   const userResizedRef = React.useRef(false);
   const [view, setView] = React.useState<PanelView>(storedPanelView);
   const [pendingFocus, setPendingFocus] = React.useState<string | undefined>();
+  const extensionViews = React.useMemo(() => new Map(
+    extensions.flatMap(extension => extension.views).map(item => [item.id, item] as const),
+  ), [extensions]);
+  const activeExtensionView = extensionViews.get(view);
 
   function navigate(target: string, focus?: string) {
-    const next = (target as PanelView);
+    const next = target as PanelView;
     setPendingFocus(focus);
     setView(next);
     writePref("luminus.panel.lastView", next);
@@ -195,7 +218,7 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
   }, [view]);
 
   React.useEffect(() => {
-    if (!open || !pendingFocus) return;
+    if (!open || !pendingFocus || view === "launcher") return;
     const timer = window.setTimeout(() => {
       const target = panelRef.current?.querySelector<HTMLElement>(`[data-lm-section="${pendingFocus}"]`);
       target?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -370,6 +393,7 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
     setOutgoingClickAlertEnabled(v);
     setOutgoingClickAlertState(v);
   }
+
 
   function activatePlayer(key: PlayerKey): (() => void) | null {
     if (key === "antiIdle") {
@@ -668,6 +692,43 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
     setRadioVisible(enabled);
     setRadioVisibleState(enabled);
   }
+
+  const [roomEntryActions, setRoomEntryActionsState] = React.useState<RoomEntryActionSettings>(
+    () => getRoomEntryActionSettings(),
+  );
+  const [muteSign, setMuteSignState] = React.useState<MuteSignSettings>(() => getMuteSignSettings());
+  const [betterRespectMessages, setBetterRespectMessagesState] = React.useState(
+    () => getRespectMessageGroupingEnabled(),
+  );
+
+  function updateRoomEntryAction<K extends keyof RoomEntryActionSettings>(
+    key: K,
+    value: RoomEntryActionSettings[K],
+  ) {
+    setRoomEntryActionsState(current => {
+      const next = { ...current, [key]: value };
+      setRoomEntryActionSettings(next);
+      return next;
+    });
+  }
+
+  function updateMuteSign<K extends keyof MuteSignSettings>(key: K, value: MuteSignSettings[K]) {
+    setMuteSignState(current => {
+      const next = { ...current, [key]: value };
+      setMuteSignSettings(next);
+      return next;
+    });
+  }
+
+  function toggleBetterRespectMessages(enabled: boolean) {
+    setRespectMessageGroupingEnabled(enabled);
+    setBetterRespectMessagesState(enabled);
+  }
+  const [contextGenderIcon, setContextGenderIconState] = React.useState(() => getContextGenderIconEnabled());
+  function toggleContextGenderIcon(enabled: boolean) {
+    setContextGenderIconEnabled(enabled);
+    setContextGenderIconState(enabled);
+  }
   const [wardrobeStacked, setWardrobeStackedState] = React.useState(() => getWardrobeStacked());
   function toggleWardrobeStacked(v: boolean) {
     setWardrobeStacked(v);
@@ -680,39 +741,72 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
     setIncrementalRoomCanvasEnabled(enabled);
     setIncrementalRoomCanvasState(enabled);
   }
-  
-    const backTarget = (): PanelView => "launcher";
+  const [closeWindowsOnEscape, setCloseWindowsOnEscapeState] = React.useState(
+    () => getCloseWindowsOnEscape(),
+  );
 
+  function toggleCloseWindowsOnEscape(enabled: boolean) {
+    setCloseWindowsOnEscape(enabled);
+    setCloseWindowsOnEscapeState(enabled);
+  }
 
+  const panelCategories = React.useMemo(() => [
+    ...CORE_PANEL_CATEGORIES,
+    ...extensions.flatMap(extension => extension.categories ?? []),
+    ...(devMode ? [{
+      id: "development",
+      label: "Desenvolvimento",
+      summary: "Packets e diagnóstico",
+      target: "packets",
+      tone: "dev",
+      icon: <RadioTower aria-hidden="true" />,
+    }] : []),
+  ], [devMode, extensions]);
+  const extensionEntries = React.useMemo(
+    () => extensions.flatMap(extension => extension.entries ?? []),
+    [extensions],
+  );
 
-  const panelEntries = React.useMemo<PanelSearchEntry[]>(() => panelSearchEntries(CORE_PANEL_CATEGORIES, [
-    ...PLAYER_TOGGLES.map(({ key, label, sub }) => ({
-      id: `player:${key}`,
-      title: label,
-      summary: sub,
-      category: key === "blockClick" ? "Interação" : "Avatar",
-      target: key === "blockClick" ? "interaction" : "avatar",
-      focus: "avatar",
-    })),
-    { id: "mute-all", title: "Mutar geral", summary: "Bloqueia o chat no cliente", category: "Interação", target: "interaction", focus: "interaction", keywords: ["mute", "silenciar", "whitelist"] },
-    { id: "copy-look", title: "Copiar Visual", summary: "Procura e usa o visual de outro jogador", category: "Ferramentas", target: "tools", focus: "tools", keywords: ["visual", "look", "avatar"] },
-    { id: "spam-click", title: "Spam Click", summary: "Repete cliques em um alvo", category: "Ferramentas", target: "tools", focus: "tools-spam", keywords: ["clique", "spam"] },
-    { id: "chat-log", title: "Chat Log", summary: "Registra conversas e cliques", category: "Registros", target: "records", focus: "records", keywords: ["chat", "discord", "webhook"] },
-    { id: "open-logs", title: "Ver Logs", summary: "Abre o painel completo de registros", category: "Registros", target: "records", action: onOpenLogs },
-    { id: "saved-links", title: "Links salvos", summary: "Abre o histórico de links", category: "Registros", target: "records", action: onOpenLinks },
-    { id: "theme", title: "Tema", summary: "Personaliza a interface", category: "Interface", target: "interface", focus: "interface", keywords: ["ui", "rádio", "guarda-roupa"] },
-    { id: "furnis", title: "Ocultar Mobis", summary: "Controla a visibilidade dos mobis", category: "Renderização", target: "render", focus: "render", keywords: ["furni", "mobi"] },
-    ...(devMode ? [
-      { id: "packets", title: "Packets", summary: "Inspeciona tráfego do cliente", category: "Desenvolvimento", target: "packets", keywords: ["debug", "desenvolvimento"] },
-      { id: "bridge-debug", title: "Debug", summary: "Diagnóstico do painel", category: "Desenvolvimento", target: "debug", keywords: ["mcp", "diagnóstico"] },
-    ] : []),
-  ]), [devMode, onOpenLogs, onOpenLinks]);
+  const panelEntries = React.useMemo<PanelSearchEntry[]>(() => panelSearchEntries(
+    panelCategories,
+    [
+      ...PLAYER_TOGGLES.map(({ key, label, sub }) => ({
+        id: `player:${key}`,
+        title: label,
+        summary: sub,
+        category: key === "blockClick" ? "Interação" : "Meu Avatar",
+        target: "utilities",
+        focus: key === "blockClick" ? "interaction" : "avatar",
+      })),
+      { id: "mute-all", title: "Mutar geral", summary: "Bloqueia o chat no cliente", category: "Interação", target: "utilities", focus: "interaction" },
+      { id: "extension-icons", title: "Ícones de extensões", summary: "Mostra presença em cima dos avatares", category: "Interação", target: "utilities", focus: "interaction" },
+      { id: "copy-look", title: "Copiar Visual", summary: "Usa o visual de outro jogador", category: "Ferramentas", target: "utilities", focus: "tools" },
+      { id: "spam-click", title: "Spam Click", summary: "Repete cliques em um alvo", category: "Ferramentas", target: "utilities", focus: "tools-spam" },
+      { id: "room-entry", title: "Ações ao entrar no quarto", summary: "Zoom, enable, handitem, pet e tele", category: "Utilidades", target: "utilities", focus: "room-entry-actions" },
+      { id: "respect-messages", title: "Melhores mensagens de respeito", summary: "Agrupa respeitos repetidos", category: "Utilidades", target: "utilities", focus: "utilities" },
+      { id: "mute-sign", title: "Mostrar placa ao tomar mute", summary: "Levanta uma placa no anti-flood", category: "Utilidades", target: "utilities", focus: "utilities" },
+      { id: "open-logs", title: "Ver Logs", summary: "Abre o painel completo de registros", category: "Registro", target: "records", action: onOpenLogs },
+      { id: "saved-links", title: "Links salvos", summary: "Abre o histórico de links", category: "Registro", target: "records", action: onOpenLinks },
+      { id: "theme", title: "Tema", summary: "Personaliza a interface", category: "Interface", target: "interface", focus: "interface" },
+      { id: "escape-close", title: "Fechar janelas com Esc", summary: "Fecha a janela superior", category: "Interface", target: "interface", focus: "interface" },
+      { id: "furnis", title: "Ocultar Mobis", summary: "Controla a visibilidade dos mobis", category: "Construção", target: "construction", focus: "construction" },
+      ...(devMode ? [
+        { id: "packets", title: "Packets", summary: "Inspeciona tráfego do cliente", category: "Desenvolvimento", target: "packets" },
+        { id: "bridge-debug", title: "Debug", summary: "Diagnóstico do painel", category: "Desenvolvimento", target: "debug" },
+      ] : []),
+      ...extensionEntries,
+    ],
+  ), [devMode, extensionEntries, onOpenLinks, onOpenLogs, panelCategories]);
 
   React.useEffect(() => {
     if (!devMode && (view === "packets" || view === "debug")) navigate("launcher");
-  }, [devMode, view]);
+    const coreViews = ["launcher", "utilities", "interface", "records", "construction", "packets", "debug"];
+    if (!coreViews.includes(view) && !extensionViews.has(view)) navigate("launcher");
+  }, [devMode, extensionViews, view]);
 
-  const gridShell = view === "launcher";
+  const gridShell = view === "launcher" || !!activeExtensionView?.gridShell;
+  const backTarget = activeExtensionView?.parent ?? "launcher";
+  const ExtensionViewComponent = activeExtensionView?.component;
 
   return (
     <div id="luminus-panel" ref={panelRef} className={`${open ? "is-open" : ""} is-${view}${gridShell ? " is-grid-shell" : ""}`} style={{ top: 80, right: 20 }}>
@@ -730,13 +824,18 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
           </svg>
           {LUMINUS_BUILD_NAME}
         </span> : <div className="lm-view-heading">
-          <button className="lm-back" onClick={() => setView(backTarget())} onMouseDown={e => e.stopPropagation()} title="Voltar">
+          <button
+            className="lm-back"
+            onClick={() => navigate(backTarget)}
+            onMouseDown={event => event.stopPropagation()}
+            title="Voltar ao menu principal"
+          >
             <ArrowLeft size={17} strokeWidth={2} aria-hidden="true" />
           </button>
-          <span className="lm-view-icon"><ViewIcon view={view} size={18} /></span>
+          <span className="lm-view-icon"><ViewIcon view={view} extension={activeExtensionView} /></span>
           <span className="lm-view-copy">
-            <span className="lm-view-title">{viewLabel(view)}</span>
-            <span className="lm-view-summary">{viewSummary(view)}</span>
+            <span className="lm-view-title">{viewLabel(view, activeExtensionView)}</span>
+            <span className="lm-view-summary">{viewSummary(view, activeExtensionView)}</span>
           </span>
         </div>}
         <div className="lm-header-actions">
@@ -762,15 +861,22 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
 
       {view === "launcher" && (
         <PanelLauncher
-          categories={CORE_PANEL_CATEGORIES.concat(devMode ? [{ id: "development", label: "Desenvolvimento", summary: "Packets e diagnóstico", target: "packets", tone: "dev", icon: <RadioTower aria-hidden="true" /> }] : [])}
+          categories={panelCategories}
           entries={panelEntries}
           onNavigate={navigate}
+          status={<>{extensions.map((extension, index) => {
+            const Status = extension.launcherStatus;
+            return Status ? <Status key={index} api={api} /> : null;
+          })}</>}
         />
       )}
-        {(view === "avatar" || view === "interaction" || view === "tools") && <div className="lm-tab-content">
-          {(view === "avatar" || view === "interaction") && <div className="lm-section" data-lm-section="avatar">
-            <div className="lm-section-title">{view === "avatar" ? "Avatar" : "Cliques"}</div>
-            {PLAYER_TOGGLES.filter(({ key }) => view === "interaction" ? key === "blockClick" : key !== "blockClick").map(({ key, label, sub }) => {
+
+      {ExtensionViewComponent && <ExtensionViewComponent api={api} navigate={navigate} />}
+
+        {view === "utilities" && <div className="lm-tab-content">
+          <div className="lm-section" data-lm-section="avatar">
+            <div className="lm-section-title">Meu Avatar</div>
+            {PLAYER_TOGGLES.filter(({ key }) => key !== "blockClick").map(({ key, label, sub }) => {
               const control = (
                 <Switch.Root
                   className="lm-switch-root"
@@ -779,53 +885,6 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 >
                   <Switch.Thumb className="lm-switch-thumb" />
                 </Switch.Root>
-              );
-
-              if (key === "blockClick") return (
-                <ExpandableOption key={key} label={label} sub={sub} detailLabel="Configurar" control={control}>
-                  <div className="lm-row lm-row-sub">
-                    <span className="lm-label">
-                      Ctrl + clique libera
-                      <span className="lm-sub">Segure Ctrl quando quiser clicar mesmo com o bloqueio.</span>
-                    </span>
-                    <Switch.Root
-                      className="lm-switch-root"
-                      checked={blockClickCtrlBypass}
-                      onCheckedChange={toggleBlockClickCtrlBypass}
-                    >
-                      <Switch.Thumb className="lm-switch-thumb" />
-                    </Switch.Root>
-                  </div>
-                  <div className="lm-row lm-row-sub lm-row-sub2">
-                    <span className="lm-label">
-                      Ctrl + clique libera anti-girar
-                      <span className="lm-sub">
-                        No mesmo Ctrl+clique, também deixa passar o olhar/giro (desbloqueia o Anti-Girar por um instante).
-                      </span>
-                    </span>
-                    <Switch.Root
-                      className="lm-switch-root"
-                      checked={blockClickCtrlBypassAntiLook}
-                      disabled={!blockClickCtrlBypass}
-                      onCheckedChange={toggleBlockClickCtrlBypassAntiLook}
-                    >
-                      <Switch.Thumb className="lm-switch-thumb" />
-                    </Switch.Root>
-                  </div>
-                  <div className="lm-row lm-row-sub">
-                    <span className="lm-label">
-                      Avisar quando eu clicar
-                      <span className="lm-sub">Mostra “Você clicou em Fulano” quando um clique passa.</span>
-                    </span>
-                    <Switch.Root
-                      className="lm-switch-root"
-                      checked={outgoingClickAlert}
-                      onCheckedChange={toggleOutgoingClickAlert}
-                    >
-                      <Switch.Thumb className="lm-switch-thumb" />
-                    </Switch.Root>
-                  </div>
-                </ExpandableOption>
               );
 
               if (key === "ctrlLook") return (
@@ -854,10 +913,66 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 </div>
               );
             })}
-          </div>}
+          </div>
 
-          {view === "interaction" && <div className="lm-section" data-lm-section="interaction">
-            <div className="lm-section-title">Mutar geral</div>
+          <div className="lm-section" data-lm-section="interaction">
+            <div className="lm-section-title">Interação</div>
+            <PeerIconsOption />
+            <ExpandableOption
+              label="Bloquear Cliques"
+              sub="Evita clicar em outros jogadores sem querer."
+              detailLabel="Configurar"
+              control={
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={player.blockClick}
+                  onCheckedChange={value => togglePlayer("blockClick", value)}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              }
+            >
+              <div className="lm-row lm-row-sub">
+                <span className="lm-label">
+                  Ctrl + clique libera
+                  <span className="lm-sub">Segure Ctrl quando quiser clicar mesmo com o bloqueio.</span>
+                </span>
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={blockClickCtrlBypass}
+                  onCheckedChange={toggleBlockClickCtrlBypass}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </div>
+              <div className="lm-row lm-row-sub lm-row-sub2">
+                <span className="lm-label">
+                  Ctrl + clique libera anti-girar
+                  <span className="lm-sub">Também libera o olhar por um instante.</span>
+                </span>
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={blockClickCtrlBypassAntiLook}
+                  disabled={!blockClickCtrlBypass}
+                  onCheckedChange={toggleBlockClickCtrlBypassAntiLook}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </div>
+              <div className="lm-row lm-row-sub">
+                <span className="lm-label">
+                  Avisar quando eu clicar
+                  <span className="lm-sub">Mostra quem recebeu o clique.</span>
+                </span>
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={outgoingClickAlert}
+                  onCheckedChange={toggleOutgoingClickAlert}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </div>
+            </ExpandableOption>
             <ExpandableOption
               label="Mutar geral"
               sub={
@@ -938,10 +1053,11 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 )}
               </div>
             </ExpandableOption>
-          </div>}
+          </div>
 
-          {view === "tools" && <div className="lm-section" data-lm-section="tools">
-            <div className="lm-section-title">Copiar Visual</div>
+          <div className="lm-section" data-lm-section="tools">
+            <div className="lm-section-title">Ferramentas</div>
+            <div className="lm-subsection-title">Copiar Visual</div>
             <div className="lm-avatar-row">
               <div className="lm-avatar-box">
                 {copiedFigure
@@ -972,10 +1088,10 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
             <button className="lm-btn lm-btn-full" disabled={!copiedFigure} onClick={() => api.setFigure(copiedGender, copiedFigure)}>
               Usar Visual
             </button>
-          </div>}
+          </div>
 
-          {view === "tools" && <div className="lm-section" data-lm-section="tools-spam">
-            <div className="lm-section-title">Spam Click</div>
+          <div className="lm-section" data-lm-section="tools-spam">
+            <div className="lm-subsection-title">Spam Click</div>
             <div className="lm-inline-option">
               <input
                 className="lm-input"
@@ -1013,7 +1129,160 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 <Switch.Thumb className="lm-switch-thumb" />
               </Switch.Root>
             </div>
-          </div>}
+          </div>
+
+          <div className="lm-section" data-lm-section="room-entry-actions">
+            <div className="lm-section-title">Ações ao entrar no quarto</div>
+            <div className="lm-row lm-row-with-value">
+              <span className="lm-label">Setar zoom ao entrar em quartos</span>
+              <span className="lm-row-controls">
+                <input
+                  className="lm-input lm-input-number"
+                  type="number"
+                  min="0.5"
+                  max="20"
+                  step="0.5"
+                  value={roomEntryActions.zoom}
+                  onChange={event => updateRoomEntryAction("zoom", Math.min(20, Math.max(0.5, Number(event.target.value))))}
+                  aria-label="Zoom ao entrar"
+                />
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={roomEntryActions.zoomEnabled}
+                  onCheckedChange={value => updateRoomEntryAction("zoomEnabled", value)}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </span>
+            </div>
+            <div className="lm-row lm-row-with-value">
+              <span className="lm-label">Aplicar enable ao entrar em quartos</span>
+              <span className="lm-row-controls">
+                <input
+                  className="lm-input lm-input-number"
+                  type="number"
+                  min="0"
+                  max="800"
+                  value={roomEntryActions.enable}
+                  onChange={event => updateRoomEntryAction("enable", Math.min(800, Math.max(0, Number(event.target.value))))}
+                  aria-label="Enable ao entrar"
+                />
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={roomEntryActions.enableEnabled}
+                  onCheckedChange={value => updateRoomEntryAction("enableEnabled", value)}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </span>
+            </div>
+            <div className="lm-row lm-row-with-value">
+              <span className="lm-label">Usar handitem ao entrar em quartos</span>
+              <span className="lm-row-controls">
+                <input
+                  className="lm-input lm-input-number"
+                  type="number"
+                  min="0"
+                  max="2000"
+                  value={roomEntryActions.handitem}
+                  onChange={event => updateRoomEntryAction("handitem", Math.min(2000, Math.max(0, Number(event.target.value))))}
+                  aria-label="Handitem ao entrar"
+                />
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={roomEntryActions.handitemEnabled}
+                  onCheckedChange={value => updateRoomEntryAction("handitemEnabled", value)}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </span>
+            </div>
+            <div className="lm-row lm-row-with-value">
+              <span className="lm-label">Se transformar em pet ao entrar em quartos</span>
+              <span className="lm-row-controls">
+                <input
+                  className="lm-input lm-input-small"
+                  value={roomEntryActions.pet}
+                  onChange={event => updateRoomEntryAction("pet", event.target.value)}
+                  aria-label="Pet ao entrar"
+                />
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={roomEntryActions.petEnabled}
+                  onCheckedChange={value => updateRoomEntryAction("petEnabled", value)}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </span>
+            </div>
+            <div className="lm-row">
+              <span className="lm-label">Enviar :tele ao entrar em quartos com direitos</span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={roomEntryActions.teleWithRights}
+                onCheckedChange={value => updateRoomEntryAction("teleWithRights", value)}
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+          </div>
+
+          <div className="lm-section" data-lm-section="utilities">
+            <div className="lm-section-title">Utilidades</div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Melhores mensagens de respeito
+                <span className="lm-sub">Agrupa respeitos repetidos e identifica quem respeitou.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={betterRespectMessages}
+                onCheckedChange={toggleBetterRespectMessages}
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+            <ExpandableOption
+              label="Mostrar placa ao tomar mute"
+              sub="Levanta uma placa automaticamente quando o anti-flood mutar você."
+              detailLabel="Configurar"
+              control={
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={muteSign.enabled}
+                  onCheckedChange={value => updateMuteSign("enabled", value)}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              }
+            >
+              <div className="lm-row lm-row-sub">
+                <span className="lm-label">
+                  Ignorar mute ao entrar no quarto
+                  <span className="lm-sub">Não mostra placa em mutes de anti-flood recebidos logo ao entrar.</span>
+                </span>
+                <Switch.Root
+                  className="lm-switch-root"
+                  checked={muteSign.ignoreOnRoomEntry}
+                  onCheckedChange={value => updateMuteSign("ignoreOnRoomEntry", value)}
+                >
+                  <Switch.Thumb className="lm-switch-thumb" />
+                </Switch.Root>
+              </div>
+              <div className="lm-row lm-row-sub lm-row-with-value">
+                <span className="lm-label">Código da placa</span>
+                <input
+                  className="lm-input lm-input-number"
+                  type="number"
+                  min="0"
+                  max="17"
+                  value={muteSign.signId}
+                  onChange={event => updateMuteSign("signId", Math.min(17, Math.max(0, Number(event.target.value))))}
+                  aria-label="Código da placa"
+                />
+              </div>
+            </ExpandableOption>
+          </div>
         </div>}
 
           {view === "records" && <div className="lm-tab-content">
@@ -1138,6 +1407,33 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 <Switch.Thumb className="lm-switch-thumb" />
               </Switch.Root>
             </div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Ícone de gênero nos nomes
+                <span className="lm-sub">Mostra o símbolo feminino ou masculino à esquerda do nome nos menus do quarto.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={contextGenderIcon}
+                onCheckedChange={toggleContextGenderIcon}
+                aria-label="Mostrar ícone de gênero nos nomes"
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Fechar janelas com a tecla Esc
+                <span className="lm-sub">Fecha primeiro a janela do jogo que estiver por cima.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={closeWindowsOnEscape}
+                onCheckedChange={toggleCloseWindowsOnEscape}
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
           </div>
           <div className="lm-section" data-lm-section="performance">
             <div className="lm-section-title">Desempenho</div>
@@ -1173,9 +1469,9 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
           </div>
         </div>}
 
-        {view === "render" && <div className="lm-tab-content">
-          <div className="lm-section" data-lm-section="render">
-            <div className="lm-section-title">Mobis</div>
+        {view === "construction" && <div className="lm-tab-content">
+          <div className="lm-section" data-lm-section="construction">
+            <div className="lm-section-title">Renderização</div>
             <div className="lm-row">
               <span className="lm-label">
                 Ocultar classe (infostand + Mobis)
@@ -1192,22 +1488,6 @@ export function LuminusPanel({ api, open, onClose, onOpenLogs, onOpenLinks }: Pr
                 <Switch.Thumb className="lm-switch-thumb" />
               </Switch.Root>
             </div>
-            {furniClassHide.enabled && (
-              <div className="lm-status-grid">
-                <span>
-                  <b>Foco</b>
-                  {furniClassHide.focusLabel
-                    ? `${furniClassHide.focusLabel}${furniClassHide.focusHidden ? " · oculto" : ""}${furniClassHide.focusCount ? ` · ${furniClassHide.focusCount}×` : ""}`
-                    : "nenhum mobi aberto"}
-                </span>
-                <span>
-                  <b>Classes ocultas</b>
-                  {furniClassHide.hiddenTypes?.length
-                    ? `${furniClassHide.hiddenTypes.length} · ${furniClassHide.hiddenCount} mobis`
-                    : "—"}
-                </span>
-              </div>
-            )}
           </div>
         </div>}
 

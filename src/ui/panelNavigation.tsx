@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Bug, EyeOff, Gamepad2, PanelsTopLeft, RadioTower, ScrollText, Search, SlidersHorizontal, Wrench } from "lucide-react";
+import { Hammer, PanelsTopLeft, ScrollText, Search, Wrench } from "lucide-react";
 
 export type PanelCategory = {
   id: string;
@@ -49,12 +49,10 @@ export function searchPanelEntries(entries: PanelSearchEntry[], query: string): 
 }
 
 export const CORE_PANEL_CATEGORIES: PanelCategory[] = [
-  { id: "avatar", label: "Avatar", summary: "Movimento, direção e aparência", target: "avatar", tone: "player", icon: <Gamepad2 aria-hidden="true" /> },
-  { id: "interaction", label: "Interação", summary: "Cliques, mute e proteção", target: "interaction", tone: "logs", icon: <SlidersHorizontal aria-hidden="true" /> },
-  { id: "tools", label: "Ferramentas", summary: "Ações rápidas para o quarto", target: "tools", tone: "visual", icon: <Wrench aria-hidden="true" /> },
-  { id: "records", label: "Registros", summary: "Logs, conversas e links salvos", target: "records", tone: "logs", icon: <ScrollText aria-hidden="true" /> },
+  { id: "utilities", label: "Utilidades", summary: "Avatar, interação e ferramentas", target: "utilities", tone: "player", icon: <Wrench aria-hidden="true" /> },
   { id: "interface", label: "Interface", summary: "Tema, rádio e guarda-roupa", target: "interface", tone: "visual", icon: <PanelsTopLeft aria-hidden="true" /> },
-  { id: "render", label: "Renderização", summary: "Desempenho e visibilidade", target: "render", focus: "render", tone: "render", icon: <EyeOff aria-hidden="true" /> },
+  { id: "records", label: "Registro", summary: "Logs, conversas e links salvos", target: "records", tone: "logs", icon: <ScrollText aria-hidden="true" /> },
+  { id: "construction", label: "Construção", summary: "Opções de renderização", target: "construction", tone: "render", icon: <Hammer aria-hidden="true" /> },
 ];
 
 type PanelLauncherProps = {
