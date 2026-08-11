@@ -14,6 +14,8 @@ import {
   subscribeFurniClassHide,
   toggleFocusedClass,
 } from "../room/furniClassHide";
+import { isBotUnitType } from "../chat/roomChatPresentation";
+import { getContextGenderIconEnabled, subscribeContextGenderIcon } from "./contextGender";
 
 const ACTIONS: { label: string; cmd: string }[] = [
   { label: "Abraçar",  cmd: "abracar" },
@@ -54,6 +56,13 @@ const BLOCK_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="no
     <rect x="5" y="10" width="14" height="10" rx="2" stroke="#ff8a8a" stroke-width="2"/>
     <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#ff8a8a" stroke-width="2"/>
   </svg>`;
+
+const GENDER_ICON_SVG: Record<"M" | "F", string> = {
+  F: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15v7M9 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="9" r="6" stroke="currentColor" stroke-width="2"/></svg>`,
+  M: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 3h5v5M21 3l-6.75 6.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="14" r="6" stroke="currentColor" stroke-width="2"/></svg>`,
+};
+
+const BOT_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3" stroke="currentColor" stroke-width="2"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 function closeLinkMenu(): void {
   document.getElementById("luminus-link-ctxmenu")?.remove();
@@ -177,12 +186,47 @@ function linkIconState(name: string): { state: string; blocked: boolean; seen: b
   };
 }
 
+function normalizedGender(unit: RoomUnit | undefined): "M" | "F" | null {
+  const gender = unit?.sex?.trim().toUpperCase();
+  if (gender?.startsWith("F")) return "F";
+  if (gender?.startsWith("M")) return "M";
+  return null;
+}
+
+function renderContextGenderIcon(host: HTMLElement, unit: RoomUnit | undefined): void {
+  let icon = host.querySelector<HTMLElement>(":scope > .luminus-gender-icon");
+  const isBot = Boolean(unit && isBotUnitType(unit.type));
+  const gender = !isBot && unit?.type === 1 ? normalizedGender(unit) : null;
+  if (!getContextGenderIconEnabled() || (!isBot && !gender)) {
+    icon?.remove();
+    return;
+  }
+
+  if (!icon) {
+    icon = document.createElement("span");
+    icon.className = "luminus-gender-icon";
+    icon.setAttribute("role", "img");
+    host.prepend(icon);
+  } else if (host.firstChild !== icon) {
+    host.prepend(icon);
+  }
+  icon.dataset.gender = gender ?? "";
+  icon.dataset.role = isBot ? "bot" : "gender";
+  icon.classList.toggle("is-bot", isBot);
+  icon.classList.toggle("gender-f", gender === "F");
+  icon.classList.toggle("gender-m", gender === "M");
+  icon.title = isBot ? "Bot" : gender === "F" ? "Feminino" : "Masculino";
+  icon.setAttribute("aria-label", icon.title);
+  icon.innerHTML = isBot ? BOT_ICON_SVG : GENDER_ICON_SVG[gender!];
+}
+
 /**
  * Link / eye / blocked icon on name-only menus and user context-menu headers.
  */
 function renderContextNameIcon(host: HTMLElement, name: string, anchor: HTMLElement = host): void {
   let icon = host.querySelector<HTMLElement>(":scope > .luminus-name-only-link-icon");
   const unit = findRoomUnitByName(name);
+  renderContextGenderIcon(host, unit);
   if (unit && unit.type !== 1) {
     icon?.remove();
     return;
@@ -226,9 +270,12 @@ function renderContextNameIcon(host: HTMLElement, name: string, anchor: HTMLElem
 
 function nameOnlyMenuName(menu: HTMLElement): string {
   const icon = menu.querySelector(".luminus-name-only-link-icon");
+  const genderIcon = menu.querySelector(".luminus-gender-icon");
   // Prefer plain text content excluding our icon.
   const name = [...menu.childNodes]
-    .filter(node => node !== icon && !(node instanceof Element && node.classList.contains("luminus-name-only-link-icon")))
+    .filter(node => node !== icon && node !== genderIcon && !(node instanceof Element && (
+      node.classList.contains("luminus-name-only-link-icon") || node.classList.contains("luminus-gender-icon")
+    )))
     .map(node => node.textContent ?? "")
     .join("")
     .trim();
@@ -276,6 +323,7 @@ function contextMenuUserName(menu: HTMLElement): string {
   const fromNodes = [...header.childNodes]
     .filter(n => !(n instanceof Element && (
       n.classList.contains("luminus-name-only-link-icon")
+      || n.classList.contains("luminus-gender-icon")
       || n.classList.contains("luminus-person-link-icon")
     )))
     .map(n => n.textContent ?? "")
@@ -666,14 +714,14 @@ function isLuminusUiNode(node: Node | null): boolean {
     ) return true;
     return Boolean(
       node.closest(
-        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
+        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-gender-icon, .luminus-motto-link",
       ),
     );
   }
   if (node instanceof Element) {
     return Boolean(
       node.closest(
-        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
+        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-gender-icon, .luminus-motto-link",
       ),
     );
   }
@@ -793,6 +841,25 @@ function scheduleInfostandProcess(mutations: MutationRecord[]): void {
 
 export function initInfostandLinks(api: LuminusApi): void {
   apiRef = api;
+
+  // Room identity packets update the live store without necessarily changing Nitro's DOM.
+  // Refresh an already-open context menu on the next frame so gender/link state never lags.
+  let contextRefreshScheduled = false;
+  const refreshContextMenusFromRoomState = () => {
+    if (contextRefreshScheduled) return;
+    contextRefreshScheduled = true;
+    requestAnimationFrame(() => {
+      contextRefreshScheduled = false;
+      processNameOnlyContextMenus(document);
+      processUserContextMenus(document);
+    });
+  };
+  api.onIncoming(374, refreshContextMenusFromRoomState);
+  api.onIncoming(3920, refreshContextMenusFromRoomState);
+  api.onIncoming(2429, refreshContextMenusFromRoomState);
+  api.onIncoming(2031, refreshContextMenusFromRoomState);
+  api.onIncoming(2661, refreshContextMenusFromRoomState);
+  subscribeContextGenderIcon(refreshContextMenusFromRoomState);
 
   // Refresh Mutar/Desmutar + open context-menu Calar/Ouvir when mute state changes.
   subscribeMuteAll(() => {
