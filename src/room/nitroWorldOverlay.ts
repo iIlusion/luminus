@@ -40,7 +40,7 @@ export type RoomEngine = {
     objectType: number,
     canvasId?: number,
   ): { x: number; y: number } | null;
-  /** Sprite AABB in canvas space Ã¢â‚¬â€ tracks sit/lay/stand height (Hibisco uses this). */
+  /** Sprite AABB in canvas space; tracks sit, lay and stand height. */
   getRoomObjectBoundingRectangle?(
     roomId: number,
     objectId: number,
@@ -227,12 +227,10 @@ export function initNitroWorldOverlay(_api: LuminusApi, target: Window): void {
   installWebpackProbe(page);
   installRoomEngineDiscoverLoop(page);
 
-  // Strip legacy self-only marker from older builds / hot reload.
   try {
-    page.document?.querySelectorAll(".luminus-world-marker").forEach(el => el.remove());
+    page.document?.querySelectorAll(".luminus-world-marker").forEach(element => element.remove());
   } catch { /* page not ready */ }
 }
-
 export function initNitroRoomEngineProbe(target: Window): void {
   const page = target as NitroWindow;
   installRoomEngineEvalProbe(page);
