@@ -19,6 +19,8 @@ import { packetRegistry, PacketRegistry } from "../messages/registry";
 import type { Myself, UserObject } from "../messages/incoming/UserObjectParser";
 import type { RoomUnit } from "../messages/incoming/UsersParser";
 import type { RoomUnitUpdate } from "../messages/incoming/UserUpdateParser";
+import type { RoomUnitInfo } from "../messages/incoming/RoomUnitInfoParser";
+import type { FigureUpdate } from "../messages/incoming/FigureUpdateParser";
 import type { FurnitureFloor } from "../messages/incoming/FurnitureFloorParser";
 import type { GuestRoomData, RoomEntryInfo, RoomReady } from "../messages/incoming/RoomParsers";
 import type { ObjectDataUpdate } from "../messages/incoming/ObjectsDataUpdateParser";
@@ -323,6 +325,7 @@ export class PacketBridge {
         motto: userObject.motto,
         index: null
       };
+      this.healMyselfIndexFromStore();
       this.debugLog("[Luminus] myself definido:", this.myself);
       return;
     }
@@ -339,9 +342,40 @@ export class PacketBridge {
         if (link) rememberLink(unit.name, link.text, unit.sex);
       }
       this.updateMyselfIndex(units);
+      const myselfUnit = this.findMyselfUnit(units);
+      if (myselfUnit) this.syncMyselfFromUnit(myselfUnit);
       // Heal if self was already in the store but missing from this 374 batch.
       this.healMyselfIndexFromStore();
       this.debugLog("[Luminus] room units:", this.room.units);
+      return;
+    }
+
+    if (packet.direction === "incoming" && packet.header === 3920 && packet.parsed) {
+      const info = packet.parsed as RoomUnitInfo;
+      const unit = this.room.units.get(info.index);
+      if (unit) {
+        unit.figure = info.figure;
+        unit.sex = info.gender;
+        unit.motto = info.motto;
+        if (this.myself?.index === info.index) this.syncMyselfFromUnit(unit);
+      } else if (this.myself?.index === info.index) {
+        this.myself.figure = info.figure;
+        this.myself.gender = info.gender;
+        this.myself.motto = info.motto;
+      }
+      return;
+    }
+
+    if (packet.direction === "incoming" && packet.header === 2429 && packet.parsed) {
+      const update = packet.parsed as FigureUpdate;
+      if (!this.myself) return;
+      this.myself.figure = update.figure;
+      this.myself.gender = update.gender;
+      const unit = this.myself.index == null ? undefined : this.room.units.get(this.myself.index);
+      if (unit) {
+        unit.figure = update.figure;
+        unit.sex = update.gender;
+      }
       return;
     }
 
@@ -405,10 +439,23 @@ export class PacketBridge {
   private updateMyselfIndex(units: RoomUnit[]): void {
     if (!this.myself) return;
 
-    const myselfUnit = units.find((unit) =>
+    const myselfUnit = this.findMyselfUnit(units);
+    if (myselfUnit) this.myself.index = myselfUnit.index;
+  }
+
+  private findMyselfUnit(units: Iterable<RoomUnit>): RoomUnit | undefined {
+    if (!this.myself) return undefined;
+    return [...units].find((unit) =>
       unit.type === 1 && (unit.id === this.myself?.id || unit.name === this.myself?.username)
     );
-    if (myselfUnit) this.myself.index = myselfUnit.index;
+  }
+
+  private syncMyselfFromUnit(unit: RoomUnit): void {
+    if (!this.myself) return;
+    this.myself.index = unit.index;
+    this.myself.figure = unit.figure;
+    this.myself.motto = unit.motto;
+    if (unit.sex) this.myself.gender = unit.sex.toUpperCase();
   }
 
   /** Recover myself.index from room.units when sticky-null after RoomReady. */
@@ -417,7 +464,7 @@ export class PacketBridge {
     for (const unit of this.room.units.values()) {
       if (unit.type !== 1) continue;
       if (unit.id === this.myself.id || unit.name === this.myself.username) {
-        this.myself.index = unit.index;
+        this.syncMyselfFromUnit(unit);
         return;
       }
     }

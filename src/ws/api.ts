@@ -166,6 +166,11 @@ export function createApi(bridge: PacketBridge): LuminusApi {
       if (ok && bridge.myself) {
         bridge.myself.figure = figure;
         bridge.myself.gender = gender;
+        const unit = bridge.myself.index == null ? undefined : bridge.room.units.get(bridge.myself.index);
+        if (unit) {
+          unit.figure = figure;
+          unit.sex = gender.toUpperCase();
+        }
       }
       return ok;
     },

@@ -37,11 +37,16 @@ import { BadgePointLimitsParser } from "./incoming/BadgePointLimitsParser";
 import { GetBadgePointLimitsComposer } from "./outgoing/GetBadgePointLimitsComposer";
 import { RoomUserClickComposer } from "./outgoing/RoomUserClickComposer";
 import { RoomUnitTypingParser } from "./incoming/RoomUnitTypingParser";
+import { RoomUnitInfoParser } from "./incoming/RoomUnitInfoParser";
+import { FigureUpdateParser } from "./incoming/FigureUpdateParser";
+import { RoomUnitSignComposer } from "./outgoing/RoomUnitSignComposer";
 
 export function registerParsers(): void {
   packetRegistry.registerIncoming(2725, "UserObject", UserObjectParser);
   packetRegistry.registerIncoming(374, "Users", UsersParser);
   packetRegistry.registerIncoming(1640, "UserUpdate", UserUpdateParser);
+  packetRegistry.registerIncoming(3920, "RoomUnitInfo", RoomUnitInfoParser);
+  packetRegistry.registerIncoming(2429, "FigureUpdate", FigureUpdateParser);
   packetRegistry.registerIncoming(2661, "UserRemove", UserRemoveParser);
   packetRegistry.registerIncoming(2031, "RoomReady", RoomReadyParser);
   packetRegistry.registerIncoming(749, "RoomEntryInfo", RoomEntryInfoParser);
@@ -79,6 +84,7 @@ export function registerParsers(): void {
   packetRegistry.registerOutgoing(3265, "UserProfile", UserProfileComposer, ["USER_PROFILE"]);
   packetRegistry.registerOutgoing(2694, "UserRespect", UserRespectComposer, ["USER_RESPECT"]);
   packetRegistry.registerOutgoing(431, "RoomUserClick", RoomUserClickComposer, ["ROOM_USER_CLICK"]);
+  packetRegistry.registerOutgoing(1975, "RoomUnitSign", RoomUnitSignComposer, ["UNIT_SIGN"]);
   // Habblet: ArrowUp=1 … Shift=8 (wired keybind, not walk).
   packetRegistry.registerOutgoing(365, "HitKeybind", HitKeybindComposer, ["HIT_KEYBIND"]);
   packetRegistry.registerOutgoing(1117, "UserIgnore", UserIgnoreComposer, ["USER_IGNORE"]);

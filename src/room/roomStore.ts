@@ -70,6 +70,8 @@ export function updateRoomUnits(store: RoomStore, updates: RoomUnitUpdate[]): vo
     unit.y = update.y;
     unit.z = update.z;
     unit.direction = update.bodyDirection;
+    unit.headDirection = update.headDirection;
+    unit.actions = update.actions;
   }
 }
 

@@ -11,6 +11,8 @@ export interface RoomUnit {
   y: number;
   z: number;
   direction: number;
+  headDirection?: number;
+  actions?: string;
   type: number;
   sex?: string;
   groupId?: number;
