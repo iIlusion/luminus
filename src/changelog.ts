@@ -32,109 +32,19 @@ export function defineChangelog<const T extends ChangelogLayer>(changelog: T): T
 export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
   id: "luminus",
   label: "Luminus",
-  version: "1.2.0",
-  title: "Luminus 1.2",
+  version: "1.2.3",
+  title: "Luminus 1.2.3",
   summary:
-    "Explore novos visuais, organize seus looks e use o hotel com mais conforto.",
-  publishedAt: "8 de agosto de 2026",
+    "O Luminus volta a funcionar ao entrar no hotel, sem precisar recarregar a página várias vezes.",
+  publishedAt: "18 de agosto de 2026",
   sections: [
-    {
-      title: "Novo",
-      items: [
-        {
-          title: "Menu de enables e handitems",
-          description:
-            "Abra o menu no painel para escolher efeitos e itens de mão animados e ver cada visual com o seu avatar.",
-        },
-        {
-          title: "Importar e exportar looks",
-          description:
-            "Salve seus looks em um código e recupere-os depois, substituindo os slots ou preenchendo os primeiros slots livres.",
-        },
-        {
-          title: "Chat privado redesenhado",
-          description:
-            "Abra conversas separadas, pesquise mensagens e acompanhe o histórico com mais conforto.",
-        },
-        {
-          title: "Histórico do chat do quarto",
-          description:
-            "Consulte o que foi falado na sala enquanto você continua jogando.",
-        },
-        {
-          title: "Controle de mobis",
-          description:
-            "Oculte tipos de mobi pelo painel ou pelo infostand para deixar a sala mais limpa.",
-        },
-        {
-          title: "Opções de renderização",
-          description:
-            "Ajuste o desenho do quarto pelo painel quando quiser mais leveza ou mais detalhes.",
-        },
-      ],
-    },
-    {
-      title: "Melhorado",
-      items: [
-        {
-          title: "Mute geral",
-          description:
-            "Esconda ou mostre avatares e balões mutados com menos mudanças inesperadas.",
-        },
-        {
-          title: "Janelas do painel",
-          description:
-            "Mova e redimensione o painel, os logs, os links e o chat sem perder partes da janela.",
-        },
-        {
-          title: "Leitura dos logs",
-          description:
-            "Acompanhe cliques, mensagens privadas e entradas ou saídas com mais clareza.",
-        },
-        {
-          title: "Perfis e avatares",
-          description:
-            "Abra perfis e veja avatares com respostas mais rápidas nas janelas do hotel.",
-        },
-        {
-          title: "Mensagens de respeito",
-          description:
-            "As mensagens de respeito ocupam menos espaço e ficam mais fáceis de acompanhar.",
-        },
-      ],
-    },
     {
       title: "Corrigido",
       items: [
         {
-          title: "Escolha de duas cores",
+          title: "Entrada no hotel",
           description:
-            "Ao escolher um visual com duas cores, as duas paletas ficam visíveis.",
-        },
-        {
-          title: "Avisos de cliques recebidos",
-          description:
-            "Os avisos de cliques recebidos aparecem corretamente nos logs e nas conversas.",
-        },
-        {
-          title: "Links das missões",
-          description:
-            "Os links das missões ficam clicáveis assim que aparecem no perfil.",
-        },
-        {
-          title: "Envio de mensagens privadas",
-          description:
-            "Mensagens privadas chegam com mais regularidade em conversas longas.",
-        },
-        {
-          title: "Grupos de conversa",
-          description:
-            "Gerenciar um grupo de conversa não remove mensagens das suas abas por engano.",
-        },
-        {
-          title: "Troca de quarto",
-          description:
-            "Ao entrar em outra sala, as opções da sala anterior não permanecem por engano.",
+            "O Luminus volta a acompanhar a sala ao entrar no hotel, sem precisar recarregar a página várias vezes.",
         },
       ],
     },
