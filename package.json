@@ -35,7 +35,8 @@
     "test:catalog-thumb-additive": "node --experimental-strip-types src/ui/catalogThumbAdditive.test.ts",
     "test:catalog-thumb-load-queue": "node --experimental-strip-types src/ui/catalogThumbLoadQueue.test.ts",
     "test:catalog-thumb-presentation": "node --experimental-strip-types src/ui/catalogThumbPresentation.test.ts",
-    "test:enables-handitems": "esbuild src/ui/enablesHanditemsCatalog.test.ts --bundle --platform=node --format=esm | node --input-type=module"
+    "test:enables-handitems": "esbuild src/ui/enablesHanditemsCatalog.test.ts --bundle --platform=node --format=esm | node --input-type=module",
+    "test:ws-intercept": "esbuild src/ws/interceptWebSocket.test.ts --bundle --platform=node --format=esm | node --input-type=module"
   },
   "devDependencies": {
     "@radix-ui/react-separator": "1.1.11",
