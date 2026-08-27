@@ -48,7 +48,43 @@ export type RoomEngine = {
     canvasId?: number,
   ): RoomObjectBounds | null;
   getRoomObject?(roomId: number, id: number, category: number): unknown;
+  getRoomObjectCursor?(roomId: number): { getLocation?(): { x: number; y: number; z?: number }; location?: { x: number; y: number; z?: number } } | null;
   getRoomObjects?(roomId: number, category: number): unknown[];
+  getRoomInstanceGeometry?(roomId: number, canvasId?: number): {
+    getScreenPoint?(location: unknown): { x: number; y: number } | null;
+  } | null;
+  getActiveRoomInstanceRenderingCanvas?(): {
+    width?: number;
+    height?: number;
+    scale?: number;
+    screenOffsetX?: number;
+    screenOffsetY?: number;
+  } | null;
+  getFurnitureFloorImage?(
+    typeId: number,
+    direction: unknown,
+    scale: number,
+    listener: { imageReady?(id: number, texture?: unknown): void; imageFailed?(id: number): void } | null,
+    bgColor?: number,
+    extras?: string | null,
+    state?: number,
+    frameCount?: number,
+  ): { getImage?: () => HTMLImageElement | Promise<HTMLImageElement | null> | null } | null;
+  objectEventHandler?: {
+    handleRoomObjectMouseEvent?(event: unknown, roomId: number): void;
+  };
+  setMoveBlocked?(blocked: boolean): void;
+  handleRoomDragging?(
+    canvas: unknown,
+    x: number,
+    y: number,
+    type: unknown,
+    altKey: boolean,
+    ctrlKey: boolean,
+    shiftKey: boolean,
+  ): boolean;
+  _activeRoomIsDragged?: boolean;
+  _activeRoomWasDragged?: boolean;
 };
 
 function isRoomEngine(value: unknown): value is RoomEngine {

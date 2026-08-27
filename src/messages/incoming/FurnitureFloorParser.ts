@@ -7,7 +7,7 @@ export type FurnitureObjectData =
   | { dataType: "string"; flags: number; values: string[]; state: string; uniqueNumber: number | null; uniqueSeries: number | null }
   | { dataType: "vote"; flags: number; state: string; result: number; uniqueNumber: number | null; uniqueSeries: number | null }
   | { dataType: "number"; flags: number; values: number[]; state: string; uniqueNumber: number | null; uniqueSeries: number | null }
-  | { dataType: "highScore"; flags: number; state: string; scoreName: string; scoreType: number; levelName: string; pointName: string; unknown: number[]; uniqueNumber: number | null; uniqueSeries: number | null }
+  | { dataType: "highScore"; flags: number; state: string; scoreName: string; scoreType: number; levelName: string; pointName: string; unknown: number[]; entries: Array<{ rank: number; score: number; users: string[] }>; uniqueNumber: number | null; uniqueSeries: number | null }
   | { dataType: "highScoreRanking"; clearType: number; entries: Array<{ rank: number; score: number; users: string[] }>; flags: number; scoreType: number; state: string; unknown: number[]; uniqueNumber: number | null; uniqueSeries: number | null }
   | { dataType: "crackable"; flags: number; hits: number; state: string; target: number; uniqueNumber: number | null; uniqueSeries: number | null }
   | { dataType: "empty"; flags: number; state: string; uniqueNumber: number | null; uniqueSeries: number | null }
@@ -52,7 +52,11 @@ export class FurnitureFloorParser implements PacketParser<FurnitureFloor> {
     const items: FloorFurni[] = [];
 
     for (let index = 0; index < itemCount && reader.bytesAvailable; index++) {
-      items.push(readFloorItem(reader, owners));
+      try {
+        items.push(readFloorItem(reader, owners));
+      } catch {
+        break;
+      }
     }
 
     return {
@@ -73,7 +77,7 @@ function readOwners(reader: PacketReader): Map<number, string> {
   return owners;
 }
 
-function readFloorItem(reader: PacketReader, owners: Map<number, string>): FloorFurni {
+export function readFloorItem(reader: PacketReader, owners: Map<number, string>): FloorFurni {
   const id = reader.readInt();
   const spriteId = reader.readInt();
   const x = reader.readInt();
@@ -88,10 +92,12 @@ function readFloorItem(reader: PacketReader, owners: Map<number, string>): Floor
   const usagePolicy = reader.readInt();
   const ownerId = reader.readInt();
 
+  const spriteName = spriteId < 0 ? reader.readString() : null;
+
   return {
     id,
     spriteId,
-    spriteName: null,
+    spriteName,
     x,
     y,
     z,
@@ -214,9 +220,31 @@ function readFurnitureObjectData(reader: PacketReader): FurnitureObjectData {
     const scoreType = reader.readInt();
     const levelName = reader.readString();
     const pointName = reader.readString();
-    const unknown = [reader.readInt(), reader.readInt(), reader.readInt()];
+    const variableScoreType = reader.readInt();
+    const clearType = reader.readInt();
+    const entryCount = reader.readInt();
+    const entries: Array<{ rank: number; score: number; users: string[] }> = [];
 
-    return { dataType: "highScore", flags, state, scoreName, scoreType, levelName, pointName, unknown, ...readObjectDataTail(reader, flags) };
+    for (let entryIndex = 0; entryIndex < entryCount && entryIndex < 500; entryIndex++) {
+      const score = reader.readLong();
+      const userCount = reader.readInt();
+      const users: string[] = [];
+      for (let userIndex = 0; userIndex < userCount && userIndex < 64; userIndex++) users.push(reader.readString());
+      entries.push({ rank: entryIndex + 1, score, users });
+    }
+
+    return {
+      dataType: "highScore",
+      flags,
+      state,
+      scoreName,
+      scoreType,
+      levelName,
+      pointName,
+      unknown: [variableScoreType, clearType, entryCount],
+      entries,
+      ...readObjectDataTail(reader, flags)
+    };
   }
 
   if (formatKey === 7) {

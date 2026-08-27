@@ -15,6 +15,8 @@ export interface RoomUnit {
   actions?: string;
   type: number;
   sex?: string;
+  /** Same value as `sex` — some UI reads `gender`. */
+  gender?: string;
   groupId?: number;
   groupStatus?: number;
   groupName?: string;
@@ -39,27 +41,14 @@ export class UsersParser implements PacketParser<RoomUnit[]> {
     const users: RoomUnit[] = [];
 
     for (let i = 0; i < count; i++) {
-      const fields = readCommonFields(reader);
-      const user: RoomUnit = { ...fields };
-
-      if (fields.type === 1) {
-        user.sex = sanitize(reader.readString());
-        user.groupId = reader.readInt();
-        user.groupStatus = reader.readInt();
-        user.groupName = sanitize(reader.readString());
-
-        const swimFigure = sanitize(reader.readString());
-        if (swimFigure) user.swimFigure = swimFigure;
-
-        user.activityPoints = reader.readInt();
-        user.isModerator = reader.readBoolean();
-      } else if (fields.type === 2) {
-        reader.offset += 33;
-      } else if (fields.type === 4) {
-        reader.offset += 39;
+      try {
+        const fields = readCommonFields(reader);
+        const user: RoomUnit = { ...fields };
+        readTypeSpecific(reader, user);
+        users.push(user);
+      } catch {
+        break;
       }
-
-      users.push(user);
     }
 
     return users;
@@ -78,7 +67,7 @@ export function readRoomUnitPacketEntries(body: ArrayBuffer): RoomUnitPacketEntr
     reader.readInt();
     skipString(reader, 128);
     skipString(reader, 512);
-    skipString(reader, 1024);
+    skipString(reader, 4096);
     const index = reader.readInt();
     reader.readInt();
     reader.readInt();
@@ -86,19 +75,7 @@ export function readRoomUnitPacketEntries(body: ArrayBuffer): RoomUnitPacketEntr
     reader.readInt();
     const type = reader.readInt();
 
-    if (type === 1) {
-      skipString(reader, 16);
-      reader.readInt();
-      reader.readInt();
-      skipString(reader, 128);
-      skipString(reader, 1024);
-      reader.readInt();
-      reader.readByte();
-    } else if (type === 2) {
-      reader.readBytes(33);
-    } else if (type === 4) {
-      reader.readBytes(39);
-    }
+    skipTypeSpecific(reader, type);
 
     entries.push({ index, start, end: reader.offset });
   }
@@ -110,7 +87,7 @@ function readCommonFields(reader: PacketReader): CommonFields {
   const id = reader.readInt();
   const name = readBoundedString(reader, 128);
   const motto = readBoundedString(reader, 512);
-  const figure = readBoundedString(reader, 1024);
+  const figure = readBoundedString(reader, 4096);
   const index = reader.readInt();
   const x = reader.readInt();
   const y = reader.readInt();
@@ -121,6 +98,81 @@ function readCommonFields(reader: PacketReader): CommonFields {
   if (!Number.isFinite(z)) throw new Error("invalid room unit z");
 
   return { id, name, motto, figure, index, x, y, z, direction, type };
+}
+
+function applySex(user: RoomUnit, value: string): void {
+  const sex = sanitize(value);
+  user.sex = sex;
+  user.gender = sex;
+}
+
+function readTypeSpecific(reader: PacketReader, user: RoomUnit): void {
+  if (user.type === 1) {
+    applySex(user, reader.readString());
+    user.groupId = reader.readInt();
+    user.groupStatus = reader.readInt();
+    user.groupName = sanitize(reader.readString());
+
+    const swimFigure = sanitize(reader.readString());
+    if (swimFigure) user.swimFigure = swimFigure;
+
+    user.activityPoints = reader.readInt();
+    user.isModerator = reader.readBoolean();
+    return;
+  }
+
+  if (user.type === 2) {
+    skipPetFields(reader);
+    return;
+  }
+
+  if (user.type === 4) {
+    applySex(user, reader.readString());
+    skipRentableBotFields(reader);
+  }
+}
+
+function skipTypeSpecific(reader: PacketReader, type: number): void {
+  if (type === 1) {
+    skipString(reader, 16);
+    reader.readInt();
+    reader.readInt();
+    skipString(reader, 128);
+    skipString(reader, 4096);
+    reader.readInt();
+    reader.readByte();
+    return;
+  }
+
+  if (type === 2) {
+    skipPetFields(reader);
+    return;
+  }
+
+  if (type === 4) {
+    skipString(reader, 16);
+    skipRentableBotFields(reader);
+  }
+}
+
+function skipPetFields(reader: PacketReader): void {
+  reader.readInt();
+  reader.readInt();
+  skipString(reader, 128);
+  reader.readInt();
+  // Habblet writes 7 booleans after rarity. Five or six leaves the next
+  // unit's id one byte early and drops the rest of the roster.
+  for (let index = 0; index < 7; index++) reader.readByte();
+  reader.readInt();
+  skipString(reader, 128);
+}
+
+function skipRentableBotFields(reader: PacketReader): void {
+  reader.readInt();
+  skipString(reader, 128);
+  const skillCount = reader.readInt();
+  if (skillCount < 0 || skillCount > 64) throw new Error("invalid rentable bot skill count");
+  for (let index = 0; index < skillCount; index++) reader.readShort();
 }
 
 function readBoundedString(reader: PacketReader, maxLength: number): string {

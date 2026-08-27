@@ -45,6 +45,13 @@ export class BinaryReader {
     return value;
   }
 
+  readLong(): number {
+    const high = this.view.getInt32(this.offset);
+    const low = this.view.getUint32(this.offset + 4);
+    this.offset += 8;
+    return high * 4294967296 + low;
+  }
+
   remaining(): number {
     return this.buffer.byteLength - this.offset;
   }
@@ -99,19 +106,34 @@ export class BinaryWriter {
     return this.writeArrayBuffer(buffer);
   }
 
+  writeLong(value: number): this {
+    const high = Math.trunc(value / 4294967296);
+    const low = value - high * 4294967296;
+    return this.writeInt(high).writeInt(low);
+  }
+
   writeString(value: string): this {
     const bytes = this.encoder.encode(value);
     this.writeShort(bytes.byteLength);
-    this.bytes.push(...bytes);
+    appendBytes(this.bytes, bytes);
     return this;
   }
 
   writeArrayBuffer(buffer: ArrayBuffer): this {
-    this.bytes.push(...new Uint8Array(buffer));
+    appendBytes(this.bytes, new Uint8Array(buffer));
     return this;
   }
 
   toArrayBuffer(): ArrayBuffer {
     return new Uint8Array(this.bytes).buffer;
+  }
+}
+
+/** Avoid `push(...huge)` — large furniture packets overflow the call stack. */
+function appendBytes(target: number[], bytes: Uint8Array): void {
+  const chunk = 8192;
+  for (let offset = 0; offset < bytes.length; offset += chunk) {
+    const end = Math.min(offset + chunk, bytes.length);
+    for (let index = offset; index < end; index++) target.push(bytes[index]);
   }
 }

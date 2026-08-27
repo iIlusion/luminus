@@ -13,6 +13,7 @@ import { setupLogHandlers, LOGS_CONFIG_DEFAULT } from "../logs/logHandlers";
 import { readPref, writePref } from "../util/prefs";
 import { initMcpBridge } from "../bridge/mcpBridge";
 import { initNitroRoomEngineProbe, initNitroWorldOverlay } from "../room/nitroWorldOverlay";
+import { initRoomPick } from "../room/roomPick";
 import { initPeerIdentify } from "../room/peerIdentify";
 import { initIncrementalRoomCanvas } from "../room/incrementalRoomCanvas";
 import { initMuteAll } from "../room/muteAll";
@@ -182,6 +183,7 @@ export function bootLuminus(options: BootLuminusOptions = {}): BootLuminusResult
   });
   initOutgoingClickAlerts(api);
   initNitroWorldOverlay(api, targetWindow);
+  initRoomPick(api, targetWindow);
   initPeerIdentify(api, targetWindow);
   initMuteAll(api);
   initFurniClassHide(api);
