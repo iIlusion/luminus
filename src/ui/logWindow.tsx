@@ -20,11 +20,11 @@ type Filter = "all" | LogEntry["type"];
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all",        label: "Tudo"   },
-  { key: "click",      label: "Click"  },
-  { key: "whisper",    label: "Susu"   },
-  { key: "friend",     label: "Amigo"  },
-  { key: "room_enter", label: "Entrou" },
-  { key: "room_leave", label: "Saiu"   },
+  { key: "click",      label: "Cliques"  },
+  { key: "whisper",    label: "Sussurros"   },
+  { key: "friend",     label: "Amizades"  },
+  { key: "room_enter", label: "Entradas" },
+  { key: "room_leave", label: "Saídas"   },
 ];
 
 const TYPE_COLOR: Record<LogEntry["type"], string> = {
@@ -36,11 +36,11 @@ const TYPE_COLOR: Record<LogEntry["type"], string> = {
 };
 
 const TYPE_LABEL: Record<LogEntry["type"], string> = {
-  click:      "Click",
-  whisper:    "Susu",
-  friend:     "Amigo",
-  room_enter: "Entrou",
-  room_leave: "Saiu",
+  click:      "Clique",
+  whisper:    "Sussurro",
+  friend:     "Amizade",
+  room_enter: "Entrada",
+  room_leave: "Saída",
 };
 
 const LOG_PAGE_SIZE = 150;
@@ -91,23 +91,17 @@ function normalizeSearch(value: string): string {
 
 function ProfileName({ api, name }: { api: LuminusApi; name: string }) {
   return (
-    <span
+    <button
       className="luminus-profile-link"
-      role="button"
-      tabIndex={0}
+      type="button"
+      aria-label={`Abrir perfil de ${name}`}
       onClick={event => {
         if (handleCtrlUserClick(event, api, name)) return;
         openUserProfile(api, name);
       }}
-      onKeyDown={event => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          openUserProfile(api, name);
-        }
-      }}
     >
       {name}
-    </span>
+    </button>
   );
 }
 
@@ -141,6 +135,7 @@ export function LogWindow({ api, open, onClose }: Props) {
   React.useEffect(() => {
     if (!open || !ref.current) return;
     fitElementInSafeBounds(ref.current, { minWidth: 360, minHeight: 260, forceHeight: true });
+    ref.current.focus({ preventScroll: true });
   }, [open]);
 
   if (!open) return null;
@@ -183,11 +178,11 @@ export function LogWindow({ api, open, onClose }: Props) {
   }
 
   return (
-    <div id="luminus-logwindow" className="lm-float-window" ref={ref}>
+    <div id="luminus-logwindow" className="lm-float-window" ref={ref} tabIndex={-1} role="dialog" aria-modal="false" aria-labelledby="luminus-logwindow-title">
       <div className="lw-header" onMouseDown={onDragMouseDown}>
         <span className="lw-title">
           <span className="lw-title-dot" />
-          Luminus · Logs
+          <span id="luminus-logwindow-title">Luminus · Logs</span>
         </span>
         <div className="lw-header-actions">
           <span className="lw-count">
@@ -212,7 +207,7 @@ export function LogWindow({ api, open, onClose }: Props) {
           </button>
         ))}
         <div className="lw-filterbar-gap" />
-        <button type="button" className="lw-clear-btn" onClick={clearLogs}>Limpar</button>
+        <button type="button" className="lw-clear-btn" onClick={() => { if (window.confirm("Apagar todos os eventos registrados?")) clearLogs(); }}>Limpar</button>
       </div>
 
       <div className="lw-search-bar">

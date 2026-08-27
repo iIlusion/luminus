@@ -1,5 +1,54 @@
 import { readPref, writePref } from "./util/prefs";
 
+export interface ChangelogVisualFrame {
+  label: string;
+  title: string;
+  description?: string;
+}
+
+export interface ChangelogDemoRow {
+  label: string;
+  value: string;
+}
+
+/** Mídia segura e declarativa para demonstrar uma mudança sem HTML arbitrário. */
+export type ChangelogVisual =
+  | {
+      kind: "image";
+      src: string;
+      alt: string;
+      caption?: string;
+    }
+  | {
+      kind: "comparison";
+      before: ChangelogVisualFrame;
+      after: ChangelogVisualFrame;
+      caption?: string;
+    }
+  | {
+      kind: "demo";
+      title: string;
+      description?: string;
+      badges?: readonly string[];
+      rows?: readonly ChangelogDemoRow[];
+      action?: string;
+      caption?: string;
+    };
+
+export interface ChangelogItem {
+  title: string;
+  description: string;
+  /** Detalhes opcionais ficam recolhidos para manter a leitura rápida. */
+  details?: readonly string[];
+  /** Uma prova visual opcional: imagem, antes/depois ou demonstração nativa. */
+  visual?: ChangelogVisual;
+}
+
+export interface ChangelogSection {
+  title: string;
+  items: readonly ChangelogItem[];
+}
+
 /** Uma entrada do modal de novidades (versão + secções). */
 export interface ChangelogLayer {
   id: string;
@@ -9,13 +58,7 @@ export interface ChangelogLayer {
   title: string;
   summary: string;
   publishedAt: string;
-  sections: readonly {
-    title: string;
-    items: readonly {
-      title: string;
-      description: string;
-    }[];
-  }[];
+  sections: readonly ChangelogSection[];
 }
 
 /** @deprecated Prefer ChangelogLayer — alias para código antigo. */

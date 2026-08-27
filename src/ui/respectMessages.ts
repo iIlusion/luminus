@@ -65,6 +65,9 @@ function stackKey(name: string): string {
 /** Prefer stacked overlay text when present. */
 function messageText(bubble: Element): string {
   const el = bubble.querySelector<HTMLElement>(".message.luminus-respect")
+    ?? [...bubble.querySelectorAll<HTMLElement>(".message")].find(message =>
+      message.style.display !== "none" && message.style.visibility !== "hidden",
+    )
     ?? bubble.querySelector<HTMLElement>(".message:not(.luminus-respect)")
     ?? bubble.querySelector<HTMLElement>(".message");
   return (el?.textContent ?? "").trim();
@@ -107,6 +110,97 @@ function respectBubbles(): HTMLElement[] {
   return [...document.querySelectorAll(
     ".nitro-chat-widget .bubble-container:not(.luminus-reply) > .chat-bubble.bubble-1",
   )] as HTMLElement[];
+}
+
+function respectMessageNodes(bubble: Element): HTMLElement[] {
+  return [...bubble.querySelectorAll<HTMLElement>(".message")];
+}
+
+function respectTargetFromText(text: string): string | null {
+  for (const unit of apiRef?.room.units.values() ?? []) {
+    const target = unit.name.trim();
+    if (!target) continue;
+    const escaped = escapeRegExp(target);
+    if (new RegExp(`^\\s*${escaped}\\s+foi\\s+respeitad[oa]`, "i").test(text)) return target;
+  }
+  return null;
+}
+
+/** Keep a single readable count when two renderers touched the same system line. */
+function sanitizeRespectText(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!/\s+foi\s+respeitad[oa]/i.test(normalized)) return normalized;
+
+  const counts = [...normalized.matchAll(/\(([0-9]+)x\)/gi)]
+    .map(match => Number(match[1]))
+    .filter(Number.isFinite);
+  const base = normalized
+    .replace(/\s*\([0-9]+x\)/gi, "")
+    .replace(/!+$/, "!")
+    .trim();
+  const count = counts.length ? Math.min(MAX_RESPECTS_PER_USER, Math.max(...counts)) : 1;
+  return count > 1 ? `${base} (${count}x)` : base;
+}
+
+function restoreSanitizedMessage(message: HTMLElement): void {
+  if (message.dataset.luminusRespectHidden !== "1") return;
+  message.style.visibility = "";
+  message.style.position = "";
+  delete message.dataset.luminusRespectHidden;
+}
+
+function sanitizeRespectBubble(bubble: HTMLElement): string | null {
+  const messages = respectMessageNodes(bubble);
+  const target = messages
+    .map(message => respectTargetFromText(message.textContent ?? ""))
+    .find(Boolean) ?? null;
+  if (!target) return null;
+
+  const ownOverlay = messages.find(message => message.classList.contains("luminus-respect"));
+  const canonical = ownOverlay
+    ?? messages.find(message => message.style.display !== "none" && message.style.visibility !== "hidden")
+    ?? messages[0];
+  if (!canonical) return target;
+
+  const next = sanitizeRespectText(canonical.textContent ?? "");
+  if (canonical.textContent !== next) canonical.textContent = next;
+  restoreSanitizedMessage(canonical);
+
+  for (const message of messages) {
+    if (message === canonical) continue;
+    const isRespect = respectTargetFromText(message.textContent ?? "") === target;
+    if (!isRespect) continue;
+    message.style.visibility = "hidden";
+    message.style.position = "absolute";
+    message.dataset.luminusRespectHidden = "1";
+  }
+  return target;
+}
+
+/** Collapse duplicate bubbles and duplicate numeric suffixes without touching other chat. */
+function sanitizeRespectBubbles(): void {
+  const grouped = new Map<string, HTMLElement[]>();
+  for (const bubble of respectBubbles()) {
+    if (bubble.dataset.luminusRespectDupe === "1") {
+      bubble.style.display = "";
+      delete bubble.dataset.luminusRespectDupe;
+    }
+    const target = sanitizeRespectBubble(bubble);
+    if (!target) continue;
+    const key = stackKey(target);
+    const group = grouped.get(key) ?? [];
+    group.push(bubble);
+    grouped.set(key, group);
+  }
+
+  for (const group of grouped.values()) {
+    const [primary, ...duplicates] = group;
+    if (!primary) continue;
+    for (const duplicate of duplicates) {
+      duplicate.style.display = "none";
+      duplicate.dataset.luminusRespectDupe = "1";
+    }
+  }
 }
 
 /** Any system respect line for this target (with or without actor / count). */
@@ -190,6 +284,7 @@ function getLiveStack(targetName: string): TargetStack | undefined {
 }
 
 function tryPendingEnrich(): void {
+  sanitizeRespectBubbles();
   for (const stack of stacks.values()) {
     if (!stack.pendingEnrich) continue;
     if (applyRespectBubble(stack.targetName, stack.actor, stack.count)) {
@@ -315,6 +410,7 @@ export function initRespectMessageGrouping(api: LuminusApi): void {
 
   const mo = new MutationObserver(() => {
     if (!getRespectMessageGroupingEnabled()) return;
+    sanitizeRespectBubbles();
     let anyPending = false;
     for (const s of stacks.values()) {
       if (s.pendingEnrich) {

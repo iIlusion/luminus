@@ -5,6 +5,7 @@ const WIDGET_SELECTOR = ".nitro-user-chooser-widget";
 const ENHANCED_CLASS = "luminus-habblet-list-enhanced";
 const CONTROL_CLASS = "luminus-habblet-controls";
 const TOGGLE_CLASS = "luminus-habblet-filter-toggle";
+const EXPAND_CLASS = "luminus-habblet-expand-toggle";
 const TAG_CLASS = "luminus-habblet-tags";
 const URL_RE = /(?:https?:\/\/|www\.)|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/|$)/i;
 
@@ -26,6 +27,15 @@ type RoomUnit = {
 };
 type IndexedUnit = RoomUnit & { unitId?: number };
 type UnitIndex = { byId: Map<number, IndexedUnit>; byName: Map<string, IndexedUnit> };
+
+export function hasActiveHabbletFilters(filters: FilterState, query: string): boolean {
+  return Boolean(query.trim()) || Object.values(filters).some(value => value !== "all");
+}
+
+export function getHabbletListExpansionState(expanded: boolean): { expanded: boolean; label: string } {
+  const nextExpanded = !expanded;
+  return { expanded: nextExpanded, label: nextExpanded ? "Recolher lista" : "Expandir lista" };
+}
 
 function units(api: LuminusApi): RoomUnit[] {
   const source = api.room.units;
@@ -148,11 +158,14 @@ function updateFilters(widget: HTMLElement, api: LuminusApi): void {
   }
 
   const active = Object.values(filters).filter(value => value !== "all").length;
+  const hasActive = hasActiveHabbletFilters(filters, query);
   const toggle = widget.querySelector<HTMLButtonElement>(`.${TOGGLE_CLASS}`);
   if (toggle) {
     toggle.textContent = active ? `Filtros (${active})` : "Filtros";
     toggle.classList.toggle("has-active", active > 0);
   }
+  const clear = widget.querySelector<HTMLButtonElement>(`.luminus-habblet-filter-clear`);
+  if (clear) clear.disabled = !hasActive;
   const rows = [...widget.querySelectorAll<HTMLElement>(".user-row")];
   const visibleRows = rows.filter(row => !row.classList.contains("luminus-filter-hidden"));
   const count = widget.querySelector<HTMLElement>(".luminus-habblet-result-count");
@@ -170,14 +183,47 @@ function updateFilters(widget: HTMLElement, api: LuminusApi): void {
 }
 
 function enhanceWidget(widget: HTMLElement, api: LuminusApi): void {
+  const header = widget.querySelector<HTMLElement>(":scope > .nitro-card-header");
   const content = widget.querySelector<HTMLElement>(":scope > .content-area");
   const nativeControls = content?.firstElementChild;
   if (!content || !(nativeControls instanceof HTMLElement)) return;
 
   widget.classList.add(ENHANCED_CLASS);
+  if (header) {
+    let expand = header.querySelector<HTMLButtonElement>(`.${EXPAND_CLASS}`);
+    if (!expand) {
+      expand = header.ownerDocument.createElement("button");
+      expand.type = "button";
+      expand.className = EXPAND_CLASS;
+      expand.addEventListener("click", () => {
+        const state = getHabbletListExpansionState(widget.classList.contains("luminus-habblet-list-expanded"));
+        widget.classList.toggle("luminus-habblet-list-expanded", state.expanded);
+        expand?.setAttribute("aria-expanded", String(state.expanded));
+        expand?.setAttribute("aria-label", state.label);
+        if (expand) {
+          expand.title = state.label;
+          expand.textContent = state.label;
+        }
+      });
+      const close = header.querySelector<HTMLElement>(".close, [aria-label='Close'], [aria-label='Fechar'], button");
+      if (close) header.insertBefore(expand, close);
+      else header.appendChild(expand);
+    }
+    const expanded = widget.classList.contains("luminus-habblet-list-expanded");
+    const label = expanded ? "Recolher lista" : "Expandir lista";
+    expand.setAttribute("aria-expanded", String(expanded));
+    expand.setAttribute("aria-label", label);
+    expand.title = label;
+    expand.textContent = label;
+  }
   nativeControls.classList.add("luminus-habblet-native-controls");
   const search = nativeControls.querySelector<HTMLInputElement>("input.search-filter");
-  if (search) search.placeholder = "Buscar por nome ou ID";
+  if (search) {
+    search.placeholder = "Buscar por nome ou ID";
+    search.setAttribute("aria-label", "Buscar por nome ou ID");
+  }
+  const typeFilter = nativeControls.querySelector<HTMLSelectElement>("select.type-filter");
+  typeFilter?.setAttribute("aria-label", "Filtrar por tipo");
 
   let controls = content.querySelector<HTMLElement>(`.${CONTROL_CLASS}`);
   if (!controls) {
@@ -191,14 +237,20 @@ function enhanceWidget(widget: HTMLElement, api: LuminusApi): void {
     const clear = content.ownerDocument.createElement("button");
     clear.type = "button";
     clear.className = "luminus-habblet-filter-clear";
+    clear.setAttribute("aria-label", "Limpar busca e filtros");
     clear.textContent = "Limpar";
     clear.addEventListener("click", () => {
       controls?.querySelectorAll<HTMLSelectElement>("select").forEach(filter => { filter.value = "all"; });
+      const searchInput = nativeControls.querySelector<HTMLInputElement>("input.search-filter");
+      if (searchInput) searchInput.value = "";
       updateFilters(widget, api);
+      searchInput?.focus();
     });
     controls.appendChild(clear);
     content.insertBefore(controls, nativeControls.nextSibling);
   }
+  controls.id ||= "luminus-habblet-filters";
+  controls.setAttribute("aria-label", "Filtros da lista");
 
   let toggle = content.querySelector<HTMLButtonElement>(`.${TOGGLE_CLASS}`);
   if (!toggle) {
@@ -210,9 +262,12 @@ function enhanceWidget(widget: HTMLElement, api: LuminusApi): void {
     controls.hidden = true;
     content.insertBefore(toggle, controls);
   }
+  toggle.setAttribute("aria-controls", controls.id);
   if (!content.querySelector(".luminus-habblet-result-count")) {
     const count = content.ownerDocument.createElement("div");
     count.className = "luminus-habblet-result-count";
+    count.setAttribute("role", "status");
+    count.setAttribute("aria-live", "polite");
     content.insertBefore(count, content.querySelector(".content"));
   }
 

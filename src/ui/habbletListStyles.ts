@@ -112,7 +112,7 @@ export const HABBLET_LIST_STYLES = `
   min-height: 120px;
   place-items: center;
   padding: 20px;
-  opacity: 0.66;
+  color: var(--luminus-ui-text-dim);
   font-size: 12px;
 }
 
@@ -124,18 +124,69 @@ body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enh
   max-height: calc(100vh - 24px) !important;
   padding: 0 !important;
   overflow: hidden !important;
-  background: #10131f !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 12px !important;
-  color: #f5f7ff !important;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32) !important;
-  font-family: "Ubuntu Custom", sans-serif !important;
+  background: var(--luminus-ui-surface) !important;
+  border: 0 !important;
+  border-radius: var(--luminus-ui-radius) !important;
+  color: var(--luminus-ui-text) !important;
+  box-shadow: var(--luminus-ui-shadow) !important;
+  font-family: var(--luminus-ui-sans) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .nitro-card-header {
+  border-top: 0 !important;
+  box-shadow: none !important;
+  min-height: 48px !important;
+  padding: 10px 14px !important;
+  background: var(--luminus-ui-surface-raised) !important;
+  border-bottom: 1px solid rgba(196, 205, 255, 0.16) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .luminus-habblet-expand-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  margin-left: auto;
+  padding: 4px 9px;
+  border: 1px solid var(--luminus-ui-border-soft);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--luminus-ui-text-dim);
+  font: 650 10px/1 var(--luminus-ui-sans);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .luminus-habblet-expand-toggle:hover,
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .luminus-habblet-expand-toggle[aria-expanded="true"] {
+  border-color: rgba(196, 205, 255, 0.34);
+  background: rgba(142, 162, 255, 0.12);
+  color: var(--luminus-ui-text);
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .luminus-habblet-expand-toggle:focus-visible {
+  outline: 2px solid var(--luminus-ui-accent);
+  outline-offset: 2px;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .nitro-card-header-text {
+  color: var(--luminus-ui-text) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
 }
 
 body.luminus-ui-user-chooser .luminus-habblet-controls,
 body.luminus-ui-user-chooser .luminus-habblet-filter-toggle {
-  background: #171b2b !important;
-  color: #d3daf4 !important;
+  background: var(--luminus-ui-surface-raised) !important;
+  color: var(--luminus-ui-text-dim) !important;
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-controls {
+  border: 1px solid var(--luminus-ui-border-soft) !important;
+  border-radius: var(--luminus-ui-radius-sm) !important;
 }
 
 body.luminus-ui-user-chooser .luminus-habblet-filter-toggle:hover,
@@ -143,7 +194,7 @@ body.luminus-ui-user-chooser .luminus-habblet-filter-toggle.is-open,
 body.luminus-ui-user-chooser .luminus-habblet-filter-toggle.has-active,
 body.luminus-ui-user-chooser .luminus-habblet-filter-clear:hover {
   background: rgba(142, 162, 255, 0.16) !important;
-  color: #f5f7ff !important;
+  color: var(--luminus-ui-text) !important;
 }
 
 body.luminus-ui-user-chooser .luminus-habblet-controls select,
@@ -155,38 +206,210 @@ body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enh
   box-shadow: none !important;
 }
 
-body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .nitro-card-header,
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced input.search-filter::placeholder {
+  color: rgba(210, 216, 242, 0.72) !important;
+  opacity: 1 !important;
+}
+
 body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .content > .d-flex.flex-column:first-child {
-  background: #171b2b !important;
+  background: transparent !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .content > .d-flex.flex-column:first-child {
+  padding: 0 8px !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  border-bottom-color: var(--luminus-ui-border-soft) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .text-black {
+  color: var(--luminus-ui-text) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .column-text {
+  color: var(--luminus-ui-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .column-text:nth-child(n + 2),
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .row-text:nth-child(n + 2) {
+  text-align: center !important;
 }
 
 body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .content {
   min-height: 0 !important;
   overflow: hidden !important;
-  background: #0c0f19 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--luminus-ui-surface) 92%, #000) !important;
+  border: 1px solid var(--luminus-ui-border-soft) !important;
+  border-radius: var(--luminus-ui-radius-sm) !important;
 }
 
 body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .user-row {
   min-height: 34px;
-  background: #0c0f19 !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055) !important;
-  color: #f5f7ff !important;
+  background: color-mix(in srgb, var(--luminus-ui-surface) 92%, #000) !important;
+  border-bottom: 1px solid var(--luminus-ui-border-soft) !important;
+  color: var(--luminus-ui-text) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .user-row > .text-black,
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .row-text {
+  color: var(--luminus-ui-text) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .user-row > .text-black {
+  padding: 4px 8px !important;
+  background: transparent !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .row-text:first-child {
+  font-weight: 650 !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .row-text:nth-child(n + 2) {
+  color: var(--luminus-ui-text-dim) !important;
+  font-size: 12px !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .user-row {
+  transition: background 140ms ease, box-shadow 140ms ease !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .user-row:focus-within {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid rgba(142, 162, 255, 0.72) !important;
+  outline-offset: -2px;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .luminus-habblet-name {
+  color: inherit !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .content > .d-flex.overflow-auto {
+  scrollbar-color: rgba(196, 205, 255, 0.38) transparent;
+  scrollbar-width: thin;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .content > .d-flex.overflow-auto::-webkit-scrollbar {
+  width: 7px;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .content > .d-flex.overflow-auto::-webkit-scrollbar-thumb {
+  background: rgba(196, 205, 255, 0.38);
+  border-radius: 999px;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .search-filter,
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .type-filter,
+body.luminus-ui-user-chooser .luminus-habblet-controls select {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  border-radius: 9px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .search-filter:focus,
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced select:focus {
+  border-color: rgba(142, 162, 255, 0.72) !important;
+  outline: 2px solid rgba(142, 162, 255, 0.42) !important;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(142, 162, 255, 0.12) !important;
+}
+
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced select option {
+  background: #171b2b;
+  color: #f5f7ff;
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-filter-toggle {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  border-radius: 9px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease !important;
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-filter-toggle::after {
+  width: 6px;
+  height: 6px;
+  margin: -3px 2px 0 8px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  content: "";
+  opacity: 0.7;
+  transform: rotate(45deg);
+  transition: transform 140ms ease;
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-filter-toggle[aria-expanded="true"]::after {
+  margin-top: 3px;
+  transform: rotate(225deg);
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-filter-toggle.has-active {
+  border-color: rgba(142, 162, 255, 0.42) !important;
+  box-shadow: 0 0 0 3px rgba(142, 162, 255, 0.08) !important;
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-filter-clear {
+  color: var(--luminus-ui-text-dim) !important;
+  font-weight: 650 !important;
+  transition: border-color 140ms ease, color 140ms ease, opacity 140ms ease !important;
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-filter-clear:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+body.luminus-ui-user-chooser .luminus-habblet-result-count {
+  color: var(--luminus-ui-muted) !important;
+  font-size: 10px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.02em;
 }
 
 body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .user-row:nth-child(even) {
-  background: #101522 !important;
+  background: color-mix(in srgb, var(--luminus-ui-surface) 96%, #fff) !important;
 }
 
 body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced .user-row:hover {
   background: rgba(142, 162, 255, 0.16) !important;
 }
 
+body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced.luminus-habblet-list-expanded {
+  width: min(94vw, 760px) !important;
+  height: min(88vh, 820px) !important;
+  max-height: calc(100vh - 24px) !important;
+}
+
 @media (max-width: 620px) {
   .luminus-habblet-native-controls,
   .luminus-habblet-controls { grid-template-columns: 1fr 1fr; }
   .luminus-habblet-native-controls .search-filter { grid-column: 1 / -1; }
+}
+
+@media (max-width: 420px) {
+  .luminus-habblet-controls { grid-template-columns: 1fr; }
+  .luminus-habblet-filter-clear { grid-column: 1; justify-self: stretch; }
+}
+
+@media (max-width: 620px) {
+  body.luminus-ui-user-chooser .nitro-user-chooser-widget.luminus-habblet-list-enhanced.luminus-habblet-list-expanded {
+    width: calc(100vw - 16px) !important;
+    height: calc(100vh - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+  }
 }
 `;

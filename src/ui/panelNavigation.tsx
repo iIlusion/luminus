@@ -49,10 +49,10 @@ export function searchPanelEntries(entries: PanelSearchEntry[], query: string): 
 }
 
 export const CORE_PANEL_CATEGORIES: PanelCategory[] = [
-  { id: "utilities", label: "Utilidades", summary: "Avatar, interação e ferramentas", target: "utilities", tone: "player", icon: <Wrench aria-hidden="true" /> },
-  { id: "interface", label: "Interface", summary: "Tema, rádio e guarda-roupa", target: "interface", tone: "visual", icon: <PanelsTopLeft aria-hidden="true" /> },
-  { id: "records", label: "Registro", summary: "Logs, conversas e links salvos", target: "records", tone: "logs", icon: <ScrollText aria-hidden="true" /> },
-  { id: "construction", label: "Construção", summary: "Opções de renderização", target: "construction", tone: "render", icon: <Hammer aria-hidden="true" /> },
+  { id: "utilities", label: "Avatar e ferramentas", summary: "Controle seu avatar e ações do quarto", target: "utilities", tone: "player", icon: <Wrench aria-hidden="true" /> },
+  { id: "interface", label: "Aparência", summary: "Tema, rádio e guarda-roupa", target: "interface", tone: "visual", icon: <PanelsTopLeft aria-hidden="true" /> },
+  { id: "records", label: "Histórico", summary: "Logs, conversas e links salvos", target: "records", tone: "logs", icon: <ScrollText aria-hidden="true" /> },
+  { id: "construction", label: "Quarto", summary: "Renderização e ferramentas de construção", target: "construction", tone: "render", icon: <Hammer aria-hidden="true" /> },
 ];
 
 type PanelLauncherProps = {
@@ -100,6 +100,8 @@ export function PanelLauncher({ categories, entries, onNavigate, onOpenEntry, st
           role="combobox"
           aria-expanded={results.length > 0}
           aria-controls="lm-panel-search-results"
+          aria-autocomplete="list"
+          aria-activedescendant={results.length > 0 ? `lm-panel-search-option-${activeIndex}` : undefined}
         />
       </div>
       {results.length > 0 ? (
@@ -108,6 +110,7 @@ export function PanelLauncher({ categories, entries, onNavigate, onOpenEntry, st
             <button
               type="button"
               key={entry.id}
+              id={`lm-panel-search-option-${index}`}
               className={`lm-search-result${index === activeIndex ? " is-active" : ""}`}
               role="option"
               aria-selected={index === activeIndex}

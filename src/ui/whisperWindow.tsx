@@ -20,6 +20,10 @@ function sameName(a: string, b: string): boolean {
   return a.localeCompare(b, undefined, { sensitivity: "accent" }) === 0;
 }
 
+function whisperTabId(key: string): string {
+  return `luminus-whisper-tab-${encodeURIComponent(key).replace(/%/g, "_")}`;
+}
+
 function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -131,6 +135,7 @@ export function WhisperWindow({ api, open, onClose }: Props) {
     .filter(contact => !closedKeys.includes(contact.key)), [manualContacts, sessionContacts, closedKeys]);
   const contactKeys = React.useMemo(() => contacts.map(contact => contact.key).join("\u0000"), [contacts]);
   const activeContact = React.useMemo(() => contacts.find(contact => contact.key === activeKey) ?? null, [contacts, activeKey]);
+  const activeTabId = activeKey ? whisperTabId(activeKey) : undefined;
   const messages = React.useMemo(() => activeContact ? getWhisperThread(logs, myself, activeContact) : [], [logs, myself, activeContact]);
   const visibleMessages = React.useMemo(() => groupClickMessages(messages), [messages]);
   const days = React.useMemo(() =>
@@ -198,6 +203,10 @@ export function WhisperWindow({ api, open, onClose }: Props) {
       return next;
     });
   }, [open, activeKey]);
+
+  React.useEffect(() => {
+    if (open) windowRef.current?.focus({ preventScroll: true });
+  }, [open]);
 
   if (!open) return null;
 
@@ -346,9 +355,9 @@ export function WhisperWindow({ api, open, onClose }: Props) {
   }
 
   return (
-    <div id="luminus-whisper-window" className="lm-float-window" ref={windowRef}>
+    <div id="luminus-whisper-window" className="lm-float-window" ref={windowRef} tabIndex={-1} role="dialog" aria-modal="false" aria-labelledby="luminus-whisper-window-title">
       <div className="lw-header" onMouseDown={onDragMouseDown}>
-        <span className="lw-title"><span className="lw-title-dot" />Histórico de chat</span>
+        <span className="lw-title"><span className="lw-title-dot" /><span id="luminus-whisper-window-title">Histórico de chat</span></span>
         <div className="lw-header-actions">
           <span className="lw-count">{messages.length} mensagens</span>
           <button className="lw-close" onClick={onClose} aria-label="Fechar histórico de chat">✕</button>
@@ -386,7 +395,16 @@ export function WhisperWindow({ api, open, onClose }: Props) {
       <div className="cw-tabs" role="tablist" aria-label="Conversas privadas">
         {contacts.map(contact => (
           <React.Fragment key={contact.key}>
-            <button className={activeKey === contact.key ? "active" : ""} onClick={() => selectContact(contact)} role="tab">
+            <button
+              type="button"
+              id={whisperTabId(contact.key)}
+              className={activeKey === contact.key ? "active" : ""}
+              onClick={() => selectContact(contact)}
+              role="tab"
+              aria-selected={activeKey === contact.key}
+              aria-controls="luminus-whisper-thread"
+              tabIndex={activeKey === contact.key ? 0 : -1}
+            >
               <span className={`cw-status${contact.kind === "group" || roomUsers.some(unit => sameName(unit.name, contact.recipient)) ? " online" : ""}`} />{contact.label}
               {unreadCounts[contact.key] ? <span style={UNREAD_BADGE_STYLE}>{unreadCounts[contact.key]}</span> : null}
             </button>
@@ -409,15 +427,22 @@ export function WhisperWindow({ api, open, onClose }: Props) {
           <span>{activeContact?.kind === "group" ? activeContact.members.join(", ") : activeContact ? (activeUnit ? "Conversa privada no quarto atual" : "Usuário fora do quarto") : "Inicie ou receba um sussurro para abrir o histórico"}</span>
         </div>
         <span style={THREAD_ACTIONS_STYLE}>
-          {activeContact && messages.length > 0 && <button onClick={deleteActiveChat}>Apagar chat</button>}
-          {activeContact?.kind === "user" && <button onClick={event => {
+          {activeContact && messages.length > 0 && <button type="button" onClick={deleteActiveChat}>Apagar chat</button>}
+          {activeContact?.kind === "user" && <button type="button" onClick={event => {
             if (handleCtrlUserClick(event, api, activeContact.recipient)) return;
             openUserProfile(api, activeContact.recipient);
           }}>Ver perfil</button>}
         </span>
       </div>
 
-      <div className="cw-messages" ref={listRef} aria-live="polite">
+      <div
+        id="luminus-whisper-thread"
+        className="cw-messages"
+        ref={listRef}
+        role="tabpanel"
+        aria-labelledby={activeTabId}
+        aria-live="polite"
+      >
         {loadingHistory && activeContact && messages.length === 0 && <div className="cw-empty"><span>Carregando histórico...</span></div>}
         {!loadingHistory && messages.length === 0 && (
           <div className="cw-empty">
@@ -436,7 +461,7 @@ export function WhisperWindow({ api, open, onClose }: Props) {
                   {!mine && <div className="cw-avatar">{avatar ? <img src={avatar} alt="" /> : entry.actor.slice(0, 1)}</div>}
                   <div className="cw-bubble">
                     <div className="cw-meta">
-                      <button onClick={event => {
+                      <button type="button" onClick={event => {
                         if (handleCtrlUserClick(event, api, entry.actor)) return;
                         openUserProfile(api, entry.actor);
                       }}>{entry.actor}</button>

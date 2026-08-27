@@ -132,6 +132,7 @@ export function LinkWindow({ api, open, onClose }: Props) {
     if (!open || !ref.current) return;
     // Prefer a wider shell so multi-link rows can sit horizontally.
     fitElementInSafeBounds(ref.current, { minWidth: 480, minHeight: 260, forceHeight: true });
+    ref.current.focus({ preventScroll: true });
   }, [open]);
 
   function toggleLinkFilter(id: LinkFilterId) {
@@ -204,15 +205,15 @@ export function LinkWindow({ api, open, onClose }: Props) {
   }
 
   return (
-    <div id="luminus-linkwindow" className="lm-float-window" ref={ref}>
+    <div id="luminus-linkwindow" className="lm-float-window" ref={ref} tabIndex={-1} role="dialog" aria-modal="false" aria-labelledby="luminus-linkwindow-title">
       <div className="lw-header" onMouseDown={onDragMouseDown}>
         <span className="lw-title">
           <span className="lw-title-dot" />
-          Luminus · Links
+          <span id="luminus-linkwindow-title">Luminus · Links</span>
         </span>
         <div className="lw-header-actions">
           <span className="lw-count">{entries.length}/{all.length} pessoas</span>
-          <button className="lw-close" onClick={onClose} title="Fechar"><CloseIcon /></button>
+          <button className="lw-close" type="button" onClick={onClose} title="Fechar" aria-label="Fechar histórico de links"><CloseIcon /></button>
         </div>
       </div>
 
@@ -221,12 +222,14 @@ export function LinkWindow({ api, open, onClose }: Props) {
           <span className="lk-search-icon"><SearchIcon /></span>
           <input
             className="lk-search-input"
+            type="search"
             placeholder="Pesquisar pessoa ou link..."
+            aria-label="Pesquisar pessoa ou link"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="lk-gender-filters" role="group" aria-label="Filtrar por genero">
+        <div className="lk-gender-filters" role="group" aria-label="Filtrar por gênero">
           {([
             { id: "F", label: "Feminino" },
             { id: "M", label: "Masculino" },
@@ -245,6 +248,7 @@ export function LinkWindow({ api, open, onClose }: Props) {
         </div>
         <div className="lw-filterbar-gap" />
         <button
+          type="button"
           className="lw-clear-btn"
           onClick={() => { if (window.confirm("Apagar todo o histórico de links?")) clearAllLinks(); }}
           title="Apaga o histórico de links de todas as pessoas"
@@ -295,23 +299,25 @@ export function LinkWindow({ api, open, onClose }: Props) {
           <div key={name} className="lk-entry">
             <div className="lk-entry-top">
               <button
+                type="button"
                 className={`lk-star${isFavorite(name) ? " active" : ""}`}
                 onClick={() => toggleFavorite(name)}
                 title={isFavorite(name) ? "Remover dos favoritos" : "Favoritar esta pessoa"}
+                aria-label={isFavorite(name) ? `Remover ${name} dos favoritos` : `Favoritar ${name}`}
+                aria-pressed={isFavorite(name)}
               >
                 <StarIcon filled={isFavorite(name)} />
               </button>
-              <span
+              <button
+                type="button"
                 className="lk-name"
-                role="button"
-                tabIndex={0}
                 title="Abrir perfil"
+                aria-label={`Abrir perfil de ${name}`}
                 onClick={event => {
                   if (handleCtrlUserClick(event, api, name)) return;
                   openUserProfile(api, name);
                 }}
-                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") openUserProfile(api, name); }}
-              >{name}</span>
+              >{name}</button>
               {getGenderFor(name) && (
                 <span
                   className={`lk-gender-symbol gender-${getGenderFor(name)!.toLowerCase()}`}
@@ -333,9 +339,11 @@ export function LinkWindow({ api, open, onClose }: Props) {
                 </span>
               )}
               <button
+                type="button"
                 className="lk-remove"
                 onClick={() => handleRemovePerson(name)}
                 title="Remover pessoa do histórico"
+                aria-label={`Remover ${name} do histórico`}
               >
                 <TrashIcon />
               </button>
@@ -370,26 +378,29 @@ export function LinkWindow({ api, open, onClose }: Props) {
                         <span className="lk-meta-badge" title={`Último clique: ${fmtLastClicked(rec)}`}>
                           <ClockIcon />
                         </span>
-                        <button
-                          type="button"
-                          className={`lk-link-block${blocked ? " is-active" : ""}`}
-                          onClick={e => { e.preventDefault(); e.stopPropagation(); toggleLinkBlocked(name, rec.link); }}
-                          title={blocked ? "Desbloquear ícone" : "Bloquear ícone"}
-                          aria-pressed={blocked}
-                          aria-label={blocked ? "Desbloquear ícone" : "Bloquear ícone"}
-                        >
-                          <BlockIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="lk-link-remove"
-                          onClick={e => { e.preventDefault(); e.stopPropagation(); removeLink(name, rec.link); }}
-                          title="Remover este link"
-                        >
-                          <CloseIcon />
-                        </button>
                       </span>
                     </a>
+                    <span className="lk-link-actions" aria-label={`Ações para ${rec.link}`}>
+                      <button
+                        type="button"
+                        className={`lk-link-block${blocked ? " is-active" : ""}`}
+                        onClick={() => toggleLinkBlocked(name, rec.link)}
+                        title={blocked ? "Desbloquear ícone" : "Bloquear ícone"}
+                        aria-pressed={blocked}
+                        aria-label={blocked ? "Desbloquear ícone" : "Bloquear ícone"}
+                      >
+                        <BlockIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="lk-link-remove"
+                        onClick={() => removeLink(name, rec.link)}
+                        title="Remover este link"
+                        aria-label="Remover este link"
+                      >
+                        <CloseIcon />
+                      </button>
+                    </span>
                   </div>
                 );
               })}
