@@ -1736,6 +1736,30 @@ body.luminus-ui-menus .nitro-context-menu:not(.name-only):not(.is-name-only):not
   align-self: stretch !important;
 }
 
+/* Nitro reapplies its default chrome while a menu is entering/focused. Keep the
+   outer surface borderless in every open state; inner controls retain their own
+   focus treatment below. */
+body.luminus-ui-menus .nitro-context-menu,
+body.luminus-ui-menus .nitro-context-menu:is(.visible, .show, :focus, :focus-visible),
+body.luminus-ui-menus .nitro-friend-request-dialog,
+body.luminus-ui-menus .nitro-friend-request-dialog:is(.visible, .show, :focus, :focus-visible),
+body.luminus-ui-user-chooser .nitro-user-chooser-widget,
+body.luminus-ui-user-chooser .nitro-user-chooser-widget:is(.visible, .show, :focus, :focus-visible),
+body.luminus-ui-user-chooser .nitro-user-chooser,
+body.luminus-ui-user-chooser .nitro-user-chooser:is(.visible, .show, :focus, :focus-visible) {
+  border: 0 !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.9) !important;
+}
+
+/* The first menu interaction can leave Nitro's navigator card focused. Its
+   native inset shadow is the white frame seen behind the Luminus window. */
+body.luminus-ui-menus .nitro-card.theme-primary.nitro-navigator {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 /* Room tools rail (camera/settings/chat-history/etc, left edge of the room) Ã¢â‚¬â€ flush against
    the left edge, so only the right corners round, mirroring .nitro-purse's flush-top logic */
 /* Shared glass material: every room-side surface uses these exact values. */
@@ -2465,14 +2489,20 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
     var(--lw-bg);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid var(--lw-border);
+  border: 0;
   border-radius: var(--lw-radius);
   box-shadow:
-    0 0 0 0.5px rgba(255,255,255,0.05) inset,
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 32px 100px rgba(0,0,0,0.65),
-    0 8px 32px rgba(0,0,0,0.4);
+  0 32px 100px rgba(0,0,0,0.65),
+  0 8px 32px rgba(0,0,0,0.4);
   overflow: hidden;
+}
+
+/* The dialog root is focused programmatically on open, but it is not an
+   interactive control. Keep the browser's default focus outline off the
+   window chrome; controls inside it retain their visible focus states. */
+.lm-float-window:focus,
+.lm-float-window:focus-visible {
+  outline: none !important;
 }
 
 @media (max-width: 1366px) {
@@ -2589,6 +2619,23 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   border-bottom: 1px solid var(--lw-border);
   flex-shrink: 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196, 205, 255, 0.42) transparent;
+}
+
+.lm-float-window .lw-filterbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.lm-float-window .lw-filterbar::-webkit-scrollbar-track { background: transparent; }
+.lm-float-window .lw-filterbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(196, 205, 255, 0.48), rgba(142, 162, 255, 0.28));
+  border: 0;
+  border-radius: 999px;
+}
+.lm-float-window .lw-filterbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, rgba(210, 218, 255, 0.58), rgba(142, 162, 255, 0.4));
 }
 
 .lm-float-window .lw-filterbar-secondary {
@@ -2907,6 +2954,7 @@ body.luminus-radio-hidden .nitro-notification-bubble.luminus-radio-bubble {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 6px 0;
   /* Match Luminus panel scrollbar (thin lumen thumb). */
   scrollbar-width: thin;
