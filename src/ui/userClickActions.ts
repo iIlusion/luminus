@@ -89,10 +89,13 @@ export function setOutgoingClickAlertEnabled(enabled: boolean): void {
 
 export function findRoomUnitByName(api: LuminusApi, name: string): RoomUnit | undefined {
   const wanted = normalizeText(name);
+  let fallback: RoomUnit | undefined;
   for (const unit of api.room.units.values()) {
-    if (normalizeText(unit.name) === wanted) return unit;
+    if (normalizeText(unit.name) !== wanted) continue;
+    if (unit.type === 1) return unit;
+    fallback ??= unit;
   }
-  return undefined;
+  return fallback;
 }
 
 export function handleCtrlUserClick(

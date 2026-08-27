@@ -14,6 +14,12 @@ import {
   subscribeFurniClassHide,
   toggleFocusedClass,
 } from "../room/furniClassHide";
+import { isBotUnitType } from "../chat/roomChatPresentation";
+import { readPref, writePref } from "../util/prefs";
+import { getContextGenderIconEnabled, subscribeContextGenderIcon } from "./contextGender";
+
+const INFO_STAND_ACTIONS_KEY = "luminus.ui.infostandQuickActions";
+const infostandActionListeners = new Set<() => void>();
 
 const ACTIONS: { label: string; cmd: string }[] = [
   { label: "Abraçar",  cmd: "abracar" },
@@ -25,6 +31,23 @@ const ACTIONS: { label: string; cmd: string }[] = [
 
 let apiRef: LuminusApi | null = null;
 let openMenuFor: string | null = null;
+const contextMenuIdentityObservers = new WeakMap<HTMLElement, MutationObserver>();
+const contextMenuIdentityFrames = new WeakMap<HTMLElement, number>();
+
+export function getInfostandQuickActionsEnabled(): boolean {
+  return readPref(INFO_STAND_ACTIONS_KEY, true);
+}
+
+export function setInfostandQuickActionsEnabled(enabled: boolean): void {
+  writePref(INFO_STAND_ACTIONS_KEY, enabled);
+  if (!enabled) removeActionBar();
+  for (const listener of infostandActionListeners) listener();
+}
+
+export function subscribeInfostandQuickActions(listener: () => void): () => void {
+  infostandActionListeners.add(listener);
+  return () => infostandActionListeners.delete(listener);
+}
 
 const EYE_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" stroke="#26de81" stroke-width="2"/>
@@ -54,6 +77,13 @@ const BLOCK_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="no
     <rect x="5" y="10" width="14" height="10" rx="2" stroke="#ff8a8a" stroke-width="2"/>
     <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#ff8a8a" stroke-width="2"/>
   </svg>`;
+
+const GENDER_ICON_SVG: Record<"M" | "F", string> = {
+  F: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15v7M9 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="9" r="6" stroke="currentColor" stroke-width="2"/></svg>`,
+  M: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 3h5v5M21 3l-6.75 6.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="14" r="6" stroke="currentColor" stroke-width="2"/></svg>`,
+};
+
+const BOT_ICON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 7h8a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5a4 4 0 0 1 4-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 3v4M9 20h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="12" r="1.25" fill="currentColor"/><circle cx="15" cy="12" r="1.25" fill="currentColor"/><path d="M9 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
 function closeLinkMenu(): void {
   document.getElementById("luminus-link-ctxmenu")?.remove();
@@ -177,12 +207,55 @@ function linkIconState(name: string): { state: string; blocked: boolean; seen: b
   };
 }
 
+function normalizedGender(unit: RoomUnit | undefined): "M" | "F" | null {
+  const gender = unit?.sex?.trim().toUpperCase();
+  if (gender?.startsWith("F")) return "F";
+  if (gender?.startsWith("M")) return "M";
+  return null;
+}
+
+function renderContextGenderIcon(host: HTMLElement, unit: RoomUnit | undefined): void {
+  let icon = host.querySelector<HTMLElement>(":scope > .luminus-gender-icon");
+  const isBot = Boolean(unit && isBotUnitType(unit.type));
+  const gender = !isBot && unit?.type === 1 ? normalizedGender(unit) : null;
+  if (!getContextGenderIconEnabled()) {
+    host.dataset.luminusGenderIconDisabled = "1";
+    icon?.remove();
+    return;
+  }
+  delete host.dataset.luminusGenderIconDisabled;
+  if (!isBot && !gender) {
+    icon?.remove();
+    return;
+  }
+
+  if (!icon) {
+    icon = document.createElement("span");
+    icon.className = "luminus-gender-icon";
+    icon.setAttribute("role", "img");
+    host.prepend(icon);
+  } else if (host.firstChild !== icon) {
+    host.prepend(icon);
+  }
+  icon.dataset.gender = gender ?? "";
+  icon.dataset.role = isBot ? "bot" : "gender";
+  icon.classList.toggle("is-bot", isBot);
+  icon.classList.toggle("gender-f", gender === "F");
+  icon.classList.toggle("gender-m", gender === "M");
+  icon.title = isBot ? "Bot" : gender === "F" ? "Feminino" : "Masculino";
+  icon.setAttribute("aria-label", icon.title);
+  icon.innerHTML = isBot ? BOT_ICON_SVG : GENDER_ICON_SVG[gender!];
+}
+
 /**
  * Link / eye / blocked icon on name-only menus and user context-menu headers.
  */
 function renderContextNameIcon(host: HTMLElement, name: string, anchor: HTMLElement = host): void {
   let icon = host.querySelector<HTMLElement>(":scope > .luminus-name-only-link-icon");
   const unit = findRoomUnitByName(name);
+  host.dataset.luminusNameOnlyName = name;
+  host.classList.toggle("luminus-context-long-name", name.trim().length >= 14);
+  renderContextGenderIcon(host, unit);
   if (unit && unit.type !== 1) {
     icon?.remove();
     return;
@@ -193,7 +266,6 @@ function renderContextNameIcon(host: HTMLElement, name: string, anchor: HTMLElem
   const info = linkIconState(name);
   if (!info) {
     icon?.remove();
-    delete host.dataset.luminusNameOnlyName;
     return;
   }
 
@@ -215,7 +287,6 @@ function renderContextNameIcon(host: HTMLElement, name: string, anchor: HTMLElem
     host.appendChild(icon);
   }
 
-  host.dataset.luminusNameOnlyName = name;
   icon.dataset.luminusIconState = info.state;
   icon.classList.toggle("luminus-eye", info.seen && !info.blocked);
   icon.classList.toggle("luminus-link-pending", !info.seen && !info.blocked);
@@ -224,11 +295,57 @@ function renderContextNameIcon(host: HTMLElement, name: string, anchor: HTMLElem
   icon.innerHTML = info.html;
 }
 
+function moveContextIconsToHost(menu: HTMLElement, host: HTMLElement): void {
+  menu.querySelectorAll<HTMLElement>(".luminus-name-only-link-icon, .luminus-gender-icon").forEach(icon => {
+    if (icon.parentElement !== host) icon.remove();
+  });
+}
+
+function contextMenuIconNeedsRefresh(menu: HTMLElement, name: string, header: HTMLElement): boolean {
+  const unit = findRoomUnitByName(name);
+  const gender = normalizedGender(unit);
+  const expectsGender = getContextGenderIconEnabled()
+    && Boolean(unit && (isBotUnitType(unit.type) || (unit.type === 1 && gender)));
+  const expectsLink = (!unit || unit.type === 1) && Boolean(linkIconState(name));
+  const hasGender = Boolean(header.querySelector(":scope > .luminus-gender-icon"));
+  const hasLink = Boolean(header.querySelector(":scope > .luminus-name-only-link-icon"));
+  return (expectsGender && !hasGender) || (expectsLink && !hasLink);
+}
+
+function observeContextMenuIdentity(menu: HTMLElement): void {
+  if (contextMenuIdentityObservers.has(menu)) return;
+
+  const observer = new MutationObserver(() => {
+    if (!menu.isConnected) {
+      observer.disconnect();
+      return;
+    }
+
+    const name = contextMenuUserName(menu);
+    const header = menu.querySelector<HTMLElement>(".menu-header");
+    if (!name || !header) return;
+    if (menu.dataset.luminusNameOnlyName === name && !contextMenuIconNeedsRefresh(menu, name, header)) return;
+    if (contextMenuIdentityFrames.has(menu)) return;
+
+    const frame = requestAnimationFrame(() => {
+      contextMenuIdentityFrames.delete(menu);
+      if (menu.isConnected) processUserContextMenu(menu);
+    });
+    contextMenuIdentityFrames.set(menu, frame);
+  });
+
+  observer.observe(menu, { childList: true, characterData: true, subtree: true });
+  contextMenuIdentityObservers.set(menu, observer);
+}
+
 function nameOnlyMenuName(menu: HTMLElement): string {
   const icon = menu.querySelector(".luminus-name-only-link-icon");
+  const genderIcon = menu.querySelector(".luminus-gender-icon");
   // Prefer plain text content excluding our icon.
   const name = [...menu.childNodes]
-    .filter(node => node !== icon && !(node instanceof Element && node.classList.contains("luminus-name-only-link-icon")))
+    .filter(node => node !== icon && node !== genderIcon && !(node instanceof Element && (
+      node.classList.contains("luminus-name-only-link-icon") || node.classList.contains("luminus-gender-icon")
+    )))
     .map(node => node.textContent ?? "")
     .join("")
     .trim();
@@ -238,8 +355,12 @@ function nameOnlyMenuName(menu: HTMLElement): string {
 
 function processNameOnlyContextMenu(menu: HTMLElement): void {
   if (!isNameOnlyMenu(menu)) return;
+  menu.classList.remove("luminus-context-long-menu");
   const name = nameOnlyMenuName(menu);
-  if (name) renderContextNameIcon(menu, name, menu);
+  if (name) {
+    moveContextIconsToHost(menu, menu);
+    renderContextNameIcon(menu, name, menu);
+  }
 }
 
 function processNameOnlyContextMenus(root: ParentNode = document): void {
@@ -276,6 +397,7 @@ function contextMenuUserName(menu: HTMLElement): string {
   const fromNodes = [...header.childNodes]
     .filter(n => !(n instanceof Element && (
       n.classList.contains("luminus-name-only-link-icon")
+      || n.classList.contains("luminus-gender-icon")
       || n.classList.contains("luminus-person-link-icon")
     )))
     .map(n => n.textContent ?? "")
@@ -292,6 +414,8 @@ function contextMenuUserName(menu: HTMLElement): string {
  */
 function processUserContextMenu(menu: HTMLElement): void {
   if (!menu.classList.contains("nitro-context-menu")) return;
+  // Friend requests use their own compact action card, not the user-menu identity rail.
+  if (menu.classList.contains("nitro-friend-request-dialog")) return;
   // Skip high-score widgets.
   if (menu.classList.contains("nitro-widget-high-score")) return;
   // Name-only hover menus use their own path.
@@ -303,9 +427,14 @@ function processUserContextMenu(menu: HTMLElement): void {
   const header = menu.querySelector<HTMLElement>(".menu-header");
   const name = contextMenuUserName(menu);
   if (!name) return;
+  menu.classList.toggle("luminus-context-long-menu", name.trim().length >= 14);
 
   // Link / eye / blocked icon next to the nickname in the full user menu header.
-  if (header) renderContextNameIcon(header, name, menu);
+  if (header) {
+    moveContextIconsToHost(menu, header);
+    renderContextNameIcon(header, name, menu);
+    observeContextMenuIdentity(menu);
+  }
 
   // Prefer .menu-item.list-item; fall back to any .menu-item (Habblet markup drifts).
   const items = menu.querySelectorAll<HTMLElement>(".menu-item.list-item, .menu-item");
@@ -458,6 +587,11 @@ function processMotto(nameEl: HTMLElement, mottoEl: HTMLElement): string {
 // row (Mover/Girar/...). Being a normal flex child of the bottom-anchored container means the
 // infostand card is pushed up automatically to make room — no manual positioning needed.
 function renderActionBar(container: Element, name: string): void {
+  if (!getInfostandQuickActionsEnabled()) {
+    removeActionBar();
+    return;
+  }
+
   let bar = document.getElementById("luminus-action-bar");
 
   if (bar && (bar.dataset.name !== name || bar.parentElement !== container)) {
@@ -469,6 +603,7 @@ function renderActionBar(container: Element, name: string): void {
     bar = document.createElement("div");
     bar.id = "luminus-action-bar";
     bar.className = "d-flex gap-1 justify-content-end mt-2 flex-wrap";
+    bar.setAttribute("aria-label", "Ações rápidas do usuário");
     bar.dataset.name = name;
     bar.dataset.luminusUi = "1";
 
@@ -557,7 +692,8 @@ function processInfostand(container: Element): void {
     container.classList.add("luminus-user-infostand");
   }
   const name = processMotto(nameEl, mottoEl);
-  renderActionBar(container, name);
+  if (getInfostandQuickActionsEnabled()) renderActionBar(container, name);
+  else removeActionBar();
 }
 
 function removeFurniHideEye(): void {
@@ -666,14 +802,14 @@ function isLuminusUiNode(node: Node | null): boolean {
     ) return true;
     return Boolean(
       node.closest(
-        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
+        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-gender-icon, .luminus-motto-link",
       ),
     );
   }
   if (node instanceof Element) {
     return Boolean(
       node.closest(
-        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-motto-link",
+        "#luminus-action-bar, #luminus-furni-hide-eye, #luminus-link-ctxmenu, .luminus-person-link-icon, .luminus-name-only-link-icon, .luminus-gender-icon, .luminus-motto-link",
       ),
     );
   }
@@ -684,6 +820,13 @@ function isLuminusUiNode(node: Node | null): boolean {
 function mutationsAreOnlyLuminusUi(mutations: MutationRecord[]): boolean {
   if (!mutations.length) return false;
   for (const mutation of mutations) {
+    const mutationTarget = mutation.target instanceof HTMLElement
+      ? mutation.target
+      : mutation.target.parentElement;
+    // Nitro can remove only our icon nodes while reusing the same menu shell.
+    // Reprocess that parent so the icon is restored in the current host.
+    if (mutation.type === "childList" && mutation.removedNodes.length > 0
+      && mutationTarget?.closest(".nitro-context-menu")) return false;
     if (!isLuminusUiNode(mutation.target)) {
       for (const node of mutation.addedNodes) {
         if (!isLuminusUiNode(node)) return false;
@@ -793,6 +936,30 @@ function scheduleInfostandProcess(mutations: MutationRecord[]): void {
 
 export function initInfostandLinks(api: LuminusApi): void {
   apiRef = api;
+
+  // Room identity packets update the live store without necessarily changing Nitro's DOM.
+  // Refresh an already-open context menu on the next frame so gender/link state never lags.
+  let contextRefreshScheduled = false;
+  const refreshContextMenusFromRoomState = () => {
+    if (contextRefreshScheduled) return;
+    contextRefreshScheduled = true;
+    requestAnimationFrame(() => {
+      contextRefreshScheduled = false;
+      processNameOnlyContextMenus(document);
+      processUserContextMenus(document);
+    });
+  };
+  api.onIncoming(374, refreshContextMenusFromRoomState);
+  api.onIncoming(3920, refreshContextMenusFromRoomState);
+  api.onIncoming(2429, refreshContextMenusFromRoomState);
+  api.onIncoming(2031, refreshContextMenusFromRoomState);
+  api.onIncoming(2661, refreshContextMenusFromRoomState);
+  subscribeContextGenderIcon(refreshContextMenusFromRoomState);
+  subscribeInfostandQuickActions(() => {
+    const infostand = document.querySelector(".nitro-infostand-container");
+    if (infostand) processInfostand(infostand);
+    else removeActionBar();
+  });
 
   // Refresh Mutar/Desmutar + open context-menu Calar/Ouvir when mute state changes.
   subscribeMuteAll(() => {

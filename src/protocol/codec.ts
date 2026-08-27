@@ -8,6 +8,10 @@ export class Short {
   constructor(public readonly value: number) {}
 }
 
+export class Long {
+  constructor(public readonly value: number) {}
+}
+
 export interface WirePacket {
   header: number;
   wireHeader: number;
@@ -21,6 +25,7 @@ export class EvaWireCodec {
     const reader = new BinaryReader(buffer);
 
     while (reader.remaining() >= 4) {
+      const start = reader.getOffset();
       const length = reader.readInt();
       if (length < 2 || reader.remaining() < length) break;
 
@@ -28,11 +33,7 @@ export class EvaWireCodec {
       const bodyReader = new BinaryReader(rawBody);
       const header = bodyReader.readShort();
       const body = bodyReader.readBytes(bodyReader.remaining());
-      const raw = new BinaryWriter()
-        .writeInt(length)
-        .writeShort(header)
-        .writeArrayBuffer(body)
-        .toArrayBuffer();
+      const raw = buffer.slice(start, start + 4 + length);
 
       packets.push({ header, wireHeader: header, body, raw });
     }
@@ -46,12 +47,20 @@ export class EvaWireCodec {
     for (const value of values) {
       if (value instanceof Byte) body.writeByte(value.value);
       else if (value instanceof Short) body.writeShort(value.value);
+      else if (value instanceof Long) body.writeLong(value.value);
       else if (value instanceof ArrayBuffer) body.writeArrayBuffer(value);
       else if (ArrayBuffer.isView(value)) {
         body.writeArrayBuffer(new Uint8Array(value.buffer, value.byteOffset, value.byteLength).slice().buffer);
       } else if (typeof value === "number") body.writeInt(value);
       else if (typeof value === "boolean") body.writeByte(value ? 1 : 0);
       else if (typeof value === "string") body.writeString(value);
+      else if (Array.isArray(value)) {
+        body.writeInt(value.length);
+        for (const item of value) {
+          if (item instanceof Long) body.writeLong(item.value);
+          else body.writeInt(Number(item));
+        }
+      }
       else if (value == null) body.writeShort(0);
     }
 

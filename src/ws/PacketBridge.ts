@@ -19,14 +19,27 @@ import { packetRegistry, PacketRegistry } from "../messages/registry";
 import type { Myself, UserObject } from "../messages/incoming/UserObjectParser";
 import type { RoomUnit } from "../messages/incoming/UsersParser";
 import type { RoomUnitUpdate } from "../messages/incoming/UserUpdateParser";
+import type { RoomUnitInfo } from "../messages/incoming/RoomUnitInfoParser";
+import type { FigureUpdate } from "../messages/incoming/FigureUpdateParser";
 import type { FurnitureFloor } from "../messages/incoming/FurnitureFloorParser";
+import type { FurnitureFloorAdd } from "../messages/incoming/FurnitureFloorAddParser";
 import type { GuestRoomData, RoomEntryInfo, RoomReady } from "../messages/incoming/RoomParsers";
 import type { ObjectDataUpdate } from "../messages/incoming/ObjectsDataUpdateParser";
+import type { RoomModelData } from "../messages/incoming/RoomModelParser";
+import type { RoomEntryTile } from "../messages/incoming/RoomEntryTileParser";
+import type { RoomThickness } from "../messages/incoming/RoomThicknessParser";
+import type { WiredDefinition } from "../messages/incoming/WiredDefinitionParser";
 import { findLinkInMotto } from "../links/linkDomains";
 import { rememberLink, removePerson } from "../links/linkStore";
+import { isSocketLike, isSocketOpen } from "./socketContract";
 import {
   createRoomStore,
+  addRoomFurni,
+  classifyUserRemove,
+  createRoomEnterGuard,
   enterRoom,
+  markRoomEnter,
+  noteEnterRoster,
   resetRoomStore,
   setRoomFurnis,
   updateRoomFurniStates,
@@ -34,6 +47,7 @@ import {
   upsertRoomUnits,
   type RoomStore
 } from "../room/roomStore";
+import { isUsersPacketReplay } from "../room/muteAll";
 
 interface PacketAction {
   action: "pass" | "block" | "defer" | "replace";
@@ -57,6 +71,8 @@ export class PacketBridge {
   private nativeSend: ((data: Parameters<WebSocket["send"]>[0]) => void) | null = null;
   myself: Myself | null = null;
   room: RoomStore = createRoomStore();
+  private readonly enterGuard = createRoomEnterGuard();
+  private expectHotelView = false;
 
   constructor(registry = packetRegistry) {
     this.registry = registry;
@@ -135,14 +151,14 @@ export class PacketBridge {
   send(headerOrComposer: SendTarget, values?: unknown[]): boolean;
   send(socket: WebSocket, headerOrComposer: SendTarget, values?: unknown[]): boolean;
   send(socketOrHeader: WebSocket | SendTarget, headerOrValues?: SendTarget | unknown[], maybeValues?: unknown[]): boolean {
-    const socket = isWebSocket(socketOrHeader) ? socketOrHeader : this.socket;
-    const headerOrComposer = isWebSocket(socketOrHeader) ? headerOrValues as SendTarget : socketOrHeader;
-    const values = isWebSocket(socketOrHeader) ? maybeValues : headerOrValues as unknown[] | undefined;
+    const socket = isSocketLike(socketOrHeader) ? socketOrHeader : this.socket;
+    const headerOrComposer = isSocketLike(socketOrHeader) ? headerOrValues as SendTarget : socketOrHeader;
+    const values = isSocketLike(socketOrHeader) ? maybeValues : headerOrValues as unknown[] | undefined;
 
     if (!socket || !headerOrComposer) return false;
 
     const data = this.registry.compose(headerOrComposer, values);
-    if (!data || socket.readyState !== WebSocket.OPEN) return false;
+    if (!data || !isSocketOpen(socket)) return false;
 
     const encoded = this.encodeOutgoing(data);
     const result = this.handleOutgoing(socket, encoded, "script");
@@ -170,7 +186,7 @@ export class PacketBridge {
   }
 
   sendQueuedRaw(data: ArrayBuffer): boolean {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.nativeSend) return false;
+    if (!this.socket || !isSocketOpen(this.socket) || !this.nativeSend) return false;
     try {
       this.nativeSend(data);
       return true;
@@ -323,13 +339,20 @@ export class PacketBridge {
         motto: userObject.motto,
         index: null
       };
+      this.healMyselfIndexFromStore();
       this.debugLog("[Luminus] myself definido:", this.myself);
+      return;
+    }
+
+    if (packet.direction === "outgoing" && packet.header === 105) {
+      this.expectHotelView = true;
       return;
     }
 
     if (packet.direction === "incoming" && packet.header === 374 && packet.parsed) {
       const units = packet.parsed as RoomUnit[];
       upsertRoomUnits(this.room, units);
+      noteEnterRoster(this.enterGuard, units.map(unit => unit.index));
       for (const unit of units) {
         if (unit.type !== 1) {
           removePerson(unit.name);
@@ -339,14 +362,49 @@ export class PacketBridge {
         if (link) rememberLink(unit.name, link.text, unit.sex);
       }
       this.updateMyselfIndex(units);
+      const myselfUnit = this.findMyselfUnit(units);
+      if (myselfUnit) this.syncMyselfFromUnit(myselfUnit);
       // Heal if self was already in the store but missing from this 374 batch.
       this.healMyselfIndexFromStore();
       this.debugLog("[Luminus] room units:", this.room.units);
       return;
     }
 
+    if (packet.direction === "incoming" && packet.header === 3920 && packet.parsed) {
+      const info = packet.parsed as RoomUnitInfo;
+      const unit = this.room.units.get(info.index);
+      if (unit) {
+        unit.figure = info.figure;
+        unit.sex = info.gender;
+        unit.gender = info.gender;
+        unit.motto = info.motto;
+        if (this.myself?.index === info.index) this.syncMyselfFromUnit(unit);
+      } else if (this.myself?.index === info.index) {
+        this.myself.figure = info.figure;
+        this.myself.gender = info.gender;
+        this.myself.motto = info.motto;
+      }
+      return;
+    }
+
+    if (packet.direction === "incoming" && packet.header === 2429 && packet.parsed) {
+      const update = packet.parsed as FigureUpdate;
+      if (!this.myself) return;
+      this.myself.figure = update.figure;
+      this.myself.gender = update.gender;
+      const unit = this.myself.index == null ? undefined : this.room.units.get(this.myself.index);
+      if (unit) {
+        unit.figure = update.figure;
+        unit.sex = update.gender;
+        unit.gender = update.gender;
+      }
+      return;
+    }
+
     if (packet.direction === "incoming" && packet.header === 2031 && packet.parsed) {
       const roomReady = packet.parsed as RoomReady;
+      this.expectHotelView = false;
+      markRoomEnter(this.enterGuard);
       enterRoom(this.room, roomReady.roomId, roomReady.model);
       if (this.myself) this.myself.index = null;
       this.debugLog("[Luminus] room ready:", this.room);
@@ -379,6 +437,34 @@ export class PacketBridge {
       return;
     }
 
+    if (packet.direction === "incoming" && packet.header === 1534 && packet.parsed) {
+      const added = packet.parsed as FurnitureFloorAdd;
+      added.item.ownerName = added.username || added.item.ownerName;
+      addRoomFurni(this.room, added.item);
+      return;
+    }
+
+    if (packet.direction === "incoming" && packet.header === 1301 && packet.parsed) {
+      this.room.modelData = packet.parsed as RoomModelData;
+      return;
+    }
+
+    if (packet.direction === "incoming" && packet.header === 1664 && packet.parsed) {
+      this.room.entryTile = packet.parsed as RoomEntryTile;
+      return;
+    }
+
+    if (packet.direction === "incoming" && packet.header === 3547 && packet.parsed) {
+      this.room.thickness = packet.parsed as RoomThickness;
+      return;
+    }
+
+    if (packet.direction === "incoming" && [1434, 1108, 383, 362, 356, 368].includes(packet.header) && packet.parsed) {
+      const definition = packet.parsed as WiredDefinition;
+      this.room.wiredDefinitions.set(definition.id, definition);
+      return;
+    }
+
     if (packet.direction === "incoming" && packet.header === 1453 && packet.parsed) {
       updateRoomFurniStates(this.room, packet.parsed as ObjectDataUpdate[]);
       return;
@@ -392,10 +478,19 @@ export class PacketBridge {
     }
 
     if (packet.direction === "incoming" && packet.header === 2661 && typeof packet.parsed === "number") {
-      this.room.units.delete(packet.parsed);
-      if (this.myself?.index === packet.parsed) {
-        // Self left the room — wipe store so units/furnis/id don't linger in the hotel view.
-        this.myself.index = null;
+      if (isUsersPacketReplay()) return;
+      const removed = packet.parsed;
+      const kind = this.expectHotelView && this.myself?.index === removed
+        ? "self-leave"
+        : classifyUserRemove(this.enterGuard, removed, this.myself?.index);
+      if (kind === "ignore") {
+        this.debugLog("[Luminus] ignored stale user remove", removed);
+        return;
+      }
+      this.room.units.delete(removed);
+      if (kind === "self-leave") {
+        this.expectHotelView = false;
+        if (this.myself) this.myself.index = null;
         resetRoomStore(this.room);
         this.debugLog("[Luminus] left room — store reset");
       }
@@ -405,10 +500,23 @@ export class PacketBridge {
   private updateMyselfIndex(units: RoomUnit[]): void {
     if (!this.myself) return;
 
-    const myselfUnit = units.find((unit) =>
+    const myselfUnit = this.findMyselfUnit(units);
+    if (myselfUnit) this.myself.index = myselfUnit.index;
+  }
+
+  private findMyselfUnit(units: Iterable<RoomUnit>): RoomUnit | undefined {
+    if (!this.myself) return undefined;
+    return [...units].find((unit) =>
       unit.type === 1 && (unit.id === this.myself?.id || unit.name === this.myself?.username)
     );
-    if (myselfUnit) this.myself.index = myselfUnit.index;
+  }
+
+  private syncMyselfFromUnit(unit: RoomUnit): void {
+    if (!this.myself) return;
+    this.myself.index = unit.index;
+    this.myself.figure = unit.figure;
+    this.myself.motto = unit.motto;
+    if (unit.sex) this.myself.gender = unit.sex.toUpperCase();
   }
 
   /** Recover myself.index from room.units when sticky-null after RoomReady. */
@@ -417,7 +525,7 @@ export class PacketBridge {
     for (const unit of this.room.units.values()) {
       if (unit.type !== 1) continue;
       if (unit.id === this.myself.id || unit.name === this.myself.username) {
-        this.myself.index = unit.index;
+        this.syncMyselfFromUnit(unit);
         return;
       }
     }
@@ -440,8 +548,4 @@ export class PacketBridge {
 
 function isBinary(data: unknown): data is ArrayBuffer | ArrayBufferView {
   return data instanceof ArrayBuffer || ArrayBuffer.isView(data);
-}
-
-function isWebSocket(value: unknown): value is WebSocket {
-  return value instanceof WebSocket;
 }

@@ -1,5 +1,54 @@
 import { readPref, writePref } from "./util/prefs";
 
+export interface ChangelogVisualFrame {
+  label: string;
+  title: string;
+  description?: string;
+}
+
+export interface ChangelogDemoRow {
+  label: string;
+  value: string;
+}
+
+/** Mídia segura e declarativa para demonstrar uma mudança sem HTML arbitrário. */
+export type ChangelogVisual =
+  | {
+      kind: "image";
+      src: string;
+      alt: string;
+      caption?: string;
+    }
+  | {
+      kind: "comparison";
+      before: ChangelogVisualFrame;
+      after: ChangelogVisualFrame;
+      caption?: string;
+    }
+  | {
+      kind: "demo";
+      title: string;
+      description?: string;
+      badges?: readonly string[];
+      rows?: readonly ChangelogDemoRow[];
+      action?: string;
+      caption?: string;
+    };
+
+export interface ChangelogItem {
+  title: string;
+  description: string;
+  /** Detalhes opcionais ficam recolhidos para manter a leitura rápida. */
+  details?: readonly string[];
+  /** Uma prova visual opcional: imagem, antes/depois ou demonstração nativa. */
+  visual?: ChangelogVisual;
+}
+
+export interface ChangelogSection {
+  title: string;
+  items: readonly ChangelogItem[];
+}
+
 /** Uma entrada do modal de novidades (versão + secções). */
 export interface ChangelogLayer {
   id: string;
@@ -9,13 +58,7 @@ export interface ChangelogLayer {
   title: string;
   summary: string;
   publishedAt: string;
-  sections: readonly {
-    title: string;
-    items: readonly {
-      title: string;
-      description: string;
-    }[];
-  }[];
+  sections: readonly ChangelogSection[];
 }
 
 /** @deprecated Prefer ChangelogLayer — alias para código antigo. */
@@ -32,19 +75,59 @@ export function defineChangelog<const T extends ChangelogLayer>(changelog: T): T
 export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
   id: "luminus",
   label: "Luminus",
-  version: "1.2.3",
-  title: "Luminus 1.2.3",
+  version: "1.3.0",
+  title: "Luminus 1.3",
   summary:
-    "O Luminus volta a funcionar ao entrar no hotel, sem precisar recarregar a página várias vezes.",
-  publishedAt: "18 de agosto de 2026",
+    "Um painel mais organizado, mais controle no quarto e menus bem mais fáceis de ler.",
+  publishedAt: "27 de agosto de 2026",
   sections: [
     {
-      title: "Corrigido",
+      title: "Novo",
       items: [
         {
-          title: "Entrada no hotel",
+          title: "Busca no painel",
           description:
-            "O Luminus volta a acompanhar a sala ao entrar no hotel, sem precisar recarregar a página várias vezes.",
+            "Organizei as categorias e coloquei uma busca para você achar qualquer função sem ficar procurando aba por aba.",
+        },
+        {
+          title: "Lista de Habblets",
+          description:
+            "A lista agora tem filtros por nome, gênero, extensão e links, além de poder ser expandida quando você quiser ver mais jogadores.",
+        },
+        {
+          title: "Identificação no quarto",
+          description:
+            "Adicionei ícones em cima dos avatares para mostrar presenças compatíveis e deixei essa opção configurável no painel.",
+        },
+        {
+          title: "Ações ao entrar no quarto",
+          description:
+            "Agora dá para deixar zoom, enable, handitem, pet e tele configurados para serem aplicados automaticamente quando você entrar.",
+        },
+        {
+          title: "Compatibilidade com extensões externas",
+          description:
+            "Melhorei a compatibilidade com extensões externas para elas funcionarem junto com o Luminus sem atrapalhar a experiência.",
+        },
+      ],
+    },
+    {
+      title: "Melhorado",
+      items: [
+        {
+          title: "Painel de configurações",
+          description:
+            "Deixei as opções mais bem separadas, com grupos expansíveis, filtros mais claros e uma navegação bem mais rápida.",
+        },
+        {
+          title: "Janelas e menus",
+          description:
+            "Dei uma geral no visual das janelas, botões, filtros e menus para tudo ficar mais consistente e legível.",
+        },
+        {
+          title: "Fechar com Esc",
+          description:
+            "Ficou mais rápido fechar logs, links, conversas e outras janelas usando a tecla Esc.",
         },
       ],
     },

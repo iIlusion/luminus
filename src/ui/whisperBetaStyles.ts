@@ -19,16 +19,16 @@ export const WHISPER_BETA_STYLES = `
 
 /* Chat Beta */
 #luminus-chat-beta {
-  --cb-panel: rgba(20, 22, 29, 0.96);
-  --cb-sidebar: rgba(15, 17, 23, 0.94);
-  --cb-thread: rgba(24, 26, 33, 0.96);
-  --cb-hover: rgba(255, 255, 255, 0.055);
-  --cb-active: rgba(122, 142, 238, 0.15);
-  --cb-accent: #9dadff;
+  --cb-panel: var(--luminus-ui-surface);
+  --cb-sidebar: color-mix(in srgb, var(--luminus-ui-surface) 92%, #000);
+  --cb-thread: color-mix(in srgb, var(--luminus-ui-surface) 94%, #fff);
+  --cb-hover: var(--luminus-ui-surface-hover);
+  --cb-active: var(--luminus-ui-surface-active);
+  --cb-accent: var(--luminus-ui-accent);
   --cb-green: #55d6a0;
   --cb-amber: #f2bb66;
   --cb-danger: #ff7f87;
-  --cb-border: rgba(255, 255, 255, 0.09);
+  --cb-border: var(--luminus-ui-border);
   /* No artificial max-width — may use the full Nitro-safe stage. */
   min-width: min(680px, 100%);
   min-height: min(420px, var(--lm-safe-height, 100dvh));
@@ -1514,5 +1514,20 @@ export const WHISPER_BETA_STYLES = `
 @media (hover: none) {
   #luminus-chat-beta .cb-row-menu,
   #luminus-chat-beta .cb-message-menu { opacity: 0.72; }
+}
+
+@media (pointer: coarse) {
+  #luminus-chat-beta button { min-height: 44px; }
+  #luminus-chat-beta .cb-title-actions button,
+  #luminus-chat-beta .cb-thread-actions button,
+  #luminus-chat-beta .cb-mobile-back,
+  #luminus-chat-beta .cb-row-menu,
+  #luminus-chat-beta .cb-message-menu,
+  #luminus-chat-beta .cb-dialog-head button { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luminus-chat-beta-menu[data-state="open"],
+  #luminus-chat-beta .cb-dialog[data-state="open"] { animation: none !important; }
 }
 `;

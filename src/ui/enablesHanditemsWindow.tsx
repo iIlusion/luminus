@@ -186,6 +186,7 @@ export function EnablesHanditemsWindow({ api, open, onClose }: Props) {
       minHeight: 280,
       forceHeight: true,
     });
+    ref.current.focus({ preventScroll: true });
   }, [open]);
 
   if (!open) return null;
@@ -234,12 +235,16 @@ export function EnablesHanditemsWindow({ api, open, onClose }: Props) {
       id="luminus-enables-window"
       className="lm-float-window"
       ref={ref}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="luminus-enables-window-title"
       onWheelCapture={onCatalogWheel}
     >
       <div className="lw-header" onMouseDown={onDragMouseDown}>
         <span className="lw-title">
           <span className="lw-title-dot" />
-          Luminus · Efeitos e Handitems
+          <span id="luminus-enables-window-title">Luminus · Efeitos e Handitems</span>
         </span>
         <div className="lw-header-actions">
           <span className="lw-count">{list.length - 1}/{raw.length}</span>

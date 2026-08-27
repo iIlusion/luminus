@@ -254,6 +254,7 @@ export function WhisperBetaWindow({ api, open, onClose }: Props) {
       width: rect.width,
       height: rect.height,
     });
+    windowRef.current.focus({ preventScroll: true });
   }, [open]);
 
   React.useEffect(() => {
@@ -628,25 +629,30 @@ export function WhisperBetaWindow({ api, open, onClose }: Props) {
     <div
       id="luminus-chat-beta"
       className={`lm-float-window cb-window is-${compactPane}`}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="luminus-chat-beta-title"
       ref={windowRef}
+      tabIndex={-1}
       style={style}
     >
       <header className="cb-titlebar" onMouseDown={onDragMouseDown}>
         <div className="cb-brand">
           <span className="cb-brand-mark"><MessageCirclePlus aria-hidden="true" /></span>
-          <span><strong>Chat</strong></span>
+          <span><strong id="luminus-chat-beta-title">Chat</strong></span>
         </div>
         <div className="cb-title-actions">
           <button
             type="button"
             className={antispam ? "is-active" : ""}
             title={`Antispam de sussurros: ${antispam ? "ativado" : "desativado"}. Não burla o antispam do jogo; apenas envia sussurros digitados rapidamente no intervalo aceito para evitar um mute de 30 segundos.`}
+            aria-label={`Antispam de sussurros: ${antispam ? "ativado" : "desativado"}`}
             aria-pressed={antispam}
             onClick={toggleAntispam}
           >
             <ShieldCheck aria-hidden="true" />
           </button>
-          <button type="button" title="Fechar Chat Beta" onClick={onClose}>
+          <button type="button" title="Fechar Chat Beta" aria-label="Fechar Chat Beta" onClick={onClose}>
             <X aria-hidden="true" />
           </button>
         </div>
@@ -664,7 +670,7 @@ export function WhisperBetaWindow({ api, open, onClose }: Props) {
                 aria-label="Buscar conversas"
               />
             </label>
-            <button type="button" className="cb-icon-primary" title="Nova conversa" onClick={() => setNewChatOpen(true)}>
+            <button type="button" className="cb-icon-primary" title="Nova conversa" aria-label="Iniciar nova conversa" onClick={() => setNewChatOpen(true)}>
               <MessageCirclePlus aria-hidden="true" />
             </button>
           </div>
@@ -849,12 +855,12 @@ export function WhisperBetaWindow({ api, open, onClose }: Props) {
               <div className="cb-dialog-head">
                 <Dialog.Title asChild><strong>Renomear grupo</strong></Dialog.Title>
                 <Dialog.Close asChild>
-                  <button type="button" title="Fechar"><X /></button>
+                  <button type="button" title="Fechar" aria-label="Fechar renomeação do grupo"><X /></button>
                 </Dialog.Close>
               </div>
               <label>
                 Nome do grupo
-                <input autoFocus value={renameValue} maxLength={60} onChange={event => setRenameValue(event.target.value)} />
+                        <input autoFocus value={renameValue} maxLength={60} aria-label="Nome do grupo" onChange={event => setRenameValue(event.target.value)} />
               </label>
               <div className="cb-dialog-actions">
                 <Dialog.Close asChild><button type="button">Cancelar</button></Dialog.Close>
@@ -876,7 +882,7 @@ export function WhisperBetaWindow({ api, open, onClose }: Props) {
                 <div className="cb-dialog-head">
                   <Dialog.Title asChild><strong>Membros de {conversation.displayName}</strong></Dialog.Title>
                   <Dialog.Close asChild>
-                    <button type="button" title="Fechar"><X /></button>
+                    <button type="button" title="Fechar" aria-label="Fechar lista de membros"><X /></button>
                   </Dialog.Close>
                 </div>
                 <ChatScrollArea className="cb-member-scroll" viewportClassName="cb-member-list">
@@ -1075,7 +1081,7 @@ const WhisperThreadPane = React.memo(function WhisperThreadPane({
   return (
     <>
       <header className="cb-thread-header">
-        <button type="button" className="cb-mobile-back" title="Voltar" onClick={onBack}>
+        <button type="button" className="cb-mobile-back" title="Voltar" aria-label="Voltar para a lista de conversas" onClick={onBack}>
           <ArrowLeft aria-hidden="true" />
         </button>
         <button
@@ -1100,6 +1106,7 @@ const WhisperThreadPane = React.memo(function WhisperThreadPane({
             type="button"
             className={searchOpen ? "is-active" : ""}
             title={searchOpen ? "Fechar pesquisa" : "Pesquisar na conversa"}
+            aria-label={searchOpen ? "Fechar pesquisa na conversa" : "Pesquisar na conversa"}
             aria-pressed={searchOpen}
             onClick={() => {
               setSearchOpen(open => {
@@ -1111,16 +1118,16 @@ const WhisperThreadPane = React.memo(function WhisperThreadPane({
             <Search aria-hidden="true" />
           </button>
           {conversation.kind === "user" && (
-            <button type="button" title="Abrir perfil" onClick={() => openUserProfile(api, conversation.recipient)}>
+            <button type="button" title="Abrir perfil" aria-label={`Abrir perfil de ${conversation.recipient}`} onClick={() => openUserProfile(api, conversation.recipient)}>
               <UserRound aria-hidden="true" />
             </button>
           )}
           <ChatDropdownMenu actions={conversationActions}>
-            <button type="button" title="Ações da conversa">
+            <button type="button" title="Ações da conversa" aria-label="Abrir ações da conversa">
               <EllipsisVertical aria-hidden="true" />
             </button>
           </ChatDropdownMenu>
-          <button type="button" title="Fechar conversa" onClick={onCloseConversation}>
+          <button type="button" title="Fechar conversa" aria-label="Fechar conversa" onClick={onCloseConversation}>
             <X aria-hidden="true" />
           </button>
         </div>
@@ -1811,7 +1818,7 @@ function NewChatDialog({
           <div className="cb-dialog-head">
             <Dialog.Title asChild><strong>Nova conversa</strong></Dialog.Title>
             <Dialog.Close asChild>
-              <button type="button" title="Fechar"><X /></button>
+              <button type="button" title="Fechar" aria-label="Fechar nova conversa"><X /></button>
             </Dialog.Close>
           </div>
           <Tabs.Root
@@ -1834,7 +1841,7 @@ function NewChatDialog({
             )}
             <label className="cb-search is-dialog">
               <Search aria-hidden="true" />
-              <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar pessoas" />
+              <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar pessoas" aria-label="Buscar pessoas para a conversa" />
             </label>
             {mode === "group" && selected.length > 0 && (
               <div className="cb-selected-members">
@@ -2272,6 +2279,7 @@ const ChatMessageRow = React.memo(function ChatMessageRow({
                 type="button"
                 className="cb-message-menu"
                 title="Ações da mensagem"
+                aria-label="Abrir ações da mensagem"
               >
                 <MoreHorizontal aria-hidden="true" />
               </button>

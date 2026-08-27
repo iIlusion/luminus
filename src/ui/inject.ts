@@ -28,6 +28,10 @@ import {
 import { startRoomChatSessions } from "../chat/roomChatSessionStore";
 import { startUiSafeBoundsWatch } from "./windowBounds";
 import { initWardrobeTools } from "./wardrobeTools";
+import { initUtilityAutomations } from "./utilityAutomations";
+import { initEscapeClose } from "./escapeClose";
+import type { PanelExtension } from "./panelExtensions";
+import { HABBLET_LIST_STYLES } from "./habbletListStyles";
 
 // Keep the experimental chat isolated so a beta render failure cannot unmount the stable UI.
 let root: ReturnType<typeof ReactDOM.createRoot> | null = null;
@@ -40,6 +44,7 @@ let whisperBetaOpen = false;
 let changelogLayers: ChangelogLayer[] | null = null;
 let uiChangelogLayers: readonly ChangelogLayer[] = [LUMINUS_CHANGELOG_LAYER];
 let uiChangelogPrefsKey = "luminus.changelog.seenVersions";
+let uiPanelExtensions: readonly PanelExtension[] = [];
 
 function render(api: LuminusApi) {
   if (!root) return;
@@ -48,6 +53,7 @@ function render(api: LuminusApi) {
       React.createElement(LuminusPanel, {
         api,
         open,
+        extensions: uiPanelExtensions,
         onClose:     () => { open = false;     render(api); },
         onOpenLogs:  () => { logOpen = true;    render(api); },
         onOpenLinks: () => { linkOpen = true;   render(api); },
@@ -142,6 +148,8 @@ export type InitUIOptions = {
   changelogLayers?: readonly ChangelogLayer[];
   /** Chave de preferência do “já vi estas versões”. */
   changelogPrefsKey?: string;
+  /** Módulos opcionais renderizados dentro do shell do painel. */
+  panelExtensions?: readonly PanelExtension[];
 };
 
 export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
@@ -149,11 +157,12 @@ export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
     ? options.changelogLayers
     : [LUMINUS_CHANGELOG_LAYER];
   uiChangelogPrefsKey = options.changelogPrefsKey ?? "luminus.changelog.seenVersions";
+  uiPanelExtensions = options.panelExtensions ?? [];
 
   // inject styles
   const style = document.createElement("style");
   style.id = "luminus-ui-styles";
-  style.textContent = PANEL_STYLES;
+  style.textContent = [PANEL_STYLES, HABBLET_LIST_STYLES, ...uiPanelExtensions.map(extension => extension.styles ?? "")].join("\n");
   (document.head ?? document.documentElement).appendChild(style);
 
   const betaStyle = document.createElement("style");
@@ -173,6 +182,8 @@ export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
     startUiSafeBoundsWatch();
     initUiAppearance();
     initWardrobeTools(api);
+    initUtilityAutomations(api);
+    initEscapeClose();
     initRespectMessageGrouping(api);
     initHighScoreProfileLinks(api);
     document.body.classList.toggle("luminus-wardrobe-stacked", getWardrobeStacked());

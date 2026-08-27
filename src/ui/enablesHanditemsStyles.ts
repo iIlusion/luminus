@@ -258,6 +258,11 @@ export const ENABLES_HANDITEMS_STYLES = `
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  #luminus-enables-window .lm-eh-thumb.is-loading::before,
+  #luminus-enables-window .lm-eh-thumb.is-idle::before { animation: none !important; }
+}
+
 #luminus-enables-window .lm-eh-thumb.is-error {
   background-image: none !important;
   background: rgba(255, 100, 120, 0.08);

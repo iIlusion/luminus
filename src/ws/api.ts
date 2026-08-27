@@ -6,6 +6,21 @@ import { RoomUnitChatComposer } from "../messages/outgoing/RoomUnitChatComposer"
 import { RoomUnitWhisperComposer } from "../messages/outgoing/RoomUnitWhisperComposer";
 import { UserIgnoreComposer } from "../messages/outgoing/UserIgnoreComposer";
 import { UserUnignoreComposer } from "../messages/outgoing/UserUnignoreComposer";
+import { RoomEntryTileComposer } from "../messages/outgoing/RoomEntryTileComposer";
+import { RoomModelSaveComposer } from "../messages/outgoing/RoomModelSaveComposer";
+import { FurniturePlaceComposer } from "../messages/outgoing/FurniturePlaceComposer";
+import { RoomConstructionToolComposer } from "../messages/outgoing/RoomConstructionToolComposer";
+import { FurnitureInventoryComposer } from "../messages/outgoing/FurnitureInventoryComposer";
+import { ProductOfferComposer } from "../messages/outgoing/ProductOfferComposer";
+import { CatalogPurchaseComposer } from "../messages/outgoing/CatalogPurchaseComposer";
+import { GetCatalogPageComposer } from "../messages/outgoing/GetCatalogPageComposer";
+import { RoomModelComposer } from "../messages/outgoing/RoomModelComposer";
+import { FurnitureMultiStateComposer } from "../messages/outgoing/FurnitureMultiStateComposer";
+import { WiredActionSaveComposer, WiredAddonSaveComposer, WiredConditionSaveComposer, WiredSelectorSaveComposer, WiredTriggerSaveComposer, WiredVariableSaveComposer } from "../messages/outgoing/WiredSaveComposers";
+import { GetWiredVariablesComposer } from "../messages/outgoing/GetWiredVariablesComposer";
+import { GetWiredToolInspectionComposer } from "../messages/outgoing/GetWiredToolInspectionComposer";
+import { FurnitureClickComposer } from "../messages/outgoing/FurnitureClickComposer";
+import { FurniturePickupComposer } from "../messages/outgoing/FurniturePickupComposer";
 import type { PacketComposer, PacketHandler } from "../protocol/types";
 import { PacketBridge } from "./PacketBridge";
 import { readPref, writePref } from "../util/prefs";
@@ -17,6 +32,8 @@ import type { BadgeProgress, LevelThreshold } from "../achievements/achievementS
 import { runChatBetaDiag } from "../diag/chatBetaDiag";
 import { chatStressApi, runChatThreadStress } from "../diag/chatStress";
 import { runNitroWeightProbe } from "../diag/nitroWeightProbe";
+import { createFurnitureDataApi, type FurnitureDataApi } from "../room/furnitureData";
+import type { RoomPickApi } from "../room/roomPick";
 import {
   abortCatalogThumbBake,
   bakeCatalogThumbs,
@@ -34,6 +51,8 @@ type SendTarget = number | string | PacketComposer;
 export interface LuminusApi {
   myself: Myself | null;
   room: PacketBridge["room"];
+  furnitureData: FurnitureDataApi;
+  roomPick?: RoomPickApi;
   bridge: PacketBridge;
   onIncoming(header: number, handler: PacketHandler): () => void;
   onOutgoing(header: number, handler: PacketHandler): () => void;
@@ -55,6 +74,26 @@ export interface LuminusApi {
     RoomUnitWhisper: typeof RoomUnitWhisperComposer;
     UserIgnore: typeof UserIgnoreComposer;
     UserUnignore: typeof UserUnignoreComposer;
+    RoomEntryTile: typeof RoomEntryTileComposer;
+    RoomModelSave: typeof RoomModelSaveComposer;
+    FurniturePlace: typeof FurniturePlaceComposer;
+    RoomConstructionTool: typeof RoomConstructionToolComposer;
+    FurnitureInventory: typeof FurnitureInventoryComposer;
+    ProductOffer: typeof ProductOfferComposer;
+    CatalogPurchase: typeof CatalogPurchaseComposer;
+    GetCatalogPage: typeof GetCatalogPageComposer;
+    RoomModel: typeof RoomModelComposer;
+    FurnitureMultiState: typeof FurnitureMultiStateComposer;
+    WiredActionSave: typeof WiredActionSaveComposer;
+    WiredConditionSave: typeof WiredConditionSaveComposer;
+    WiredTriggerSave: typeof WiredTriggerSaveComposer;
+    WiredSelectorSave: typeof WiredSelectorSaveComposer;
+    WiredAddonSave: typeof WiredAddonSaveComposer;
+    WiredVariableSave: typeof WiredVariableSaveComposer;
+    GetWiredVariables: typeof GetWiredVariablesComposer;
+    GetWiredToolInspection: typeof GetWiredToolInspectionComposer;
+    FurnitureClick: typeof FurnitureClickComposer;
+    FurniturePickup: typeof FurniturePickupComposer;
   };
   muteAll?: {
     getState(): MuteAllState;
@@ -155,6 +194,7 @@ export function createApi(bridge: PacketBridge): LuminusApi {
       return bridge.getSocket();
     },
     bridge,
+    furnitureData: createFurnitureDataApi(),
     onIncoming: bridge.onIncoming.bind(bridge),
     onOutgoing: bridge.onOutgoing.bind(bridge),
     onPacket: bridge.onPacket.bind(bridge),
@@ -166,6 +206,12 @@ export function createApi(bridge: PacketBridge): LuminusApi {
       if (ok && bridge.myself) {
         bridge.myself.figure = figure;
         bridge.myself.gender = gender;
+        const unit = bridge.myself.index == null ? undefined : bridge.room.units.get(bridge.myself.index);
+        if (unit) {
+          unit.figure = figure;
+          unit.sex = gender.toUpperCase();
+          unit.gender = gender.toUpperCase();
+        }
       }
       return ok;
     },
@@ -180,6 +226,26 @@ export function createApi(bridge: PacketBridge): LuminusApi {
       RoomUnitWhisper: RoomUnitWhisperComposer,
       UserIgnore: UserIgnoreComposer,
       UserUnignore: UserUnignoreComposer,
+      RoomEntryTile: RoomEntryTileComposer,
+      RoomModelSave: RoomModelSaveComposer,
+      FurniturePlace: FurniturePlaceComposer,
+      RoomConstructionTool: RoomConstructionToolComposer,
+      FurnitureInventory: FurnitureInventoryComposer,
+      ProductOffer: ProductOfferComposer,
+      CatalogPurchase: CatalogPurchaseComposer,
+      GetCatalogPage: GetCatalogPageComposer,
+      RoomModel: RoomModelComposer,
+      FurnitureMultiState: FurnitureMultiStateComposer,
+      GetWiredVariables: GetWiredVariablesComposer,
+      GetWiredToolInspection: GetWiredToolInspectionComposer,
+      FurnitureClick: FurnitureClickComposer,
+      FurniturePickup: FurniturePickupComposer,
+      WiredActionSave: WiredActionSaveComposer,
+      WiredConditionSave: WiredConditionSaveComposer,
+      WiredTriggerSave: WiredTriggerSaveComposer,
+      WiredSelectorSave: WiredSelectorSaveComposer,
+      WiredAddonSave: WiredAddonSaveComposer,
+      WiredVariableSave: WiredVariableSaveComposer,
     },
     debug: {
       isEnabled: bridge.getDebug.bind(bridge),

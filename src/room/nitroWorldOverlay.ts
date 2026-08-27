@@ -40,7 +40,7 @@ export type RoomEngine = {
     objectType: number,
     canvasId?: number,
   ): { x: number; y: number } | null;
-  /** Sprite AABB in canvas space Ã¢â‚¬â€ tracks sit/lay/stand height (Hibisco uses this). */
+  /** Sprite AABB in canvas space; tracks sit, lay and stand height. */
   getRoomObjectBoundingRectangle?(
     roomId: number,
     objectId: number,
@@ -48,7 +48,43 @@ export type RoomEngine = {
     canvasId?: number,
   ): RoomObjectBounds | null;
   getRoomObject?(roomId: number, id: number, category: number): unknown;
+  getRoomObjectCursor?(roomId: number): { getLocation?(): { x: number; y: number; z?: number }; location?: { x: number; y: number; z?: number } } | null;
   getRoomObjects?(roomId: number, category: number): unknown[];
+  getRoomInstanceGeometry?(roomId: number, canvasId?: number): {
+    getScreenPoint?(location: unknown): { x: number; y: number } | null;
+  } | null;
+  getActiveRoomInstanceRenderingCanvas?(): {
+    width?: number;
+    height?: number;
+    scale?: number;
+    screenOffsetX?: number;
+    screenOffsetY?: number;
+  } | null;
+  getFurnitureFloorImage?(
+    typeId: number,
+    direction: unknown,
+    scale: number,
+    listener: { imageReady?(id: number, texture?: unknown): void; imageFailed?(id: number): void } | null,
+    bgColor?: number,
+    extras?: string | null,
+    state?: number,
+    frameCount?: number,
+  ): { getImage?: () => HTMLImageElement | Promise<HTMLImageElement | null> | null } | null;
+  objectEventHandler?: {
+    handleRoomObjectMouseEvent?(event: unknown, roomId: number): void;
+  };
+  setMoveBlocked?(blocked: boolean): void;
+  handleRoomDragging?(
+    canvas: unknown,
+    x: number,
+    y: number,
+    type: unknown,
+    altKey: boolean,
+    ctrlKey: boolean,
+    shiftKey: boolean,
+  ): boolean;
+  _activeRoomIsDragged?: boolean;
+  _activeRoomWasDragged?: boolean;
 };
 
 function isRoomEngine(value: unknown): value is RoomEngine {
@@ -227,12 +263,10 @@ export function initNitroWorldOverlay(_api: LuminusApi, target: Window): void {
   installWebpackProbe(page);
   installRoomEngineDiscoverLoop(page);
 
-  // Strip legacy self-only marker from older builds / hot reload.
   try {
-    page.document?.querySelectorAll(".luminus-world-marker").forEach(el => el.remove());
+    page.document?.querySelectorAll(".luminus-world-marker").forEach(element => element.remove());
   } catch { /* page not ready */ }
 }
-
 export function initNitroRoomEngineProbe(target: Window): void {
   const page = target as NitroWindow;
   installRoomEngineEvalProbe(page);

@@ -39,6 +39,10 @@ export class PacketReader {
     return this.reader.readDouble();
   }
 
+  readLong(): number {
+    return this.reader.readLong();
+  }
+
   readString(): string {
     const length = this.readShort();
     return this.decoder.decode(this.readBytes(length));

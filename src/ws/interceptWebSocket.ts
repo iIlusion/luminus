@@ -1,4 +1,5 @@
 import { PacketBridge } from "./PacketBridge";
+import { getInnermostSocket } from "./socketContract";
 
 type WebSocketWindow = Window & { WebSocket: typeof WebSocket; Luminus?: unknown };
 type MessageListener = EventListenerOrEventListenerObject;
@@ -33,11 +34,52 @@ export function interceptWebSocket(target: WebSocketWindow, bridge: PacketBridge
   patchNativeWebSocket(NativeWebSocket, bridge);
 
   class InterceptedWebSocket extends NativeWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+
     constructor(url: string | URL, protocols?: string | string[]) {
       super(url, protocols ?? []);
       const proto = NativeWebSocket.prototype as PatchedProto;
       proto[ATTACH]?.(this);
       if (bridge.getDebug()) console.log("[Luminus] WebSocket criando:", url, protocols);
+    }
+
+    get readyState(): number {
+      const inner = getInnermostSocket(this);
+      return inner && inner !== this ? inner.readyState : super.readyState;
+    }
+
+    get bufferedAmount(): number {
+      const inner = getInnermostSocket(this);
+      return inner && inner !== this ? inner.bufferedAmount : super.bufferedAmount;
+    }
+
+    get extensions(): string {
+      const inner = getInnermostSocket(this);
+      return inner && inner !== this ? inner.extensions : super.extensions;
+    }
+
+    get protocol(): string {
+      const inner = getInnermostSocket(this);
+      return inner && inner !== this ? inner.protocol : super.protocol;
+    }
+
+    get url(): string {
+      const inner = getInnermostSocket(this);
+      return inner && inner !== this ? inner.url : super.url;
+    }
+
+    get binaryType(): BinaryType {
+      const inner = getInnermostSocket(this);
+      return inner && inner !== this ? inner.binaryType : super.binaryType;
+    }
+
+    set binaryType(value: BinaryType) {
+      const inner = getInnermostSocket(this);
+      if (inner && inner !== this) inner.binaryType = value;
+      else super.binaryType = value;
     }
   }
 
@@ -100,8 +142,9 @@ function patchNativeWebSocket(NativeWebSocket: typeof WebSocket, bridge: PacketB
   };
 
   const attach = (socket: WebSocket): void => {
+    const inner = getInnermostSocket(socket) ?? socket;
     bridge.setSocket(socket);
-    bridge.setNativeSend(data => nativeSend.call(socket, data));
+    bridge.setNativeSend(data => nativeSend.call(inner, data));
 
     const state = getHooks(socket);
     if (!state.pumped) {

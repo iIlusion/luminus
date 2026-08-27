@@ -13,6 +13,8 @@ import { setupLogHandlers, LOGS_CONFIG_DEFAULT } from "../logs/logHandlers";
 import { readPref, writePref } from "../util/prefs";
 import { initMcpBridge } from "../bridge/mcpBridge";
 import { initNitroRoomEngineProbe, initNitroWorldOverlay } from "../room/nitroWorldOverlay";
+import { initRoomPick } from "../room/roomPick";
+import { initPeerIdentify } from "../room/peerIdentify";
 import { initIncrementalRoomCanvas } from "../room/incrementalRoomCanvas";
 import { initMuteAll } from "../room/muteAll";
 import { initFurniClassHide } from "../room/furniClassHide";
@@ -24,6 +26,8 @@ import { initOutgoingClickAlerts } from "../ui/userClickActions";
 import { runChatBetaDiag } from "../diag/chatBetaDiag";
 import { runNitroWeightProbe } from "../diag/nitroWeightProbe";
 import { PacketReader } from "../protocol/wrapper";
+import type { PanelExtension } from "../ui/panelExtensions";
+import { initHabbletList } from "../ui/habbletList";
 
 declare const GM_registerMenuCommand: undefined | ((name: string, callback: () => void) => void);
 
@@ -45,6 +49,8 @@ export type BootLuminusOptions = {
   changelogLayers?: readonly ChangelogLayer[];
   /** Chave de preferência do “já vi estas versões”. */
   changelogPrefsKey?: string;
+  /** Módulos opcionais renderizados pelo shell do painel. */
+  panelExtensions?: readonly PanelExtension[];
 };
 
 function readSetting<T>(name: string, defaultValue: T): T {
@@ -173,13 +179,17 @@ export function bootLuminus(options: BootLuminusOptions = {}): BootLuminusResult
   initUI(api, {
     changelogLayers: options.changelogLayers,
     changelogPrefsKey: options.changelogPrefsKey,
+    panelExtensions: options.panelExtensions,
   });
   initOutgoingClickAlerts(api);
   initNitroWorldOverlay(api, targetWindow);
+  initRoomPick(api, targetWindow);
+  initPeerIdentify(api, targetWindow);
   initMuteAll(api);
   initFurniClassHide(api);
   initAchievements(api);
   initInfostandLinks(api);
+  initHabbletList(api, targetWindow);
   if (__LUMINUS_MCP__) initMcpBridge(api);
 
   if (bridge.getDebug()) console.log("[Luminus] WebSocket interceptado.");
