@@ -30,6 +30,12 @@ export type RoomObjectBounds = {
   height: number;
 };
 
+export type SelectedRoomObjectData = {
+  id: number;
+  category: number;
+  operation: string;
+};
+
 export type RoomEngine = {
   activeRoomId?: number;
   /** Active canvas id used by Nitro for bounding rects (usually 1). */
@@ -48,6 +54,7 @@ export type RoomEngine = {
     canvasId?: number,
   ): RoomObjectBounds | null;
   getRoomObject?(roomId: number, id: number, category: number): unknown;
+  getSelectedRoomObjectData?(roomId: number): SelectedRoomObjectData | null;
   getRoomObjectCursor?(roomId: number): { getLocation?(): { x: number; y: number; z?: number }; location?: { x: number; y: number; z?: number } } | null;
   getRoomObjects?(roomId: number, category: number): unknown[];
   getRoomInstanceGeometry?(roomId: number, canvasId?: number): {
@@ -72,6 +79,8 @@ export type RoomEngine = {
   ): { getImage?: () => HTMLImageElement | Promise<HTMLImageElement | null> | null } | null;
   objectEventHandler?: {
     handleRoomObjectMouseEvent?(event: unknown, roomId: number): void;
+    placeObject?(roomId: number, isTileEvent: boolean, isWallEvent: boolean): void;
+    modifyRoomObject?(roomId: number, objectId: number, category: number, operation: string): boolean;
   };
   setMoveBlocked?(blocked: boolean): void;
   handleRoomDragging?(

@@ -27,6 +27,11 @@ import {
   setCloseWindowsOnEscape,
 } from "./escapeClose";
 import {
+  getMobiHotkeySettings,
+  setMobiHotkeySettings,
+  type MobiHotkeySettings,
+} from "./mobiHotkeys";
+import {
   getMuteSignSettings,
   getRoomEntryActionSettings,
   setMuteSignSettings,
@@ -786,6 +791,17 @@ export function LuminusPanel({ api, open, extensions = [], onClose, onOpenLogs, 
   function toggleCloseWindowsOnEscape(enabled: boolean) {
     setCloseWindowsOnEscape(enabled);
     setCloseWindowsOnEscapeState(enabled);
+  }
+  const [mobiHotkeys, setMobiHotkeysState] = React.useState<MobiHotkeySettings>(
+    () => getMobiHotkeySettings(),
+  );
+
+  function toggleMobiHotkey<K extends keyof MobiHotkeySettings>(key: K, enabled: boolean): void {
+    setMobiHotkeysState(current => {
+      const next = { ...current, [key]: enabled };
+      setMobiHotkeySettings(next);
+      return next;
+    });
   }
 
   const panelCategories = React.useMemo(() => [
@@ -1568,9 +1584,52 @@ export function LuminusPanel({ api, open, extensions = [], onClose, onOpenLogs, 
               </Switch.Root>
             </div>
           </div>
+          <div className="lm-section" data-lm-section="mobi-hotkeys">
+            <div className="lm-section-title">Atalhos de mobis</div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Macros do inventário (F1–F8)
+                <span className="lm-sub">Abre o inventário nativo e pesquisa a categoria do mobi.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={mobiHotkeys.inventorySearch}
+                onCheckedChange={enabled => toggleMobiHotkey("inventorySearch", enabled)}
+                aria-label="Ativar macros do inventário"
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Desfazer/refazer (Ctrl+Z / Ctrl+Y)
+                <span className="lm-sub">Desfaz ou refaz a última ação de construção do quarto.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={mobiHotkeys.historyActions}
+                onCheckedChange={enabled => toggleMobiHotkey("historyActions", enabled)}
+                aria-label="Ativar desfazer e refazer de mobis"
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Finalizar mobi com Esc
+                <span className="lm-sub">Coloca ou move o mobi na posição atual do mouse.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={mobiHotkeys.escapePlacement}
+                onCheckedChange={enabled => toggleMobiHotkey("escapePlacement", enabled)}
+                aria-label="Ativar finalizar mobi com Escape"
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+          </div>
         </div>}
-
-        
 
         {devMode && view === "packets" && <div className="lm-tab-content">
           <div className="lm-section">

@@ -28,6 +28,7 @@ import { runNitroWeightProbe } from "../diag/nitroWeightProbe";
 import { PacketReader } from "../protocol/wrapper";
 import type { PanelExtension } from "../ui/panelExtensions";
 import { initHabbletList } from "../ui/habbletList";
+import { initMobiHotkeys } from "../ui/mobiHotkeys";
 
 declare const GM_registerMenuCommand: undefined | ((name: string, callback: () => void) => void);
 
@@ -175,6 +176,7 @@ export function bootLuminus(options: BootLuminusOptions = {}): BootLuminusResult
   initWhisperQueue(bridge);
   initNativeGroupWhisperReset(api);
   initNativeGroupNoticeHider();
+  initMobiHotkeys(api, targetWindow);
   initKeyboardLook(api);
   initUI(api, {
     changelogLayers: options.changelogLayers,

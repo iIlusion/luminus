@@ -215,8 +215,10 @@ export class OutgoingHeader
     public static UPDATE_ROOM_THUMBNAIL = 2468;
     public static ROOM_KICK = 1320;
     public static ROOM_LIKE = 3582;
-    public static ROOM_MODEL = 2300;
-    public static GET_OCCUPIED_TILES = 1687;
+public static ROOM_MODEL = 2300;
+public static ROOM_CONSTRUCTION_TOOL = 397;
+public static ROOM_CONSTRUCTION_TOOL_HISTORY_ACTION = 399;
+public static GET_OCCUPIED_TILES = 1687;
     public static GET_ROOM_ENTRY_TILE = 3559;
     public static ROOM_MODEL_SAVE = 875;
     public static ROOM_MUTE = 3637;
