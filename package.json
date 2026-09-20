@@ -81,7 +81,8 @@
     "test:panel-navigation": "esbuild src/ui/panelNavigation.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:enables-handitems": "esbuild src/ui/enablesHanditemsCatalog.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:ws-intercept": "esbuild src/ws/interceptWebSocket.test.ts --bundle --platform=node --format=esm | node --input-type=module",
-    "test:room-enter": "node --experimental-strip-types src/room/roomStore.enter.test.ts"
+    "test:room-enter": "node --experimental-strip-types src/room/roomStore.enter.test.ts",
+    "test:chat-autocomplete": "esbuild src/chat/commandAutocomplete.test.ts --bundle --platform=node --format=esm | node --input-type=module"
   },
   "devDependencies": {
     "@radix-ui/react-separator": "1.1.11",
