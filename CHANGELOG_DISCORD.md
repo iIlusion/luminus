@@ -1,39 +1,25 @@
-# ✨ Luminus v1.3.0
+# ✨ Luminus v1.3.1
 
-> Um painel mais organizado, mais controle no quarto e menus bem mais fáceis de ler.
+> Mais agilidade para construir, buscar comandos e identificar corretamente quem está no quarto.
 
 ## 🆕 Novo
 
-**Busca no painel**
+**Atalhos rápidos para mobis**
 
-Organizei as categorias e coloquei uma busca para você achar qualquer função sem ficar procurando aba por aba.
+Use F1 a F8 para abrir o inventário e encontrar categorias de mobis. Ctrl+Z e Ctrl+Y desfazem ou refazem ações, e Esc finaliza a colocação ou movimentação no ponto atual do mouse.
 
-**Lista de Habblets**
+**Autocomplete de comandos no chat**
 
-A lista agora tem filtros por nome, gênero, extensão e links, além de poder ser expandida quando você quiser ver mais jogadores.
-
-**Identificação no quarto**
-
-Adicionei ícones em cima dos avatares para mostrar presenças compatíveis e deixei essa opção configurável no painel.
-
-**Ações ao entrar no quarto**
-
-Agora dá para deixar zoom, enable, handitem, pet e tele configurados para serem aplicados automaticamente quando você entrar.
-
-**Compatibilidade com extensões externas**
-
-Melhorei a compatibilidade com extensões externas para elas funcionarem junto com o Luminus sem atrapalhar a experiência.
+Digite : no chat para encontrar comandos do hotel com sugestões rápidas, navegação pelas setas e confirmação com Enter ou Tab.
 
 ## ✨ Melhorado
 
-**Painel de configurações**
+**Busca do inventário**
 
-Deixei as opções mais bem separadas, com grupos expansíveis, filtros mais claros e uma navegação bem mais rápida.
+A primeira pesquisa aguarda o carregamento do inventário terminar antes de aplicar o filtro. Os três controles de mobis também podem ser ligados ou desligados individualmente no submenu Quarto.
 
-**Janelas e menus**
+## 🐛 Corrigido
 
-Dei uma geral no visual das janelas, botões, filtros e menus para tudo ficar mais consistente e legível.
+**Identificação e log de cliques**
 
-**Fechar com Esc**
-
-Ficou mais rápido fechar logs, links, conversas e outras janelas usando a tecla Esc.
+Bots com o mesmo nome não substituem mais o usuário real no infostand. Nomes com pontuação também são reconhecidos corretamente no registro de cliques.
