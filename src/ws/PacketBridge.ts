@@ -48,6 +48,7 @@ import {
   type RoomStore
 } from "../room/roomStore";
 import { isUsersPacketReplay } from "../room/muteAll";
+import { resolveRoomUnitByName } from "../room/roomIdentity";
 
 interface PacketAction {
   action: "pass" | "block" | "defer" | "replace";
@@ -355,7 +356,11 @@ export class PacketBridge {
       noteEnterRoster(this.enterGuard, units.map(unit => unit.index));
       for (const unit of units) {
         if (unit.type !== 1) {
-          removePerson(unit.name);
+          // A bot may share a display name with a real user. Only clear a
+          // link record when no real user with that name exists in the room.
+          if (resolveRoomUnitByName(this.room.units.values(), unit.name)?.type !== 1) {
+            removePerson(unit.name);
+          }
           continue;
         }
         const link = findLinkInMotto(unit.motto);

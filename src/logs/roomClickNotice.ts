@@ -106,8 +106,10 @@ export function parseRoomClickNotice(
 
   // 1) Preferir um unit real do quarto no prefixo (mais longo vence).
   let actor = "";
+  let actorResolvedFromRoom = false;
   if (roomNames) {
     actor = findRoomActor(normPrefix, roomNames);
+    actorResolvedFromRoom = Boolean(actor);
   }
 
   // 2) Fallback: texto antes do verbo no original, sem lixo decorativo.
@@ -117,7 +119,7 @@ export function parseRoomClickNotice(
     actor = cleanActorCandidate(message.slice(0, originalVerb.index));
   }
 
-  actor = cleanActorCandidate(actor);
+  if (!actorResolvedFromRoom) actor = cleanActorCandidate(actor);
   if (!actor || actor.length > 32) return null;
   if (GENERIC_ACTOR.test(actor)) return null;
 

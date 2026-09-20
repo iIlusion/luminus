@@ -59,6 +59,107 @@ body {
   --lw-mono: var(--luminus-ui-mono);
 }
 
+#luminus-chat-command-autocomplete {
+  position: fixed;
+  z-index: 2147483647;
+  box-sizing: border-box;
+  padding: 7px;
+  overflow: hidden;
+  color: var(--luminus-ui-text);
+  font-family: var(--luminus-ui-sans);
+  font-size: 12px;
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(142, 162, 255, 0.14), transparent 58%),
+    rgba(15, 17, 26, 0.94);
+  border: 1px solid var(--luminus-ui-border);
+  border-radius: 12px;
+  box-shadow: var(--luminus-ui-shadow), 0 0 0 1px rgba(142, 162, 255, 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+#luminus-chat-command-autocomplete[hidden] { display: none; }
+#luminus-chat-command-autocomplete .lm-command-autocomplete-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 6px 7px;
+  color: var(--luminus-ui-text-dim);
+  font-size: 11px;
+  font-weight: 650;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-hint {
+  color: var(--luminus-ui-muted);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-list {
+  display: grid;
+  gap: 3px;
+  max-height: min(292px, 42vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-item {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-item:hover,
+#luminus-chat-command-autocomplete .lm-command-autocomplete-item.is-selected {
+  background: var(--luminus-ui-surface-active);
+  border-color: rgba(142, 162, 255, 0.34);
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-item.is-selected {
+  box-shadow: inset 2px 0 0 var(--luminus-ui-accent);
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-code {
+  color: var(--luminus-ui-accent-strong);
+  font-family: var(--luminus-ui-mono);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-description {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--luminus-ui-text-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-badges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-badge {
+  padding: 2px 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-badge-vip {
+  color: #15111f;
+  background: var(--luminus-ui-warning);
+}
+#luminus-chat-command-autocomplete .lm-command-autocomplete-badge-danger {
+  color: #2a1018;
+  background: var(--luminus-ui-danger);
+}
+
 #luminus-world-overlay {
   position: absolute;
   inset: 0;

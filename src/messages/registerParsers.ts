@@ -53,6 +53,7 @@ import { RoomEntryTileComposer } from "./outgoing/RoomEntryTileComposer";
 import { RoomModelSaveComposer } from "./outgoing/RoomModelSaveComposer";
 import { FurniturePlaceComposer } from "./outgoing/FurniturePlaceComposer";
 import { RoomConstructionToolComposer } from "./outgoing/RoomConstructionToolComposer";
+import { RoomConstructionToolHistoryActionComposer } from "./outgoing/RoomConstructionToolHistoryActionComposer";
 import { FurnitureInventoryComposer } from "./outgoing/FurnitureInventoryComposer";
 import { ProductOfferComposer } from "./outgoing/ProductOfferComposer";
 import { CatalogPurchaseComposer } from "./outgoing/CatalogPurchaseComposer";
@@ -136,6 +137,7 @@ export function registerParsers(): void {
   packetRegistry.registerOutgoing(875, "RoomModelSave", RoomModelSaveComposer, ["ROOM_MODEL_SAVE"]);
   packetRegistry.registerOutgoing(1258, "FurniturePlace", FurniturePlaceComposer, ["FURNITURE_PLACE"]);
   packetRegistry.registerOutgoing(397, "RoomConstructionTool", RoomConstructionToolComposer, ["ROOM_CONSTRUCTION_TOOL"]);
+  packetRegistry.registerOutgoing(399, "RoomConstructionToolHistoryAction", RoomConstructionToolHistoryActionComposer, ["ROOM_CONSTRUCTION_TOOL_HISTORY_ACTION"]);
   packetRegistry.registerOutgoing(3150, "FurnitureInventory", FurnitureInventoryComposer, ["USER_FURNITURE"]);
   packetRegistry.registerOutgoing(2594, "ProductOffer", ProductOfferComposer, ["GET_PRODUCT_OFFER"]);
   packetRegistry.registerOutgoing(3492, "CatalogPurchase", CatalogPurchaseComposer, ["CATALOG_PURCHASE"]);

@@ -11,6 +11,7 @@ import { normalizeLogEntry } from "./whisperThreads";
 import { gmPost } from "../util/gmFetch";
 import { linkClickMessage } from "../ui/profileLinks";
 import { parseRoomClickNotice } from "./roomClickNotice";
+import { resolveRoomUnitByName } from "../room/roomIdentity";
 import { consumeGroupWhisperRoute, type GroupWhisperRoute } from "../chat/groupWhisperRouting";
 import {
   getMountedNativeGroupMembers,
@@ -704,9 +705,7 @@ export function setupLogHandlers(api: LuminusApi, getConfig: () => LogsConfig): 
     const { actor } = notice;
     const clean = notice.message;
     linkClickMessage(api, actor, clean);
-    const actorFigure = [...api.room.units.values()].find(
-      u => normalizeTxt(u.name) === normalizeTxt(actor),
-    )?.figure;
+    const actorFigure = resolveRoomUnitByName(api.room.units.values(), actor)?.figure;
     addLog({ ts: Date.now(), type: "click", actor, figure: actorFigure, message: clean });
     if (!cfg.chatEnabled) return;
     sendWebhook(cfg.chatWebhook, "click", actor, clean, actorFigure);

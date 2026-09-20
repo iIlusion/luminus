@@ -75,39 +75,31 @@ export function defineChangelog<const T extends ChangelogLayer>(changelog: T): T
 export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
   id: "luminus",
   label: "Luminus",
-  version: "1.3.0",
-  title: "Luminus 1.3",
+  version: "1.3.1",
+  title: "Luminus 1.3.1",
   summary:
-    "Um painel mais organizado, mais controle no quarto e menus bem mais fáceis de ler.",
-  publishedAt: "27 de agosto de 2026",
+    "Mais agilidade para construir, buscar comandos e identificar corretamente quem está no quarto.",
+  publishedAt: "20 de setembro de 2026",
   sections: [
     {
       title: "Novo",
       items: [
         {
-          title: "Busca no painel",
+          title: "Atalhos rápidos para mobis",
           description:
-            "Organizei as categorias e coloquei uma busca para você achar qualquer função sem ficar procurando aba por aba.",
+            "Use F1 a F8 para abrir o inventário e encontrar categorias de mobis. Ctrl+Z e Ctrl+Y desfazem ou refazem ações, e Esc finaliza a colocação ou movimentação no ponto atual do mouse.",
+          details: [
+            "Cada atalho pode ser ativado ou desativado no submenu Quarto.",
+            "O inventário é carregado automaticamente antes da primeira busca quando você está no quarto.",
+          ],
         },
         {
-          title: "Lista de Habblets",
+          title: "Autocomplete de comandos no chat",
           description:
-            "A lista agora tem filtros por nome, gênero, extensão e links, além de poder ser expandida quando você quiser ver mais jogadores.",
-        },
-        {
-          title: "Identificação no quarto",
-          description:
-            "Adicionei ícones em cima dos avatares para mostrar presenças compatíveis e deixei essa opção configurável no painel.",
-        },
-        {
-          title: "Ações ao entrar no quarto",
-          description:
-            "Agora dá para deixar zoom, enable, handitem, pet e tele configurados para serem aplicados automaticamente quando você entrar.",
-        },
-        {
-          title: "Compatibilidade com extensões externas",
-          description:
-            "Melhorei a compatibilidade com extensões externas para elas funcionarem junto com o Luminus sem atrapalhar a experiência.",
+            "Digite : no chat para encontrar comandos do hotel com sugestões rápidas, navegação pelas setas e confirmação com Enter ou Tab.",
+          details: [
+            "A lista mostra descrições e avisos para comandos que exigem mais atenção.",
+          ],
         },
       ],
     },
@@ -115,19 +107,29 @@ export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
       title: "Melhorado",
       items: [
         {
-          title: "Painel de configurações",
+          title: "Busca do inventário",
           description:
-            "Deixei as opções mais bem separadas, com grupos expansíveis, filtros mais claros e uma navegação bem mais rápida.",
+            "A primeira pesquisa aguarda o carregamento do inventário terminar antes de aplicar o filtro, evitando atalhos sem resultado.",
         },
         {
-          title: "Janelas e menus",
+          title: "Controles do quarto",
           description:
-            "Dei uma geral no visual das janelas, botões, filtros e menus para tudo ficar mais consistente e legível.",
+            "Os atalhos de construção respeitam o quarto atual e podem ser ligados ou desligados individualmente no submenu Quarto.",
+        },
+      ],
+    },
+    {
+      title: "Corrigido",
+      items: [
+        {
+          title: "Identificação de usuários",
+          description:
+            "Bots com o mesmo nome de um usuário não substituem mais o ícone, o infostand ou os links da pessoa real.",
         },
         {
-          title: "Fechar com Esc",
+          title: "Log de cliques",
           description:
-            "Ficou mais rápido fechar logs, links, conversas e outras janelas usando a tecla Esc.",
+            "Nomes com pontuação agora são reconhecidos exatamente, mantendo a associação correta com o usuário e a figura no registro de cliques.",
         },
       ],
     },

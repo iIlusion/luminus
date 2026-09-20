@@ -4,6 +4,7 @@ import type { RoomUnit } from "../messages/incoming/UsersParser";
 import { RoomUserClickComposer } from "../messages/outgoing/RoomUserClickComposer";
 import { gmFetch } from "../util/gmFetch";
 import { readPref, writePref } from "../util/prefs";
+import { resolveRoomUnitByName } from "../room/roomIdentity";
 import type { LuminusApi } from "../ws/api";
 
 const OUTGOING_CLICK_ALERT_PREF = "luminus.player.outgoingClickAlert";
@@ -36,10 +37,6 @@ let clickListenerInstalled = false;
 let clientCtrlClickUntil = 0;
 let fakeLookCache: FakePlayerLookCache | null = null;
 let fakeLookRefresh: Promise<FakePlayerLookCache> | null = null;
-
-function normalizeText(value: string): string {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-}
 
 function now(): number {
   return Date.now();
@@ -88,14 +85,7 @@ export function setOutgoingClickAlertEnabled(enabled: boolean): void {
 }
 
 export function findRoomUnitByName(api: LuminusApi, name: string): RoomUnit | undefined {
-  const wanted = normalizeText(name);
-  let fallback: RoomUnit | undefined;
-  for (const unit of api.room.units.values()) {
-    if (normalizeText(unit.name) !== wanted) continue;
-    if (unit.type === 1) return unit;
-    fallback ??= unit;
-  }
-  return fallback;
+  return resolveRoomUnitByName(api.room.units.values(), name);
 }
 
 export function handleCtrlUserClick(
