@@ -28,6 +28,9 @@ ok(parseRoomClickNotice("star clicou em você", room)?.actor === "star", "real n
 // Clicker fora da lista de units → fallback limpo (sem shortcode)
 ok(parseRoomClickNotice(":star: PlayerX clicou em você", room)?.actor === "PlayerX", "unknown nick + shortcode");
 
+// Pontuação interna ou nas extremidades do nick deve sobreviver à resolução por unit.
+ok(parseRoomClickNotice("Decorador! clicou em você", ["Decorador!"])?.actor === "Decorador!", "pontuação do nick deve ser preservada");
+
 // Falsos positivos
 ok(parseRoomClickNotice("ola clicou o botao do elevador", room) === null, "false positive elevador");
 ok(parseRoomClickNotice("eu te vejo no voce", room) === null, "false positive vejo");

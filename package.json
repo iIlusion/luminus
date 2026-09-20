@@ -82,6 +82,8 @@
     "test:enables-handitems": "esbuild src/ui/enablesHanditemsCatalog.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:ws-intercept": "esbuild src/ws/interceptWebSocket.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:room-enter": "node --experimental-strip-types src/room/roomStore.enter.test.ts",
+    "test:room-identity": "node --experimental-strip-types src/room/roomIdentity.test.ts",
+    "test:room-click-notice": "node --experimental-strip-types src/logs/roomClickNotice.test.ts",
     "test:chat-autocomplete": "esbuild src/chat/commandAutocomplete.test.ts --bundle --platform=node --format=esm | node --input-type=module"
   },
   "devDependencies": {

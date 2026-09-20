@@ -15,6 +15,7 @@ import {
   toggleFocusedClass,
 } from "../room/furniClassHide";
 import { isBotUnitType } from "../chat/roomChatPresentation";
+import { resolveRoomUnitByName } from "../room/roomIdentity";
 import { readPref, writePref } from "../util/prefs";
 import { getContextGenderIconEnabled, subscribeContextGenderIcon } from "./contextGender";
 
@@ -95,10 +96,7 @@ function removeActionBar(): void {
 }
 
 function findRoomUnitByName(name: string): RoomUnit | undefined {
-  for (const unit of apiRef?.room.units.values() ?? []) {
-    if (unit.name === name) return unit;
-  }
-  return undefined;
+  return resolveRoomUnitByName(apiRef?.room.units.values() ?? [], name);
 }
 
 function showLinkMenu(name: string, anchor: Element): void {
