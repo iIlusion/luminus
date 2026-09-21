@@ -1,4 +1,4 @@
-import { normalizePanelSearch, searchPanelEntries, type PanelSearchEntry } from "./panelNavigation";
+import { CORE_PANEL_CATEGORIES, normalizePanelSearch, searchPanelEntries, type PanelSearchEntry } from "./panelNavigation";
 
 function equal(actual: unknown, expected: unknown): void {
   if (actual !== expected) throw new Error(`expected ${String(expected)}, received ${String(actual)}`);
@@ -21,5 +21,6 @@ sameValues(searchPanelEntries(entries, "anti").map(entry => entry.id).sort(), ["
 equal(searchPanelEntries(entries, "anti-idle")[0]?.id, "idle");
 equal(searchPanelEntries(entries, "aparencia")[0]?.id, "theme");
 sameValues(searchPanelEntries(entries, "").map(entry => entry.id), []);
+sameValues(CORE_PANEL_CATEGORIES.map(category => category.id), ["utilities", "interface", "records", "construction", "experimental"]);
 
 console.log("panel navigation tests passed");
