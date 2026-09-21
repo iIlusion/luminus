@@ -79,6 +79,18 @@ body {
 }
 
 #luminus-chat-command-autocomplete[hidden] { display: none; }
+
+/* The shared chat surface follows the same owner as the rest of the layout.
+   When Luminus owns it, keep the native input usable and hide the alternate
+   surface so two autocompletes cannot compete for the same chat bar. */
+body.luminus-layout-luminus-first .nitro-room-chatinput-component .chat-input {
+  position: relative !important;
+  height: 100% !important;
+}
+body.luminus-layout-luminus-first [data-luminus-shared-chat-surface="external"] {
+  display: none !important;
+}
+
 #luminus-chat-command-autocomplete .lm-command-autocomplete-header {
   display: flex;
   align-items: center;
@@ -589,11 +601,13 @@ body {
 #luminus-panel .lm-launcher-item.is-render .lm-launcher-icon { color: #8fd8ff; }
 
 #luminus-panel .lm-launcher-item.is-dev .lm-launcher-icon { color: #f4c76d; }
+#luminus-panel .lm-launcher-item.is-experimental .lm-launcher-icon { color: #ffd166; }
 
 #luminus-panel .lm-launcher-item.is-logs:hover { border-color: rgba(98, 223, 198, 0.38); }
 #luminus-panel .lm-launcher-item.is-visual:hover { border-color: rgba(255, 159, 200, 0.38); }
 #luminus-panel .lm-launcher-item.is-render:hover { border-color: rgba(143, 216, 255, 0.38); }
 #luminus-panel .lm-launcher-item.is-dev:hover { border-color: rgba(244, 199, 109, 0.38); }
+#luminus-panel .lm-launcher-item.is-experimental:hover { border-color: rgba(255, 209, 102, 0.42); }
 
 /* Intent-first launcher: the shell stays compact, while search and detail remain discoverable. */
 #luminus-panel .lm-launcher {
@@ -763,6 +777,24 @@ body {
   content: "";
   height: 1px;
   background: linear-gradient(90deg, rgba(142, 162, 255, 0.34), rgba(255, 255, 255, 0.08) 48%, transparent);
+}
+
+#luminus-panel .lm-experimental-note {
+  margin: 3px 0 5px;
+  padding: 9px 10px;
+  color: var(--lm-warning);
+  background: rgba(255, 209, 102, 0.08);
+  border: 1px solid var(--lm-warning-soft);
+  border-radius: var(--luminus-ui-radius-sm);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+#luminus-panel .lm-experimental-footnote {
+  padding: 2px 9px 5px;
+  color: var(--lm-muted);
+  font-size: 9.5px;
+  line-height: 1.35;
 }
 
 #luminus-panel .lm-subsection-title {

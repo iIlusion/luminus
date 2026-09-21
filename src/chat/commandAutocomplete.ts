@@ -1,3 +1,5 @@
+import { isSharedLayoutExternal, LAYOUT_PRIORITY_CHANGE_EVENT } from "../ui/toolbarGlass";
+
 export interface HotelChatCommand {
   code: string;
   description: string;
@@ -113,11 +115,20 @@ export function moveCommandSuggestionIndex(current: number, delta: -1 | 1, size:
   return (base + delta + size) % size;
 }
 
+export function shouldUseLuminusChatAutocomplete(externalLayoutOwner: boolean): boolean {
+  return !externalLayoutOwner;
+}
+
 const AUTOCOMPLETE_ID = "luminus-chat-command-autocomplete";
 const CHAT_INPUT_SELECTOR = ".nitro-room-chatinput-component .chat-input";
 
-function setNativeInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+type ChatInputElement = HTMLInputElement | HTMLTextAreaElement;
+
+function setNativeInputValue(input: ChatInputElement, value: string): void {
+  const prototype = input instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
   if (setter) setter.call(input, value);
   else input.value = value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -143,12 +154,19 @@ function createSuggestion(command: HotelChatCommand, index: number): HTMLLIEleme
 }
 
 export function initChatCommandAutocomplete(): () => void {
-  let input: HTMLInputElement | null = null;
+  let input: ChatInputElement | null = null;
   let host: HTMLDivElement | null = null;
   let suggestions: readonly HotelChatCommand[] = [];
   let selectedIndex = -1;
   let cleanupInput: (() => void) | null = null;
   let observer: MutationObserver | null = null;
+
+  const shouldUseAutocomplete = () => shouldUseLuminusChatAutocomplete(isSharedLayoutExternal());
+
+  const findInput = (): ChatInputElement | null => {
+    if (!shouldUseAutocomplete()) return null;
+    return document.querySelector<ChatInputElement>(CHAT_INPUT_SELECTOR);
+  };
 
   const hide = () => {
     selectedIndex = -1;
@@ -216,29 +234,30 @@ export function initChatCommandAutocomplete(): () => void {
     hide();
   };
 
-  const attach = (nextInput: HTMLInputElement) => {
+  const attach = (nextInput: ChatInputElement) => {
     if (input === nextInput) return;
     cleanupInput?.();
     input = nextInput;
     const onInput = () => { selectedIndex = -1; render(); };
-    const onKeyDown = (event: KeyboardEvent) => {
+    const onKeyDown = (event: Event) => {
+      const keyboard = event as KeyboardEvent;
       if (!host || host.hidden || suggestions.length === 0) return;
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        event.stopPropagation();
-        selectedIndex = moveCommandSuggestionIndex(selectedIndex, event.key === "ArrowDown" ? 1 : -1, suggestions.length);
+      if (keyboard.key === "ArrowDown" || keyboard.key === "ArrowUp") {
+        keyboard.preventDefault();
+        keyboard.stopPropagation();
+        selectedIndex = moveCommandSuggestionIndex(selectedIndex, keyboard.key === "ArrowDown" ? 1 : -1, suggestions.length);
         render();
         return;
       }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        event.stopPropagation();
+      if (keyboard.key === "Enter" || keyboard.key === "Tab") {
+        keyboard.preventDefault();
+        keyboard.stopPropagation();
         select(selectedIndex < 0 ? 0 : selectedIndex);
         return;
       }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
+      if (keyboard.key === "Escape") {
+        keyboard.preventDefault();
+        keyboard.stopPropagation();
         hide();
       }
     };
@@ -260,7 +279,7 @@ export function initChatCommandAutocomplete(): () => void {
   };
 
   const sync = () => {
-    const nextInput = document.querySelector<HTMLInputElement>(CHAT_INPUT_SELECTOR);
+    const nextInput = findInput();
     if (nextInput) attach(nextInput);
     else {
       cleanupInput?.();
@@ -282,6 +301,7 @@ export function initChatCommandAutocomplete(): () => void {
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("resize", position);
     window.addEventListener("scroll", position, true);
+    window.addEventListener(LAYOUT_PRIORITY_CHANGE_EVENT, sync);
   };
 
   if (document.body) start();
@@ -292,6 +312,7 @@ export function initChatCommandAutocomplete(): () => void {
     cleanupInput?.();
     window.removeEventListener("resize", position);
     window.removeEventListener("scroll", position, true);
+    window.removeEventListener(LAYOUT_PRIORITY_CHANGE_EVENT, sync);
     host?.remove();
   };
 }

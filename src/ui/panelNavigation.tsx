@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Hammer, PanelsTopLeft, ScrollText, Search, Wrench } from "lucide-react";
+import { FlaskConical, Hammer, PanelsTopLeft, ScrollText, Search, Wrench } from "lucide-react";
 
 export type PanelCategory = {
   id: string;
@@ -49,6 +49,7 @@ export function searchPanelEntries(entries: PanelSearchEntry[], query: string): 
 }
 
 export const CORE_PANEL_CATEGORIES: PanelCategory[] = [
+  { id: "experimental", label: "Experimental", summary: "Compatibilidade e ajustes sensíveis", target: "experimental", tone: "experimental", icon: <FlaskConical aria-hidden="true" /> },
   { id: "utilities", label: "Avatar e ferramentas", summary: "Controle seu avatar e ações do quarto", target: "utilities", tone: "player", icon: <Wrench aria-hidden="true" /> },
   { id: "interface", label: "Aparência", summary: "Tema, rádio e guarda-roupa", target: "interface", tone: "visual", icon: <PanelsTopLeft aria-hidden="true" /> },
   { id: "records", label: "Histórico", summary: "Logs, conversas e links salvos", target: "records", tone: "logs", icon: <ScrollText aria-hidden="true" /> },

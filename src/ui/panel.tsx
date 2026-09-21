@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as Switch from "@radix-ui/react-switch";
 
-import { ArrowLeft, Bug, ChevronDown, Hammer, PanelsTopLeft, RadioTower, ScrollText, Wrench } from "lucide-react";
+import { ArrowLeft, Bug, ChevronDown, FlaskConical, Hammer, PanelsTopLeft, RadioTower, ScrollText, Wrench } from "lucide-react";
 
 import type { LuminusApi } from "../ws/api";
 import type { UnitIdle } from "../messages/incoming/UnitIdleParser";
@@ -26,6 +26,10 @@ import {
   getCloseWindowsOnEscape,
   setCloseWindowsOnEscape,
 } from "./escapeClose";
+import {
+  getExternalToolbarFixEnabled,
+  setExternalToolbarFixEnabled,
+} from "../compat/externalToolbarFix";
 import {
   getMobiHotkeySettings,
   setMobiHotkeySettings,
@@ -111,6 +115,7 @@ function viewLabel(view: PanelView, extension?: PanelExtensionView): string {
   if (view === "interface") return "Aparência";
   if (view === "records") return "Histórico";
   if (view === "construction") return "Quarto";
+  if (view === "experimental") return "Experimental";
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return "Packets";
   return "Debug";
 }
@@ -121,6 +126,7 @@ function viewSummary(view: PanelView, extension?: PanelExtensionView): string {
   if (view === "interface") return "Tema, rádio e guarda-roupa";
   if (view === "records") return "Logs, conversas e links salvos";
   if (view === "construction") return "Renderização e ferramentas de construção";
+  if (view === "experimental") return "Compatibilidade e ajustes sensíveis";
   return "Ferramentas de desenvolvimento";
 }
 
@@ -131,6 +137,7 @@ function ViewIcon({ view, extension, size = 18 }: { view: PanelView; extension?:
   if (view === "interface") return <PanelsTopLeft {...props} />;
   if (view === "records") return <ScrollText {...props} />;
   if (view === "construction") return <Hammer {...props} />;
+  if (view === "experimental") return <FlaskConical {...props} />;
   if (__LUMINUS_DEV_TOOLS__ && view === "packets") return <RadioTower {...props} />;
   return <Bug {...props} />;
 }
@@ -729,6 +736,12 @@ export function LuminusPanel({ api, open, extensions = [], onClose, onOpenLogs, 
     setLayoutPriorityState(priority);
   }
 
+  const [externalToolbarFix, setExternalToolbarFixState] = React.useState(() => getExternalToolbarFixEnabled());
+  function toggleExternalToolbarFix(enabled: boolean) {
+    setExternalToolbarFixEnabled(enabled);
+    setExternalToolbarFixState(enabled);
+  }
+
   const [roomEntryActions, setRoomEntryActionsState] = React.useState<RoomEntryActionSettings>(
     () => getRoomEntryActionSettings(),
   );
@@ -848,13 +861,14 @@ export function LuminusPanel({ api, open, extensions = [], onClose, onOpenLogs, 
         { id: "packets", title: "Packets", summary: "Inspeciona tráfego do cliente", category: "Desenvolvimento", target: "packets" },
         { id: "bridge-debug", title: "Debug", summary: "Diagnóstico do painel", category: "Desenvolvimento", target: "debug" },
       ] : []),
+      { id: "external-toolbar-fix", title: "Fix integração", summary: "Compatibilidade completa com a integração da página", category: "Experimental", target: "experimental", focus: "external-toolbar-fix" },
       ...extensionEntries,
     ],
   ), [devMode, extensionEntries, onOpenLinks, onOpenLogs, panelCategories]);
 
   React.useEffect(() => {
     if (!devMode && (view === "packets" || view === "debug")) navigate("launcher");
-    const coreViews = ["launcher", "utilities", "interface", "records", "construction", "packets", "debug"];
+    const coreViews = ["launcher", "utilities", "interface", "records", "construction", "experimental", "packets", "debug"];
     if (!coreViews.includes(view) && !extensionViews.has(view)) navigate("launcher");
   }, [devMode, extensionViews, view]);
 
@@ -1560,6 +1574,32 @@ export function LuminusPanel({ api, open, extensions = [], onClose, onOpenLogs, 
               >
                 <Switch.Thumb className="lm-switch-thumb" />
               </Switch.Root>
+            </div>
+          </div>
+        </div>}
+
+        {view === "experimental" && <div className="lm-tab-content">
+          <div className="lm-section" data-lm-section="external-toolbar-fix">
+            <div className="lm-section-title">Compatibilidade</div>
+            <div className="lm-experimental-note" role="note">
+              Este fix altera DOM, inicialização do RoomEngine e composição do WebSocket. Pode quebrar quando o hotel ou a integração mudar.
+            </div>
+            <div className="lm-row">
+              <span className="lm-label">
+                Fix integração
+                <span className="lm-sub">Mantém o bootstrap, o toolbar, as janelas, os comandos, os atalhos e o WebSocket compatíveis com a integração da página.</span>
+              </span>
+              <Switch.Root
+                className="lm-switch-root"
+                checked={externalToolbarFix}
+                onCheckedChange={toggleExternalToolbarFix}
+                aria-label="Fix integração"
+              >
+                <Switch.Thumb className="lm-switch-thumb" />
+              </Switch.Root>
+            </div>
+            <div className="lm-experimental-footnote">
+              Desative esta opção quando a integração for atualizada e voltar a funcionar sem compatibilidade extra.
             </div>
           </div>
         </div>}

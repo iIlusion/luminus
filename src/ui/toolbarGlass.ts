@@ -6,6 +6,7 @@ const PURSE_COLLAPSED_KEY = "luminus.ui.purseCollapsed";
 const ROOM_TOOLS_COLLAPSED_KEY = "luminus.ui.roomToolsCollapsed";
 const LAYOUT_PRIORITY_KEY = "luminus.ui.layoutPriority";
 const LAYOUT_BACKUP_KEY = "luminus.ui.layoutPriority.externalBackup";
+export const LAYOUT_PRIORITY_CHANGE_EVENT = "luminus-layout-priority-change";
 let purseCollapsedState: boolean | null = null;
 let roomToolsCollapsedState: boolean | null = null;
 let appliedLayoutOwnership: "luminus" | "external" | null = null;
@@ -37,6 +38,10 @@ function hasExternalLayoutControls(): boolean {
 
 function isExternalLayoutOwner(): boolean {
   return hasExternalLayoutControls() && getLayoutPriority() === "external";
+}
+
+export function isSharedLayoutExternal(): boolean {
+  return isExternalLayoutOwner();
 }
 
 function isSharedVisualCategory(category: UiGlassCategory): boolean {
@@ -102,6 +107,13 @@ function applyLayoutOwnership(): void {
   body.classList.toggle("luminus-layout-luminus-first", external && luminusOwnsControls);
   body.classList.toggle("luminus-layout-external-first", external && !luminusOwnsControls);
 
+  const nativeChatInput = document.querySelector<HTMLElement>(".nitro-room-chatinput-component .chat-input");
+  const chatInputContainer = nativeChatInput?.parentElement;
+  const sharedChatSurface = chatInputContainer
+    ? [...chatInputContainer.children].find(child => child !== nativeChatInput && child.querySelector("input:not(.chat-input), textarea:not(.chat-input)")) as HTMLElement | undefined
+    : undefined;
+  sharedChatSurface?.setAttribute("data-luminus-shared-chat-surface", "external");
+
   const settings = externalSettings();
   if (!settings) {
     if (!luminusOwnsControls) {
@@ -144,6 +156,7 @@ export function setLayoutPriority(priority: LayoutPriority): void {
   applyUiGlass();
   ensurePurseToggle();
   ensureRoomToolsToggle();
+  window.dispatchEvent(new Event(LAYOUT_PRIORITY_CHANGE_EVENT));
 }
 
 export const UI_GLASS_CATEGORIES = ["toolbar", "menus", "roomTools", "purse", "notifications", "infostand", "userChooser"] as const;
@@ -382,6 +395,7 @@ export function initUiAppearance(): void {
   ensurePurseToggle();
   ensureRoomToolsToggle();
   markRadioBubbles();
+  window.dispatchEvent(new Event(LAYOUT_PRIORITY_CHANGE_EVENT));
 
   if (!document.body || document.body.dataset.luminusUiObserver === "1") return;
   document.body.dataset.luminusUiObserver = "1";

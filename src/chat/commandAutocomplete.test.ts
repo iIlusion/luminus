@@ -4,6 +4,7 @@ import {
   findActiveCommandToken,
   getCommandSuggestions,
   moveCommandSuggestionIndex,
+  shouldUseLuminusChatAutocomplete,
 } from "./commandAutocomplete";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -35,5 +36,7 @@ assert(applyCommandSelection(":si resto", 3, ":sit") === ":sit resto", "seleçã
 assert(moveCommandSuggestionIndex(-1, 1, 3) === 0, "primeiro movimento deve selecionar o primeiro item");
 assert(moveCommandSuggestionIndex(0, -1, 3) === 2, "seta para cima deve voltar ao último item");
 assert(moveCommandSuggestionIndex(2, 1, 3) === 0, "seta para baixo deve circular");
+assert(shouldUseLuminusChatAutocomplete(false), "Luminus deve assumir o autocomplete quando e o dono do layout");
+assert(!shouldUseLuminusChatAutocomplete(true), "o autocomplete Luminus deve ceder quando a camada externa e prioritaria");
 
 console.log("commandAutocomplete.test.ts: ok");
