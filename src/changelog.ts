@@ -75,30 +75,21 @@ export function defineChangelog<const T extends ChangelogLayer>(changelog: T): T
 export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
   id: "luminus",
   label: "Luminus",
-  version: "1.3.1",
-  title: "Luminus 1.3.1",
+  version: "1.4.0",
+  title: "Luminus 1.4.0",
   summary:
-    "Mais agilidade para construir, buscar comandos e identificar corretamente quem está no quarto.",
+    "Mais estabilidade na integração com o hotel, com a barra de ferramentas no lugar e os recursos acompanhando o layout escolhido.",
   publishedAt: "20 de setembro de 2026",
   sections: [
     {
       title: "Novo",
       items: [
         {
-          title: "Atalhos rápidos para mobis",
+          title: "Opção de compatibilidade",
           description:
-            "Use F1 a F8 para abrir o inventário e encontrar categorias de mobis. Ctrl+Z e Ctrl+Y desfazem ou refazem ações, e Esc finaliza a colocação ou movimentação no ponto atual do mouse.",
+            "Ative o Fix integração na aba Experimental para manter os recursos do Luminus funcionando quando o hotel atualizar a sua interface.",
           details: [
-            "Cada atalho pode ser ativado ou desativado no submenu Quarto.",
-            "O inventário é carregado automaticamente antes da primeira busca quando você está no quarto.",
-          ],
-        },
-        {
-          title: "Autocomplete de comandos no chat",
-          description:
-            "Digite : no chat para encontrar comandos do hotel com sugestões rápidas, navegação pelas setas e confirmação com Enter ou Tab.",
-          details: [
-            "A lista mostra descrições e avisos para comandos que exigem mais atenção.",
+            "Desative a opção quando a integração voltar a funcionar normalmente.",
           ],
         },
       ],
@@ -107,14 +98,14 @@ export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
       title: "Melhorado",
       items: [
         {
-          title: "Busca do inventário",
+          title: "Barra de ferramentas",
           description:
-            "A primeira pesquisa aguarda o carregamento do inventário terminar antes de aplicar o filtro, evitando atalhos sem resultado.",
+            "Os ícones do Luminus permanecem junto dos ícones nativos na barra inferior, sem criar uma barra separada ou deslocar a barra principal.",
         },
         {
-          title: "Controles do quarto",
+          title: "Prioridade do layout",
           description:
-            "Os atalhos de construção respeitam o quarto atual e podem ser ligados ou desligados individualmente no submenu Quarto.",
+            "O autocomplete de comandos acompanha a prioridade escolhida para o layout e evita duas interfaces concorrendo pelo mesmo campo de chat.",
         },
       ],
     },
@@ -122,14 +113,14 @@ export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
       title: "Corrigido",
       items: [
         {
-          title: "Identificação de usuários",
+          title: "Inicialização da interface",
           description:
-            "Bots com o mesmo nome de um usuário não substituem mais o ícone, o infostand ou os links da pessoa real.",
+            "Corrigido o problema que impedia os controles e janelas do Luminus de aparecerem quando a interface do hotel era reconstruída.",
         },
         {
-          title: "Log de cliques",
+          title: "Posição da barra",
           description:
-            "Nomes com pontuação agora são reconhecidos exatamente, mantendo a associação correta com o usuário e a figura no registro de cliques.",
+            "Corrigido o problema que movia a barra de ferramentas para cima ao ativar a compatibilidade.",
         },
       ],
     },

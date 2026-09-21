@@ -1,25 +1,29 @@
-# ✨ Luminus v1.3.1
+# ✨ Luminus v1.4.0
 
-> Mais agilidade para construir, buscar comandos e identificar corretamente quem está no quarto.
+> Mais estabilidade na integração com o hotel, com a barra de ferramentas no lugar e os recursos acompanhando o layout escolhido.
 
 ## 🆕 Novo
 
-**Atalhos rápidos para mobis**
+**Opção de compatibilidade**
 
-Use F1 a F8 para abrir o inventário e encontrar categorias de mobis. Ctrl+Z e Ctrl+Y desfazem ou refazem ações, e Esc finaliza a colocação ou movimentação no ponto atual do mouse.
-
-**Autocomplete de comandos no chat**
-
-Digite : no chat para encontrar comandos do hotel com sugestões rápidas, navegação pelas setas e confirmação com Enter ou Tab.
+Ative o Fix integração na aba Experimental para manter os recursos do Luminus funcionando quando o hotel atualizar a sua interface.
 
 ## ✨ Melhorado
 
-**Busca do inventário**
+**Barra de ferramentas**
 
-A primeira pesquisa aguarda o carregamento do inventário terminar antes de aplicar o filtro. Os três controles de mobis também podem ser ligados ou desligados individualmente no submenu Quarto.
+Os ícones do Luminus permanecem junto dos ícones nativos na barra inferior, sem criar uma barra separada ou deslocar a barra principal.
+
+**Prioridade do layout**
+
+O autocomplete de comandos acompanha a prioridade escolhida para o layout e evita duas interfaces concorrendo pelo mesmo campo de chat.
 
 ## 🐛 Corrigido
 
-**Identificação e log de cliques**
+**Inicialização da interface**
 
-Bots com o mesmo nome não substituem mais o usuário real no infostand. Nomes com pontuação também são reconhecidos corretamente no registro de cliques.
+Corrigido o problema que impedia os controles e janelas do Luminus de aparecerem quando a interface do hotel era reconstruída.
+
+**Posição da barra**
+
+Corrigido o problema que movia a barra de ferramentas para cima ao ativar a compatibilidade.
