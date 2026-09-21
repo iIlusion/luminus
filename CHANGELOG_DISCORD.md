@@ -1,4 +1,4 @@
-# ✨ Luminus v1.4.0
+# ✨ Luminus v1.3.1-compat-hotfix
 
 > Mais estabilidade na integração com o hotel, com a barra de ferramentas no lugar e os recursos acompanhando o layout escolhido.
 

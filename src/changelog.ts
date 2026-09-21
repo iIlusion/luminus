@@ -75,8 +75,8 @@ export function defineChangelog<const T extends ChangelogLayer>(changelog: T): T
 export const LUMINUS_CHANGELOG_LAYER = defineChangelog({
   id: "luminus",
   label: "Luminus",
-  version: "1.4.0",
-  title: "Luminus 1.4.0",
+  version: "1.3.1-compat-hotfix",
+  title: "Luminus 1.3.1-compat-hotfix",
   summary:
     "Mais estabilidade na integração com o hotel, com a barra de ferramentas no lugar e os recursos acompanhando o layout escolhido.",
   publishedAt: "20 de setembro de 2026",
