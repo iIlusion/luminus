@@ -80,6 +80,7 @@
     "test:mobi-hotkeys": "esbuild src/ui/mobiHotkeys.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:panel-navigation": "esbuild src/ui/panelNavigation.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:enables-handitems": "esbuild src/ui/enablesHanditemsCatalog.test.ts --bundle --platform=node --format=esm | node --input-type=module",
+    "test:external-toolbar-fix": "esbuild src/compat/externalToolbarFix.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:ws-intercept": "esbuild src/ws/interceptWebSocket.test.ts --bundle --platform=node --format=esm | node --input-type=module",
     "test:room-enter": "node --experimental-strip-types src/room/roomStore.enter.test.ts",
     "test:room-identity": "node --experimental-strip-types src/room/roomIdentity.test.ts",

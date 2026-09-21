@@ -32,6 +32,7 @@ import { initUtilityAutomations } from "./utilityAutomations";
 import { initEscapeClose } from "./escapeClose";
 import type { PanelExtension } from "./panelExtensions";
 import { HABBLET_LIST_STYLES } from "./habbletListStyles";
+import { findLuminusToolbarMount } from "../compat/externalToolbarFix";
 
 // Keep the experimental chat isolated so a beta render failure cannot unmount the stable UI.
 let root: ReturnType<typeof ReactDOM.createRoot> | null = null;
@@ -201,11 +202,12 @@ export function initUI(api: LuminusApi, options: InitUIOptions = {}): void {
 
     // wait for nitro toolbar
     const observer = new MutationObserver(() => {
-      const target = document.querySelector(".nitro-toolbar .d-flex.gap-2.align-items-center:not(.justify-content-between)");
-      if (target) {
-        observer.disconnect();
-        changelogLayers = claimChangelogLayers(uiChangelogLayers, uiChangelogPrefsKey);
-        render(api);
+      const target = findLuminusToolbarMount(document);
+      if (target && !target.querySelector("#luminus-icon")) {
+        if (!changelogLayers) {
+          changelogLayers = claimChangelogLayers(uiChangelogLayers, uiChangelogPrefsKey);
+          render(api);
+        }
         mountIcon(target, api);
         // Chat (formerly Beta) replaces legacy "Histórico de chat".
         const chatButton = mountUtilityIcon(target, "Luminus: Chat", CHAT_ICON_SVG, () => {

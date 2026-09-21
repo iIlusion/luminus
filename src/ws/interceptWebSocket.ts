@@ -1,5 +1,6 @@
 import { PacketBridge } from "./PacketBridge";
 import { getInnermostSocket } from "./socketContract";
+import { isExternalToolbarFixActive } from "../compat/externalToolbarFix";
 
 type WebSocketWindow = Window & { WebSocket: typeof WebSocket; Luminus?: unknown };
 type MessageListener = EventListenerOrEventListenerObject;
@@ -30,6 +31,7 @@ export function getTargetWindow(): WebSocketWindow {
 }
 
 export function interceptWebSocket(target: WebSocketWindow, bridge: PacketBridge): void {
+  const currentDescriptor = Object.getOwnPropertyDescriptor(target, "WebSocket");
   const NativeWebSocket = unwrapNativeWebSocket(target.WebSocket);
   patchNativeWebSocket(NativeWebSocket, bridge);
 
@@ -83,10 +85,63 @@ export function interceptWebSocket(target: WebSocketWindow, bridge: PacketBridge
     }
   }
 
-  Object.defineProperty(target, "WebSocket", {
+  // Keep the public constructor replaceable so wrappers from other page-world
+  // extensions can compose with Luminus instead of throwing on assignment.
+  let exposedWebSocket: typeof WebSocket = InterceptedWebSocket;
+  const nativeDefineProperty = Object.defineProperty;
+  if (isExternalToolbarFixActive()) {
+    protectWebSocketDefinition(target, next => {
+      exposedWebSocket = next;
+    });
+  }
+
+  nativeDefineProperty(target, "WebSocket", {
     configurable: true,
-    get: () => InterceptedWebSocket
+    enumerable: currentDescriptor?.enumerable ?? true,
+    get: () => exposedWebSocket,
+    set: (next: typeof WebSocket) => {
+      if (typeof next === "function") exposedWebSocket = next;
+    }
   });
+}
+
+function protectWebSocketDefinition(
+  target: WebSocketWindow,
+  onDefine: (next: typeof WebSocket) => void
+): void {
+  const nativeDefineProperty = Object.defineProperty;
+  const nativeReflectDefineProperty = Reflect.defineProperty;
+  const objectDefinePropertyDescriptor = Object.getOwnPropertyDescriptor(Object, "defineProperty");
+  const reflectDefinePropertyDescriptor = Object.getOwnPropertyDescriptor(Reflect, "defineProperty");
+
+  const capture = (object: object, property: PropertyKey, descriptor: PropertyDescriptor): boolean => {
+    if (!isExternalToolbarFixActive() || object !== target || property !== "WebSocket" || typeof descriptor.value !== "function") return false;
+    onDefine(descriptor.value as typeof WebSocket);
+    return true;
+  };
+
+  const guardedDefineProperty: typeof Object.defineProperty = (object, property, descriptor) => {
+    if (capture(object as object, property, descriptor)) return object;
+    return nativeDefineProperty(object, property, descriptor);
+  };
+
+  const guardedReflectDefineProperty: typeof Reflect.defineProperty = (object, property, descriptor) => {
+    if (capture(object, property, descriptor)) return true;
+    return nativeReflectDefineProperty(object, property, descriptor);
+  };
+
+  if (objectDefinePropertyDescriptor) {
+    nativeDefineProperty(Object, "defineProperty", {
+      ...objectDefinePropertyDescriptor,
+      value: guardedDefineProperty
+    });
+  }
+  if (reflectDefinePropertyDescriptor) {
+    nativeDefineProperty(Reflect, "defineProperty", {
+      ...reflectDefinePropertyDescriptor,
+      value: guardedReflectDefineProperty
+    });
+  }
 }
 
 function unwrapNativeWebSocket(ctor: typeof WebSocket): typeof WebSocket {

@@ -57,7 +57,42 @@ interceptWebSocket(
   bridge as unknown as PacketBridge
 );
 
-const ws = new target.WebSocket("wss://proxy.habblet.city/") as unknown as FakeWebSocket & {
+class ExternalWebSocket extends EventTarget {
+  constructor(public readonly url: string | URL) {
+    super();
+  }
+
+  send(_data: ArrayBuffer): void {
+    // Page-world wrapper: it owns the public constructor and delegates internally.
+  }
+}
+
+class HotelWebSocket extends EventTarget {
+  constructor(public readonly url: string | URL) {
+    super();
+  }
+}
+
+const luminusWebSocket = target.WebSocket;
+Object.defineProperty(target, "WebSocket", {
+  configurable: false,
+  enumerable: false,
+  value: HotelWebSocket,
+  writable: false
+});
+assert(target.WebSocket === HotelWebSocket, "hotel WebSocket definition must remain the active constructor");
+target.WebSocket = ExternalWebSocket as unknown as typeof WebSocket;
+assert(target.WebSocket === ExternalWebSocket, "external WebSocket assignment must be accepted");
+
+for (const currentUrl of [
+  "wss://game.habblet.city/",
+  "wss://proxy.habblet.city/",
+]) {
+  const currentSocket = new luminusWebSocket(currentUrl) as unknown as FakeWebSocket;
+  assert(currentSocket.url === currentUrl, `current WebSocket URL must be preserved: ${currentUrl}`);
+}
+
+const ws = new luminusWebSocket("wss://proxy.habblet.city/") as unknown as FakeWebSocket & {
   handleNativeMessage?: (event: MessageEvent) => void;
 };
 

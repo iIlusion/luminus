@@ -30,6 +30,7 @@ import type { PanelExtension } from "../ui/panelExtensions";
 import { initHabbletList } from "../ui/habbletList";
 import { initMobiHotkeys } from "../ui/mobiHotkeys";
 import { initChatCommandAutocomplete } from "../chat/commandAutocomplete";
+import { initExternalToolbarFix } from "../compat/externalToolbarFix";
 
 declare const GM_registerMenuCommand: undefined | ((name: string, callback: () => void) => void);
 
@@ -160,6 +161,7 @@ export function bootLuminus(options: BootLuminusOptions = {}): BootLuminusResult
   const registerSupport = options.registerSupportMenu ?? true;
 
   const targetWindow = getTargetWindow();
+  initExternalToolbarFix(targetWindow);
   initNitroRoomEngineProbe(targetWindow);
   initIncrementalRoomCanvas(targetWindow);
   const bridge = new PacketBridge();
